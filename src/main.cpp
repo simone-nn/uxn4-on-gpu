@@ -205,6 +205,12 @@ VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMes
     }
 }
 
+void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
+    auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+    if (func != nullptr) {
+        func(instance, debugMessenger, pAllocator);
+    }
+}
 
 class UXN_on_GPU {  //TODO rename to Graphics something (this class should only contain the vulkan calls)
 public:
@@ -217,8 +223,8 @@ public:
     void run(void* uxn_program) {
         std::cout << "Hello world!\n";
         init();
-//        mainLoop();
-//        cleanup();
+        mainLoop();
+        cleanup();
     }
 private:
     GLFWwindow* window;
@@ -770,6 +776,38 @@ private:
                 }
             }
         }
+    }
+
+    void mainLoop() {
+
+    }
+
+    void cleanup() {
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
+            vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
+            vkDestroyFence(device, inFlightFences[i], nullptr);
+        }
+        vkDestroyCommandPool(device, commandPool, nullptr);
+        for (auto framebuffer : swapChainFramebuffers) {
+            vkDestroyFramebuffer(device, framebuffer, nullptr);
+        }
+        vkDestroyPipeline(device, graphicsPipeline, nullptr);
+        vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+        vkDestroyRenderPass(device, renderPass, nullptr);
+        for (auto imageView : swapChainImageViews) {
+            vkDestroyImageView(device, imageView, nullptr);
+        }
+        vkDestroySwapchainKHR(device, swapChain, nullptr); // before device
+        vkDestroyDevice(device, nullptr);
+        // graphics queue is implicitly destroyed with logical device
+        if (enableValidationLayers)
+            DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+        vkDestroySurfaceKHR(instance, surface, nullptr);
+        vkDestroyInstance(instance, nullptr);
+        // physicalDevice is implicitly destroyed when instance is
+        glfwDestroyWindow(window);
+        glfwTerminate();
     }
 };
 
