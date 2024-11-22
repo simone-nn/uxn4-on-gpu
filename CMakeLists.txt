@@ -20,6 +20,16 @@ target_link_libraries(uxn-on-gpu PRIVATE ${VULKAN_LIBRARY}libvulkan.dylib ${VULK
 find_package(glfw3 3.4 REQUIRED)
 target_link_libraries(uxn-on-gpu PRIVATE glfw)
 
+# vulkan bootstrap: this might be useful
+#include(FetchContent)
+#FetchContent_Declare(
+#        fetch_vk_bootstrap
+#        GIT_REPOSITORY https://github.com/charles-lunarg/vk-bootstrap
+#        GIT_TAG        "v1.3.301"
+#)
+#FetchContent_MakeAvailable(fetch_vk_bootstrap)
+#target_link_libraries(uxn-on-gpu PRIVATE vk-bootstrap::vk-bootstrap)
+
 # output directories
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)

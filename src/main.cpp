@@ -121,7 +121,6 @@ static std::vector<char> readFile(const std::string& filename) {
     // std::ios::ate means start reading at the end of the file
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
     if (!file.is_open())
-//        throw std::runtime_error("failed to open file: %s!", filename);
         throw std::runtime_error("failed to open file: '" + filename + "'!");
 
     // reading the file
