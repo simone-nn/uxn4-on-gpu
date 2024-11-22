@@ -211,7 +211,7 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT
     }
 }
 
-class UXN_on_GPU {  //TODO rename to Graphics something (this class should only contain the vulkan calls)
+class UXN_on_GPU {
 public:
     int WIDTH = 800;
     int HEIGHT = 600;
@@ -320,7 +320,7 @@ private:
     }
 
     void init() {
-        /// Window
+        // Window
         {
             glfwInit();
             // Tell GLFW not to use OpenGL.
@@ -331,7 +331,7 @@ private:
             window = glfwCreateWindow(WIDTH, HEIGHT, "UXN on GPU", nullptr, nullptr);
         }
 
-        /// Vulkan Instance
+        // Vulkan Instance
         {
             /// Extensions
             uint32_t glfwExtensionCount = 0;
@@ -393,13 +393,13 @@ private:
             }
         }
 
-        /// Surface
+        // Surface
         {
             if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS)
                 throw std::runtime_error("failed to create window surface!");
         }
 
-        /// Pick Physical Device
+        // Pick Physical Device
         {
             uint32_t deviceCount = 0;
             physicalDevice = VK_NULL_HANDLE;
@@ -422,7 +422,7 @@ private:
                 throw std::runtime_error("failed to find a suitable GPU!");
         }
 
-        /// Logical Device
+        // Logical Device
         {
             QueueFamilyIndices indices = findQueueFamilies(physicalDevice, surface);
 
@@ -465,7 +465,7 @@ private:
             vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
         }
 
-        /// Debug Messenger
+        // Debug Messenger
         if (enableValidationLayers) {
             VkDebugUtilsMessengerCreateInfoEXT createInfo{};
             createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -482,7 +482,7 @@ private:
                 throw std::runtime_error("failed to set up debug messenger!");
         }
 
-        /// Swap Chain
+        // Swap Chain
         {
             SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice, surface);
 
@@ -533,7 +533,7 @@ private:
             swapChainExtent = extent;
         }
 
-        /// Image Views
+        // Image Views
         {
             swapChainImageViews.resize(swapChainImages.size());
             for (size_t i = 0; i < swapChainImages.size(); i++) {
@@ -558,7 +558,7 @@ private:
             }
         }
 
-        /// Render Pass
+        // Render Pass
         {
             VkAttachmentDescription colorAttachment{};
             colorAttachment.format = swapChainImageFormat;
@@ -601,7 +601,7 @@ private:
             }
         }
 
-        /// Graphics Pipeline
+        // Graphics Pipeline
         {
             // "../" needs to be added in front of the paths because CLion puts the executable in cmake-build-debug
             // will have to be different in a production build
@@ -748,7 +748,7 @@ private:
             vkDestroyShaderModule(device, vertShaderModule, nullptr);
         }
 
-        /// Frame Buffers
+        // Frame Buffers
         {
             swapChainFramebuffers.resize(swapChainImageViews.size());
             for (size_t i = 0; i < swapChainImageViews.size(); i++) {
@@ -771,7 +771,7 @@ private:
             }
         }
 
-        /// Command Pool
+        // Command Pool
         {
             QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice, surface);
 
@@ -785,7 +785,7 @@ private:
             }
         }
 
-        /// Command Buffer
+        // Command Buffer
         {
             commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
@@ -800,7 +800,7 @@ private:
             }
         }
 
-        /// Sync objects
+        // Sync objects
         {
             imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
             renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
