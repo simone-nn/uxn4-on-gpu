@@ -3,6 +3,9 @@ project(uxn-on-gpu)
 
 set(CMAKE_CXX_STANDARD 20)
 
+# CLion fix
+set(CMAKE_OSX_SYSROOT /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk)
+
 add_executable(uxn-on-gpu
         src/main.cpp)
 
