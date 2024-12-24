@@ -20,6 +20,10 @@ target_link_libraries(uxn-on-gpu PRIVATE ${VULKAN_LIBRARY}libvulkan.dylib ${VULK
 find_package(glfw3 3.4 REQUIRED)
 target_link_libraries(uxn-on-gpu PRIVATE glfw)
 
+# GLM
+find_package(glm REQUIRED)
+target_link_libraries(uxn-on-gpu PRIVATE glm)
+
 # vulkan bootstrap: this might be useful
 #include(FetchContent)
 #FetchContent_Declare(
