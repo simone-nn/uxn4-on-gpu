@@ -10,17 +10,17 @@ struct Vertex {
 };
 
 layout(std140, binding = 0) buffer VertexSSBO {
-    Vertex vertex[ ];
-};
+    Vertex vertex[];
+} ssbo;
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
 void main() {
     uint index = gl_GlobalInvocationID.x;
 
-    if (vertex[index].position.x > 1.0) {
-        vertex[index].position.x = -1.0;
+    if (ssbo.vertex[index].position.x > 1.0) {
+        ssbo.vertex[index].position.x = -1.0;
     } else {
-        vertex[index].position.x = vertex[index].position.x + 0.1;
+        ssbo.vertex[index].position.x = ssbo.vertex[index].position.x + 0.1;
     }
 }

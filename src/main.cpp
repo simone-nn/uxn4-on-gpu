@@ -229,13 +229,17 @@ class UXN_on_GPU {
 public:
     int WIDTH = 800;
     int HEIGHT = 600;
-    bool enableValidationLayers = true;
+    bool enableValidationLayers;
     std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
     std::vector<const char*> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
+    explicit UXN_on_GPU(bool enableValidationLayers) {
+        this->enableValidationLayers = enableValidationLayers;
+        init();
+    }
+
     void run(void* uxn_program) {
         std::cout << "Hello world!\n";
-        init();
         mainLoop();
         cleanup();
     }
@@ -282,6 +286,8 @@ private:
     std::vector<VkCommandBuffer> computeCommandBuffers;
     std::vector<VkBuffer> storageBuffers;
     std::vector<VkDeviceMemory> storageBufferMemory;
+    std::vector<VkBuffer> indexBuffer;
+    std::vector<VkDeviceMemory> indexBufferMemory;
 
     const int MAX_FRAMES_IN_FLIGHT = 2;
     uint32_t currentFrame = 0;
@@ -292,6 +298,7 @@ private:
             glm::vec2(0.5, 0.5),
             glm::vec2(-0.5, 0.5)
     };
+    const uint32_t indices[3] = { 0, 1, 2 };
     const int STORAGE_BUFFER_SIZE = VERTEX_COUNT * int(sizeof(Vertex));
 
     bool checkValidationLayerSupport() {
@@ -692,7 +699,7 @@ private:
             VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
             // ? is this necessary
-            std::vector<VkDynamicState> dynamicStates = {
+            std::vector dynamicStates = {
                     VK_DYNAMIC_STATE_VIEWPORT,
                     VK_DYNAMIC_STATE_SCISSOR
             };
@@ -716,8 +723,8 @@ private:
             VkViewport viewport{};
             viewport.x = 0.0f;
             viewport.y = 0.0f;
-            viewport.width = (float) swapChainExtent.width;
-            viewport.height = (float) swapChainExtent.height;
+            viewport.width = static_cast<float>(swapChainExtent.width);
+            viewport.height = static_cast<float>(swapChainExtent.height);
             viewport.minDepth = 0.0f;
             viewport.maxDepth = 1.0f;
 
@@ -1011,14 +1018,41 @@ private:
 
             storageBuffers.resize(MAX_FRAMES_IN_FLIGHT);
             storageBufferMemory.resize(MAX_FRAMES_IN_FLIGHT);
+
             VkBufferUsageFlags usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT  // used as a vertex buffer for vert shader
                                        | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT // used as a storage buffer for compute shader
                                        | VK_BUFFER_USAGE_TRANSFER_DST_BIT;  // transfer data from host to GPU
             VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
             for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-                createBuffer(STORAGE_BUFFER_SIZE, usage, properties, storageBuffers[i], storageBufferMemory[i]);
+                createBuffer(bufferSize, usage, properties, storageBuffers[i], storageBufferMemory[i]);
                 // Copy data from the staging buffer (host) to the shader storage buffer (GPU)
                 copyBuffer(stagingBuffer, storageBuffers[i], bufferSize);
+            }
+        }
+
+        // Index Buffer creation
+        {
+            VkDeviceSize bufferSize = 3 * sizeof(uint32_t);
+            VkBuffer stagingBuffer;
+            VkDeviceMemory stagingBufferMemory;
+            createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                         stagingBuffer, stagingBufferMemory);
+
+            void* data;
+            vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+            memcpy(data, indices, bufferSize);
+            vkUnmapMemory(device, stagingBufferMemory);
+
+            indexBuffer.resize(MAX_FRAMES_IN_FLIGHT);
+            indexBufferMemory.resize(MAX_FRAMES_IN_FLIGHT);
+
+            VkBufferUsageFlags usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+            VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+            for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+                createBuffer(bufferSize, usage, properties, indexBuffer[i], indexBufferMemory[i]);
+                copyBuffer(stagingBuffer, indexBuffer[i], bufferSize);
             }
         }
     }
@@ -1197,7 +1231,7 @@ private:
 };
 
 int main(int nargs, char** args) {
-    UXN_on_GPU app{};
+    UXN_on_GPU app(true);
     //todo parse args and pass the uxn program into app.run()
     try {
         app.run(nullptr);
