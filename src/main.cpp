@@ -20,6 +20,17 @@ typedef struct vertex {
         bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
         return bindingDescription;
     }
+
+    static std::array<VkVertexInputAttributeDescription, 1> getAttributeDescriptions() {
+        std::array<VkVertexInputAttributeDescription, 1> attributeDescriptions{};
+
+        attributeDescriptions[0].binding = 0;
+        attributeDescriptions[0].location = 0;
+        attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions[0].offset = offsetof(vertex, position);
+
+        return attributeDescriptions;
+    }
 } Vertex;
 
 struct QueueFamilyIndices {
@@ -390,7 +401,7 @@ private:
     }
 
     void initWindow() {
-        std::cout << "initWindow" << std::endl;
+        std::cout << "..initWindow" << std::endl;
         glfwInit();
         // Tell GLFW not to use OpenGL.
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -401,7 +412,7 @@ private:
     }
 
     void initVkInstance() {
-        std::cout << "initVkInstance" << std::endl;
+        std::cout << "..initVkInstance" << std::endl;
         /// Extensions
         uint32_t glfwExtensionCount = 0;
         const char **glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
@@ -463,13 +474,13 @@ private:
     }
 
     void initSurface() {
-        std::cout << "initSurface" << std::endl;
+        std::cout << "..initSurface" << std::endl;
         if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS)
             throw std::runtime_error("failed to create window surface!");
     }
 
     void initPhysicalDevice() {
-        std::cout << "initPhysicalDevice" << std::endl;
+        std::cout << "..initPhysicalDevice" << std::endl;
         uint32_t deviceCount = 0;
         physicalDevice = VK_NULL_HANDLE;
         vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
@@ -492,7 +503,7 @@ private:
     }
 
     void initLogicalDevice() {
-        std::cout << "initLogicalDevice" << std::endl;
+        std::cout << "..initLogicalDevice" << std::endl;
         auto [graphicsAndComputeFamily, presentFamily] = findQueueFamilies(physicalDevice, surface);
 
         std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
@@ -537,7 +548,7 @@ private:
 
     void initDebug() {
         if (enableValidationLayers) {
-            std::cout << "initDebug" << std::endl;
+            std::cout << "..initDebug" << std::endl;
             VkDebugUtilsMessengerCreateInfoEXT createInfo{};
             createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
             createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
@@ -555,7 +566,7 @@ private:
     }
 
     void initSwapChain() {
-        std::cout << "initSwapChain" << std::endl;
+        std::cout << "..initSwapChain" << std::endl;
         auto [capabilities, formats, presentModes] = querySwapChainSupport(physicalDevice, surface);
 
         auto [surfaceFormat, surfaceColorSpace] = chooseSwapSurfaceFormat(formats);
@@ -606,7 +617,7 @@ private:
     }
 
     void initImageViews() {
-        std::cout << "initImageViews" << std::endl;
+        std::cout << "..initImageViews" << std::endl;
         swapChainImageViews.resize(swapChainImages.size());
         for (size_t i = 0; i < swapChainImages.size(); i++) {
             VkImageViewCreateInfo createInfo{};
@@ -631,7 +642,7 @@ private:
     }
 
     void initRenderPass() {
-        std::cout << "initRenderPass" << std::endl;
+        std::cout << "..initRenderPass" << std::endl;
         VkAttachmentDescription colorAttachment{};
         colorAttachment.format = swapChainImageFormat;
         colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -674,7 +685,7 @@ private:
     }
 
     void initFrameBuffers() {
-        std::cout << "initFrameBuffers" << std::endl;
+        std::cout << "..initFrameBuffers" << std::endl;
         swapChainFramebuffers.resize(swapChainImageViews.size());
         for (size_t i = 0; i < swapChainImageViews.size(); i++) {
             VkImageView attachments[] = { swapChainImageViews[i] };
@@ -694,7 +705,7 @@ private:
     }
 
     void initCommands() {
-        std::cout << "initCommands" << std::endl;
+        std::cout << "..initCommands" << std::endl;
         // Command Pool
         auto [graphicsAndComputeFamily, presentFamily] = findQueueFamilies(physicalDevice, surface);
 
@@ -725,7 +736,7 @@ private:
     }
 
     void initDescriptorPool() {
-        std::cout << "initDescriptorPool" << std::endl;
+        std::cout << "..initDescriptorPool" << std::endl;
         VkDescriptorPoolSize poolSize;
         poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
@@ -741,8 +752,8 @@ private:
         }
     }
 
-    void initComputeDescriptors() {
-        std::cout << "initComputeDescriptors" << std::endl;
+    void initComputeDescriptorSetLayout() {
+        std::cout << "..initComputeDescriptors" << std::endl;
         VkDescriptorSetLayoutBinding layoutBinding{};
         layoutBinding.binding = 0;
         layoutBinding.descriptorCount = 1;
@@ -758,7 +769,10 @@ private:
         if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &computeDescriptorSetLayout) != VK_SUCCESS) {
             throw std::runtime_error("failed to create compute descriptor set layout!");
         }
+    }
 
+    void initComputeDescriptorSets() {
+        std::cout << "..initComputeDescriptorSets" << std::endl;
         VkDescriptorSetAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         allocInfo.descriptorPool = descriptorPool;
@@ -771,7 +785,13 @@ private:
             throw std::runtime_error("failed to allocate descriptor sets!");
         }
 
+        // update descriptor sets
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            VkDescriptorBufferInfo storageBufferInfoLastFrame{};
+            storageBufferInfoLastFrame.buffer = storageBuffers[(i-1) % MAX_FRAMES_IN_FLIGHT];
+            storageBufferInfoLastFrame.offset = 0;
+            storageBufferInfoLastFrame.range = sizeof(vertices);
+
             VkWriteDescriptorSet descriptorWrite;
             descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             descriptorWrite.dstSet = computeDescriptorSets[i];
@@ -779,25 +799,15 @@ private:
             descriptorWrite.dstArrayElement = 0;
             descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
             descriptorWrite.descriptorCount = 1;
-
-            VkDescriptorBufferInfo storageBufferInfoLastFrame{};
-            storageBufferInfoLastFrame.buffer = storageBuffers[i];
-            storageBufferInfoLastFrame.offset = 0;
-            storageBufferInfoLastFrame.range = sizeof(glm::vec2);
             descriptorWrite.pBufferInfo = &storageBufferInfoLastFrame;
+            descriptorWrite.pNext = nullptr;
 
-            vkUpdateDescriptorSets(device, 1, &descriptorWrite,
-                                   0, nullptr);
+            vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
         }
     }
 
-    void initGraphicsDescriptors() {
-        std::cout << "initGraphicsDescriptors" << std::endl;
-        //todo initGraphicsDescriptors
-    }
-
     void initGraphicsPipeline() {
-        std::cout << "initGraphicsPipeline" << std::endl;
+        std::cout << "..initGraphicsPipeline" << std::endl;
         // "../" needs to be added in front of the paths because CLion puts the executable in cmake-build-debug
         // will have to be different in a production build
         // TODO: hard coded path for Debug compilation
@@ -820,6 +830,21 @@ private:
 
         VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
+        VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+        vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+        auto bindingDesc = Vertex::getBindingDescription();
+        vertexInputInfo.vertexBindingDescriptionCount = 1;
+        vertexInputInfo.pVertexBindingDescriptions = &bindingDesc;
+        auto attributeDesc = Vertex::getAttributeDescriptions();
+        vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDesc.size());
+        vertexInputInfo.pVertexAttributeDescriptions = attributeDesc.data();
+
+        VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+        inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+        inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        inputAssembly.primitiveRestartEnable = VK_FALSE;
+
+        // TODO figure out how many of these things are actually optional, and trim the rest
         // ? is this necessary
         std::vector dynamicStates = {
                 VK_DYNAMIC_STATE_VIEWPORT,
@@ -829,18 +854,6 @@ private:
         dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
         dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
         dynamicState.pDynamicStates = dynamicStates.data();
-
-        VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-        vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-        vertexInputInfo.vertexBindingDescriptionCount = 0;
-        vertexInputInfo.pVertexBindingDescriptions = nullptr; // Optional
-        vertexInputInfo.vertexAttributeDescriptionCount = 0;
-        vertexInputInfo.pVertexAttributeDescriptions = nullptr; // Optional
-
-        VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
-        inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-        inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-        inputAssembly.primitiveRestartEnable = VK_FALSE;
 
         VkViewport viewport{};
         viewport.x = 0.0f;
@@ -944,7 +957,7 @@ private:
     }
 
     void initComputePipeline() {
-        std::cout << "initComputePipeline" << std::endl;
+        std::cout << "..initComputePipeline" << std::endl;
         auto compShaderCode = readFile(COMP_SHADER_PATH);
         VkShaderModule compShaderModule = createShaderModule(compShaderCode, device);
         VkPipelineShaderStageCreateInfo compShaderStageInfo{};
@@ -975,7 +988,7 @@ private:
     }
 
     void initShaderStorageBuffer() {
-        std::cout << "initShaderStorageBuffer" << std::endl;
+        std::cout << "..initShaderStorageBuffer" << std::endl;
         VkDeviceSize bufferSize = STORAGE_BUFFER_SIZE;
         VkBuffer stagingBuffer;
         VkDeviceMemory stagingBufferMemory;
@@ -1004,7 +1017,7 @@ private:
     }
 
     void initSync() {
-        std::cout << "initSync" << std::endl;
+        std::cout << "..initSync" << std::endl;
         imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
         renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
         computeFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
@@ -1031,7 +1044,7 @@ private:
     }
 
     void initIndexBuffer() {
-        std::cout << "initIndexBuffer" << std::endl;
+        std::cout << "..initIndexBuffer" << std::endl;
         VkDeviceSize bufferSize = 3 * sizeof(uint32_t);
         VkBuffer stagingBuffer;
         VkDeviceMemory stagingBufferMemory;
@@ -1056,6 +1069,7 @@ private:
     }
 
     void init() {
+        std::cout << "init:" << std::endl;
         initWindow();
         initVkInstance();
         initSurface();
@@ -1066,21 +1080,20 @@ private:
         initImageViews();
         initRenderPass();
         initDescriptorPool();
-        initComputeDescriptors();
-        initGraphicsDescriptors();
+        initComputeDescriptorSetLayout();
+        initComputePipeline();
         initFrameBuffers();
         initCommands();
         initGraphicsPipeline();
         initSync();
         initShaderStorageBuffer();
+        initComputeDescriptorSets();
         initIndexBuffer();
     }
 
     void recordGraphicsCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageIndex) {
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        beginInfo.flags = 0; // Optional
-        beginInfo.pInheritanceInfo = nullptr; // Optional
 
         if (vkBeginCommandBuffer(cmdBuffer, &beginInfo) != VK_SUCCESS) {
             throw std::runtime_error("failed to begin recording command buffer!");
@@ -1098,25 +1111,28 @@ private:
         renderPassInfo.pClearValues = &clearColor;
 
         vkCmdBeginRenderPass(cmdBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+        { // Render Pass
+            vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
-        vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+            VkViewport viewport{};
+            viewport.x = 0.0f;
+            viewport.y = 0.0f;
+            viewport.width = static_cast<float>(swapChainExtent.width);
+            viewport.height = static_cast<float>(swapChainExtent.height);
+            viewport.minDepth = 0.0f;
+            viewport.maxDepth = 1.0f;
+            vkCmdSetViewport(cmdBuffer, 0, 1, &viewport);
 
-        VkViewport viewport{};
-        viewport.x = 0.0f;
-        viewport.y = 0.0f;
-        viewport.width = static_cast<float>(swapChainExtent.width);
-        viewport.height = static_cast<float>(swapChainExtent.height);
-        viewport.minDepth = 0.0f;
-        viewport.maxDepth = 1.0f;
-        vkCmdSetViewport(cmdBuffer, 0, 1, &viewport);
+            VkRect2D scissor{};
+            scissor.offset = {0, 0};
+            scissor.extent = swapChainExtent;
+            vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
 
-        VkRect2D scissor{};
-        scissor.offset = {0, 0};
-        scissor.extent = swapChainExtent;
-        vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
+            VkDeviceSize offsets[] = {0};
+            vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &storageBuffers[currentFrame], offsets);
 
-        vkCmdDraw(cmdBuffer, 3, 1, 0, 0);
-
+            vkCmdDraw(cmdBuffer, 3, 1, 0, 0);
+        }
         vkCmdEndRenderPass(cmdBuffer);
 
         if (vkEndCommandBuffer(cmdBuffer) != VK_SUCCESS) {
@@ -1133,8 +1149,8 @@ private:
         }
 
         vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
-        vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout,
-                                0, 1,&computeDescriptorSets[imageIndex], 0, nullptr);
+        vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout,0,1,
+                                &computeDescriptorSets[imageIndex], 0, nullptr);
 
         vkCmdDispatch(cmdBuffer, 3, 1, 1);
 

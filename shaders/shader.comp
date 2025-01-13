@@ -1,16 +1,11 @@
 #version 450
 
-//TODO compute shader doesn't compile
-// shader.comp:16: error: 'index' : undeclared identifier
-// shader.comp:16: error: '[]' : scalar integer expression required
-// shader.comp:16: error: '[]' : scalar integer expression required
-
 struct Vertex {
     vec2 position;
 };
 
 layout(std140, binding = 0) buffer VertexSSBO {
-    Vertex vertex[];
+    Vertex vertices[];
 } ssbo;
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
@@ -18,9 +13,9 @@ layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 void main() {
     uint index = gl_GlobalInvocationID.x;
 
-    if (ssbo.vertex[index].position.x > 1.0) {
-        ssbo.vertex[index].position.x = -1.0;
+    if (ssbo.vertices[index].position.x > 1.0) {
+        ssbo.vertices[index].position.x = -1.0;
     } else {
-        ssbo.vertex[index].position.x = ssbo.vertex[index].position.x + 0.1;
+        ssbo.vertices[index].position.x = ssbo.vertices[index].position.x + 0.1;
     }
 }
