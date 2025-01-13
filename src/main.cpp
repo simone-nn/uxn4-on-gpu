@@ -296,8 +296,6 @@ private:
     std::vector<VkCommandBuffer> computeCommandBuffers;
     std::vector<VkBuffer> storageBuffers;
     std::vector<VkDeviceMemory> storageBufferMemory;
-    std::vector<VkBuffer> indexBuffer;
-    std::vector<VkDeviceMemory> indexBufferMemory;
 
     const int MAX_FRAMES_IN_FLIGHT = 2;
     uint32_t currentFrame = 0;
@@ -1015,6 +1013,9 @@ private:
             // Copy data from the staging buffer (host) to the shader storage buffer (GPU)
             copyBuffer(stagingBuffer, storageBuffers[i], bufferSize);
         }
+
+        vkDestroyBuffer(device, stagingBuffer, nullptr);
+        vkFreeMemory(device, stagingBufferMemory, nullptr);
     }
 
     void initSync() {
@@ -1044,31 +1045,6 @@ private:
         }
     }
 
-    void initIndexBuffer() {
-        std::cout << "..initIndexBuffer" << std::endl;
-        VkDeviceSize bufferSize = 3 * sizeof(uint32_t);
-        VkBuffer stagingBuffer;
-        VkDeviceMemory stagingBufferMemory;
-        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                     stagingBuffer, stagingBufferMemory);
-
-        void* data;
-        vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-        memcpy(data, indices, bufferSize);
-        vkUnmapMemory(device, stagingBufferMemory);
-
-        indexBuffer.resize(MAX_FRAMES_IN_FLIGHT);
-        indexBufferMemory.resize(MAX_FRAMES_IN_FLIGHT);
-
-        VkBufferUsageFlags usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-        VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-        for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            createBuffer(bufferSize, usage, properties, indexBuffer[i], indexBufferMemory[i]);
-            copyBuffer(stagingBuffer, indexBuffer[i], bufferSize);
-        }
-    }
-
     void init() {
         std::cout << "init:" << std::endl;
         initWindow();
@@ -1089,7 +1065,6 @@ private:
         initSync();
         initShaderStorageBuffer();
         initComputeDescriptorSets();
-        initIndexBuffer();
     }
 
     void recordGraphicsCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageIndex) {
@@ -1164,6 +1139,7 @@ private:
         // Compute submission
         vkWaitForFences(device, 1, &computeInFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
         vkResetFences(device, 1, &computeInFlightFences[currentFrame]);
+        vkResetCommandBuffer(computeCommandBuffers[currentFrame], 0);
         recordComputeCommandBuffer(computeCommandBuffers[currentFrame], currentFrame);
 
         VkSubmitInfo submitInfo{};
@@ -1193,16 +1169,15 @@ private:
         // submit info that accompanies the commands:
         submitInfo = {};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        VkSemaphore waitSemaphores[] = {imageAvailableSemaphores[currentFrame]};
-        submitInfo.waitSemaphoreCount = 1;
+        VkSemaphore waitSemaphores[] = {computeFinishedSemaphores[currentFrame], imageAvailableSemaphores[currentFrame]};
+        submitInfo.waitSemaphoreCount = 2;
         submitInfo.pWaitSemaphores = waitSemaphores;
-        VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+        VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
         submitInfo.pWaitDstStageMask = waitStages;
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &graphicsCommandBuffers[currentFrame];
-        VkSemaphore signalSemaphores[] = {renderFinishedSemaphores[currentFrame]};
         submitInfo.signalSemaphoreCount = 1;
-        submitInfo.pSignalSemaphores = signalSemaphores;
+        submitInfo.pSignalSemaphores = &renderFinishedSemaphores[currentFrame];
 
         // Graphic Commands get submitted:
         if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS) {
@@ -1213,7 +1188,7 @@ private:
         VkPresentInfoKHR presentInfo{};
         presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
         presentInfo.waitSemaphoreCount = 1;
-        presentInfo.pWaitSemaphores = signalSemaphores;
+        presentInfo.pWaitSemaphores = &renderFinishedSemaphores[currentFrame];
         VkSwapchainKHR swapChains[] = {swapChain};
         presentInfo.swapchainCount = 1;
         presentInfo.pSwapchains = swapChains;
@@ -1232,7 +1207,7 @@ private:
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
             drawFrame();
-            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
         vkDeviceWaitIdle(device);
     }
@@ -1241,14 +1216,21 @@ private:
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
             vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
+            vkDestroySemaphore(device, computeFinishedSemaphores[i], nullptr);
             vkDestroyFence(device, inFlightFences[i], nullptr);
+            vkDestroyFence(device, computeInFlightFences[i], nullptr);
+
+            vkDestroyBuffer(device, storageBuffers[i], nullptr);
+            vkFreeMemory(device, storageBufferMemory[i], nullptr);
         }
         vkDestroyCommandPool(device, commandPool, nullptr);
         for (auto framebuffer : swapChainFramebuffers) {
             vkDestroyFramebuffer(device, framebuffer, nullptr);
         }
         vkDestroyPipeline(device, graphicsPipeline, nullptr);
+        vkDestroyPipeline(device, computePipeline, nullptr);
         vkDestroyPipelineLayout(device, graphicsPipelineLayout, nullptr);
+        vkDestroyPipelineLayout(device, computePipelineLayout, nullptr);
         vkDestroyRenderPass(device, renderPass, nullptr);
         for (auto imageView : swapChainImageViews) {
             vkDestroyImageView(device, imageView, nullptr);

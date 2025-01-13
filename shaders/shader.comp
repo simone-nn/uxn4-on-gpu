@@ -1,5 +1,11 @@
 #version 450
 
+//const Vertex vertices[3] = {
+//  glm::vec2(0.0, -0.5),
+//  glm::vec2(0.5, 0.5),
+//  glm::vec2(-0.5, 0.5)
+//};
+
 struct Vertex {
     vec2 position;
 };
@@ -8,14 +14,15 @@ layout(std140, binding = 0) buffer VertexSSBO {
     Vertex vertices[];
 } ssbo;
 
-layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+layout (local_size_x = 3, local_size_y = 1, local_size_z = 1) in;
 
 void main() {
     uint index = gl_GlobalInvocationID.x;
+    float speed = float(index + 1) * 0.1;
 
     if (ssbo.vertices[index].position.x > 1.0) {
         ssbo.vertices[index].position.x = -1.0;
     } else {
-        ssbo.vertices[index].position.x = ssbo.vertices[index].position.x + 0.1;
+        ssbo.vertices[index].position.x = ssbo.vertices[index].position.x + speed;
     }
 }
