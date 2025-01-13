@@ -272,30 +272,29 @@ private:
     VkFormat swapChainImageFormat;
     VkExtent2D swapChainExtent;
     std::vector<VkImageView> swapChainImageViews;
-
-    VkRenderPass renderPass;
-    VkPipelineLayout graphicsPipelineLayout;
-    VkPipeline graphicsPipeline;
-
-    VkDescriptorSetLayout computeDescriptorSetLayout;
-    VkPipelineLayout computePipelineLayout;
-    VkPipeline computePipeline;
+    std::vector<VkFramebuffer> swapChainFramebuffers;
 
     VkDescriptorPool descriptorPool;
     std::vector<VkDescriptorSet> computeDescriptorSets;
 
-    std::vector<VkFramebuffer> swapChainFramebuffers;
+    VkRenderPass renderPass;
+    VkPipelineLayout graphicsPipelineLayout;
+    VkPipeline graphicsPipeline;
+    std::vector<VkCommandBuffer> graphicsCommandBuffers;
+
+    VkDescriptorSetLayout computeDescriptorSetLayout;
+    VkPipelineLayout computePipelineLayout;
+    VkPipeline computePipeline;
+    std::vector<VkCommandBuffer> computeCommandBuffers;
+
+    std::vector<VkBuffer> storageBuffers;
+    std::vector<VkDeviceMemory> storageBufferMemory;
 
     std::vector<VkSemaphore> imageAvailableSemaphores;
     std::vector<VkSemaphore> renderFinishedSemaphores;
     std::vector<VkSemaphore> computeFinishedSemaphores;
     std::vector<VkFence> inFlightFences;
     std::vector<VkFence> computeInFlightFences;
-
-    std::vector<VkCommandBuffer> graphicsCommandBuffers;
-    std::vector<VkCommandBuffer> computeCommandBuffers;
-    std::vector<VkBuffer> storageBuffers;
-    std::vector<VkDeviceMemory> storageBufferMemory;
 
     const int MAX_FRAMES_IN_FLIGHT = 2;
     uint32_t currentFrame = 0;
@@ -306,7 +305,6 @@ private:
             glm::vec2(0.5, 0.5),
             glm::vec2(-0.5, 0.5)
     };
-    const uint32_t indices[3] = { 0, 1, 2 };
     const int STORAGE_BUFFER_SIZE = VERTEX_COUNT * static_cast<int>(sizeof(Vertex));
 
     bool checkValidationLayerSupport() {
