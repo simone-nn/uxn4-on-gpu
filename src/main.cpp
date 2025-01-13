@@ -390,6 +390,7 @@ private:
     }
 
     void initWindow() {
+        std::cout << "initWindow" << std::endl;
         glfwInit();
         // Tell GLFW not to use OpenGL.
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -400,6 +401,7 @@ private:
     }
 
     void initVkInstance() {
+        std::cout << "initVkInstance" << std::endl;
         /// Extensions
         uint32_t glfwExtensionCount = 0;
         const char **glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
@@ -461,11 +463,13 @@ private:
     }
 
     void initSurface() {
+        std::cout << "initSurface" << std::endl;
         if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS)
             throw std::runtime_error("failed to create window surface!");
     }
 
     void initPhysicalDevice() {
+        std::cout << "initPhysicalDevice" << std::endl;
         uint32_t deviceCount = 0;
         physicalDevice = VK_NULL_HANDLE;
         vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
@@ -488,6 +492,7 @@ private:
     }
 
     void initLogicalDevice() {
+        std::cout << "initLogicalDevice" << std::endl;
         auto [graphicsAndComputeFamily, presentFamily] = findQueueFamilies(physicalDevice, surface);
 
         std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
@@ -532,6 +537,7 @@ private:
 
     void initDebug() {
         if (enableValidationLayers) {
+            std::cout << "initDebug" << std::endl;
             VkDebugUtilsMessengerCreateInfoEXT createInfo{};
             createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
             createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
@@ -549,6 +555,7 @@ private:
     }
 
     void initSwapChain() {
+        std::cout << "initSwapChain" << std::endl;
         auto [capabilities, formats, presentModes] = querySwapChainSupport(physicalDevice, surface);
 
         auto [surfaceFormat, surfaceColorSpace] = chooseSwapSurfaceFormat(formats);
@@ -599,6 +606,7 @@ private:
     }
 
     void initImageViews() {
+        std::cout << "initImageViews" << std::endl;
         swapChainImageViews.resize(swapChainImages.size());
         for (size_t i = 0; i < swapChainImages.size(); i++) {
             VkImageViewCreateInfo createInfo{};
@@ -623,6 +631,7 @@ private:
     }
 
     void initRenderPass() {
+        std::cout << "initRenderPass" << std::endl;
         VkAttachmentDescription colorAttachment{};
         colorAttachment.format = swapChainImageFormat;
         colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -665,6 +674,7 @@ private:
     }
 
     void initFrameBuffers() {
+        std::cout << "initFrameBuffers" << std::endl;
         swapChainFramebuffers.resize(swapChainImageViews.size());
         for (size_t i = 0; i < swapChainImageViews.size(); i++) {
             VkImageView attachments[] = { swapChainImageViews[i] };
@@ -684,6 +694,7 @@ private:
     }
 
     void initCommands() {
+        std::cout << "initCommands" << std::endl;
         // Command Pool
         auto [graphicsAndComputeFamily, presentFamily] = findQueueFamilies(physicalDevice, surface);
 
@@ -714,6 +725,7 @@ private:
     }
 
     void initDescriptorPool() {
+        std::cout << "initDescriptorPool" << std::endl;
         VkDescriptorPoolSize poolSize;
         poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
@@ -730,6 +742,7 @@ private:
     }
 
     void initComputeDescriptors() {
+        std::cout << "initComputeDescriptors" << std::endl;
         VkDescriptorSetLayoutBinding layoutBinding{};
         layoutBinding.binding = 0;
         layoutBinding.descriptorCount = 1;
@@ -742,7 +755,7 @@ private:
         layoutInfo.bindingCount = 1;
         layoutInfo.pBindings = &layoutBinding;
 
-        if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr,&computeDescriptorSetLayout) != VK_SUCCESS) {
+        if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &computeDescriptorSetLayout) != VK_SUCCESS) {
             throw std::runtime_error("failed to create compute descriptor set layout!");
         }
 
@@ -750,9 +763,8 @@ private:
         allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         allocInfo.descriptorPool = descriptorPool;
         allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-        // std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, computeDescriptorSetLayout);
-        // allocInfo.pSetLayouts = layouts.data();
-        allocInfo.pSetLayouts = &computeDescriptorSetLayout;
+        std::vector layouts(MAX_FRAMES_IN_FLIGHT, computeDescriptorSetLayout);
+        allocInfo.pSetLayouts = layouts.data();
 
         computeDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
         if (vkAllocateDescriptorSets(device, &allocInfo, computeDescriptorSets.data()) != VK_SUCCESS) {
@@ -780,10 +792,12 @@ private:
     }
 
     void initGraphicsDescriptors() {
+        std::cout << "initGraphicsDescriptors" << std::endl;
         //todo initGraphicsDescriptors
     }
 
     void initGraphicsPipeline() {
+        std::cout << "initGraphicsPipeline" << std::endl;
         // "../" needs to be added in front of the paths because CLion puts the executable in cmake-build-debug
         // will have to be different in a production build
         // TODO: hard coded path for Debug compilation
@@ -930,6 +944,7 @@ private:
     }
 
     void initComputePipeline() {
+        std::cout << "initComputePipeline" << std::endl;
         auto compShaderCode = readFile(COMP_SHADER_PATH);
         VkShaderModule compShaderModule = createShaderModule(compShaderCode, device);
         VkPipelineShaderStageCreateInfo compShaderStageInfo{};
@@ -960,6 +975,7 @@ private:
     }
 
     void initShaderStorageBuffer() {
+        std::cout << "initShaderStorageBuffer" << std::endl;
         VkDeviceSize bufferSize = STORAGE_BUFFER_SIZE;
         VkBuffer stagingBuffer;
         VkDeviceMemory stagingBufferMemory;
@@ -988,6 +1004,7 @@ private:
     }
 
     void initSync() {
+        std::cout << "initSync" << std::endl;
         imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
         renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
         computeFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
@@ -1014,6 +1031,7 @@ private:
     }
 
     void initIndexBuffer() {
+        std::cout << "initIndexBuffer" << std::endl;
         VkDeviceSize bufferSize = 3 * sizeof(uint32_t);
         VkBuffer stagingBuffer;
         VkDeviceMemory stagingBufferMemory;
