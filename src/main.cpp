@@ -4,6 +4,7 @@
 #include <fstream>
 #include <set>
 #include <string>
+#include <thread>
 #include <glm/glm.hpp>
 
 #define VERT_SHADER_PATH "../shaders/vert.spv"
@@ -1227,9 +1228,11 @@ private:
     }
 
     void mainLoop() {
+        double lastTime = glfwGetTime();
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
             drawFrame();
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         }
         vkDeviceWaitIdle(device);
     }
