@@ -17,8 +17,10 @@ layout(std140, binding = 0) buffer VertexSSBO {
 layout (local_size_x = 3, local_size_y = 1, local_size_z = 1) in;
 
 void main() {
-    uint index = gl_GlobalInvocationID.x;
-    float speed = float(index + 1) * 0.1;
+//    uint index = gl_GlobalInvocationID.x;
+    uint index = gl_LocalInvocationIndex;
+//    float speed = float(index + 1) * 0.1;
+    float speed = 0.1;
 
     if (ssbo.vertices[index].position.x > 1.0) {
         ssbo.vertices[index].position.x = -1.0;
