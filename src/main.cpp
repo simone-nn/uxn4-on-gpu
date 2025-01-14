@@ -13,6 +13,12 @@
 
 typedef struct vertex {
     glm::vec2 position;
+    glm::vec2 padding;
+
+    vertex(float x, float y) {
+        position = glm::vec2(x, y);
+        padding = glm::vec2(0, 0);
+    }
 
     static VkVertexInputBindingDescription getBindingDescription() {
         VkVertexInputBindingDescription bindingDescription{};
@@ -299,11 +305,14 @@ private:
     const int MAX_FRAMES_IN_FLIGHT = 2;
     uint32_t currentFrame = 0;
 
-    const int VERTEX_COUNT = 3;
-    const Vertex vertices[3] = {
-            glm::vec2(0.0, -0.5),
-            glm::vec2(0.5, 0.5),
-            glm::vec2(-0.5, 0.5)
+    const int VERTEX_COUNT = 6;
+    const Vertex vertices[6] = {
+        vertex(-0.3, -0.1),
+        vertex(-0.3, -0.3),
+        vertex(-0.1, -0.3),
+        vertex(0.3, 0.1),
+        vertex(0.3, 0.3),
+        vertex(0.1, 0.3)
     };
     const int STORAGE_BUFFER_SIZE = VERTEX_COUNT * static_cast<int>(sizeof(Vertex));
 
@@ -787,7 +796,7 @@ private:
             VkDescriptorBufferInfo storageBufferInfoLastFrame{};
             storageBufferInfoLastFrame.buffer = storageBuffers[(i-1) % MAX_FRAMES_IN_FLIGHT];
             storageBufferInfoLastFrame.offset = 0;
-            storageBufferInfoLastFrame.range = sizeof(vertices);
+            storageBufferInfoLastFrame.range = STORAGE_BUFFER_SIZE;
 
             VkWriteDescriptorSet descriptorWrite;
             descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -877,7 +886,7 @@ private:
         rasterizer.rasterizerDiscardEnable = VK_FALSE;
         rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
         rasterizer.lineWidth = 1.0f;
-        rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+        rasterizer.cullMode = VK_CULL_MODE_NONE;
         rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
         rasterizer.depthBiasEnable = VK_FALSE;
         rasterizer.depthBiasConstantFactor = 0.0f; // Optional
@@ -1105,7 +1114,7 @@ private:
             VkDeviceSize offsets[] = {0};
             vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &storageBuffers[currentFrame], offsets);
 
-            vkCmdDraw(cmdBuffer, 3, 1, 0, 0);
+            vkCmdDraw(cmdBuffer, VERTEX_COUNT, 1, 0, 0);
         }
         vkCmdEndRenderPass(cmdBuffer);
 
@@ -1126,7 +1135,7 @@ private:
         vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout,0,1,
                                 &computeDescriptorSets[imageIndex], 0, nullptr);
 
-        vkCmdDispatch(cmdBuffer, 3, 1, 1);
+        vkCmdDispatch(cmdBuffer, VERTEX_COUNT, 1, 1);
 
         if (vkEndCommandBuffer(cmdBuffer) != VK_SUCCESS) {
             throw std::runtime_error("failed to record command buffer!");
