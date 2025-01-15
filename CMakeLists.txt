@@ -7,7 +7,10 @@ set(CMAKE_CXX_STANDARD 20)
 # set(CMAKE_OSX_SYSROOT /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk)
 
 add_executable(uxn-on-gpu
-        src/main.cpp)
+        src/main.cpp
+        src/resource.h
+        src/resource.cpp
+        src/main.h)
 
 # Vulkan
 set(VK_ICD_FILENAMES /Users/andrei/libs/VulkanSDK/macOS/share/vulkan/icd.d/MoltenVK_icd.json)
