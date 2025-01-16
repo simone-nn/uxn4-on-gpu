@@ -31,7 +31,6 @@ namespace resource {
 
 class Resource {
     public:
-    VkDescriptorSetLayout descriptorSetLayout;
     VkDescriptorSet descriptorSet;
     VkBuffer buffer;
     VkDeviceMemory bufferMemory;
@@ -41,15 +40,14 @@ class Resource {
     Resource(
         const Context &ctx,
         uint32_t binding,
-        VkDescriptorType descriptorType,
-        VkDescriptorType descriptorStageFlags,
-        VkDescriptorPool descriptorPool,
         int bufferSize,
         const void* bufferData,
         bool isVertexShaderAccessible
     );
 
     void updateDescriptorSets(VkBuffer otherBuffer, VkDeviceSize otherBufferRange);
+
+    void destroy();
 };
 
 #endif //RESOURCE_H

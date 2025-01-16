@@ -264,21 +264,16 @@ public:
 private:
     Context ctx;
 
-    VkDescriptorPool descriptorPool;
-    std::vector<VkDescriptorSet> computeDescriptorSets;
-
     VkRenderPass renderPass;
     VkPipelineLayout graphicsPipelineLayout;
     VkPipeline graphicsPipeline;
     std::vector<VkCommandBuffer> graphicsCommandBuffers;
 
-    VkDescriptorSetLayout computeDescriptorSetLayout;
     VkPipelineLayout computePipelineLayout;
     VkPipeline computePipeline;
     std::vector<VkCommandBuffer> computeCommandBuffers;
 
-    std::vector<VkBuffer> storageBuffers;
-    std::vector<VkDeviceMemory> storageBufferMemory;
+    std::vector<Resource> verticesStorage;
 
     std::vector<VkSemaphore> imageAvailableSemaphores;
     std::vector<VkSemaphore> renderFinishedSemaphores;
@@ -318,76 +313,6 @@ private:
             if (!layerFound) return false;
         }
         return true;
-    }
-
-    uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
-        VkPhysicalDeviceMemoryProperties memProperties;
-        vkGetPhysicalDeviceMemoryProperties(ctx.physicalDevice, &memProperties);
-        for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-            if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-                return i;
-            }
-        }
-        throw std::runtime_error("failed to find suitable memory type!");
-    }
-
-    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
-        VkBufferCreateInfo bufferInfo{};
-        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        bufferInfo.size = size;
-        bufferInfo.usage = usage;
-        bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-        if (vkCreateBuffer(ctx.device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create buffer!");
-        }
-
-        VkMemoryRequirements memRequirements;
-        vkGetBufferMemoryRequirements(ctx.device, buffer, &memRequirements);
-
-        VkMemoryAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        allocInfo.allocationSize = memRequirements.size;
-        allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits,properties);
-
-        if (vkAllocateMemory(ctx.device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
-            throw std::runtime_error("failed to allocate buffer memory!");
-        }
-
-        vkBindBufferMemory(ctx.device, buffer, bufferMemory, 0);
-    }
-
-    void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
-        VkCommandBufferAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocInfo.commandPool = ctx.commandPool;
-        allocInfo.commandBufferCount = 1;
-
-        VkCommandBuffer commandBuffer;
-        vkAllocateCommandBuffers(ctx.device, &allocInfo, &commandBuffer);
-
-        VkCommandBufferBeginInfo beginInfo{};
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-        vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-        VkBufferCopy copyRegion{};
-        copyRegion.size = size;
-        vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-
-        vkEndCommandBuffer(commandBuffer);
-
-        VkSubmitInfo submitInfo{};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &commandBuffer;
-
-        vkQueueSubmit(ctx.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-        vkQueueWaitIdle(ctx.graphicsQueue);
-
-        vkFreeCommandBuffers(ctx.device, ctx.commandPool, 1, &commandBuffer);
     }
 
     void initWindow() {
@@ -737,62 +662,8 @@ private:
         poolInfo.pPoolSizes = &poolSize;
         poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
-        if (vkCreateDescriptorPool(ctx.device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
+        if (vkCreateDescriptorPool(ctx.device, &poolInfo, nullptr, &ctx.descriptorPool) != VK_SUCCESS) {
             throw std::runtime_error("failed to create descriptor pool!");
-        }
-    }
-
-    void initComputeDescriptorSetLayout() {
-        std::cout << "..initComputeDescriptors" << std::endl;
-        VkDescriptorSetLayoutBinding layoutBinding{};
-        layoutBinding.binding = 0;
-        layoutBinding.descriptorCount = 1;
-        layoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        layoutBinding.pImmutableSamplers = nullptr;
-        layoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-        VkDescriptorSetLayoutCreateInfo layoutInfo{};
-        layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        layoutInfo.bindingCount = 1;
-        layoutInfo.pBindings = &layoutBinding;
-
-        if (vkCreateDescriptorSetLayout(ctx.device, &layoutInfo, nullptr, &computeDescriptorSetLayout) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create compute descriptor set layout!");
-        }
-    }
-
-    void initComputeDescriptorSets() {
-        std::cout << "..initComputeDescriptorSets" << std::endl;
-        VkDescriptorSetAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocInfo.descriptorPool = descriptorPool;
-        allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-        std::vector layouts(MAX_FRAMES_IN_FLIGHT, computeDescriptorSetLayout);
-        allocInfo.pSetLayouts = layouts.data();
-
-        computeDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-        if (vkAllocateDescriptorSets(ctx.device, &allocInfo, computeDescriptorSets.data()) != VK_SUCCESS) {
-            throw std::runtime_error("failed to allocate descriptor sets!");
-        }
-
-        // update descriptor sets
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            VkDescriptorBufferInfo storageBufferInfoLastFrame{};
-            storageBufferInfoLastFrame.buffer = storageBuffers[(i-1) % MAX_FRAMES_IN_FLIGHT];
-            storageBufferInfoLastFrame.offset = 0;
-            storageBufferInfoLastFrame.range = STORAGE_BUFFER_SIZE;
-
-            VkWriteDescriptorSet descriptorWrite;
-            descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            descriptorWrite.dstSet = computeDescriptorSets[i];
-            descriptorWrite.dstBinding = 0;
-            descriptorWrite.dstArrayElement = 0;
-            descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            descriptorWrite.descriptorCount = 1;
-            descriptorWrite.pBufferInfo = &storageBufferInfoLastFrame;
-            descriptorWrite.pNext = nullptr;
-
-            vkUpdateDescriptorSets(ctx.device, 1, &descriptorWrite, 0, nullptr);
         }
     }
 
@@ -959,7 +830,7 @@ private:
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipelineLayoutInfo.setLayoutCount = 1;
-        pipelineLayoutInfo.pSetLayouts = &computeDescriptorSetLayout;
+        pipelineLayoutInfo.pSetLayouts = &ctx.descriptorSetLayout;
 
         if (vkCreatePipelineLayout(ctx.device, &pipelineLayoutInfo, nullptr, &computePipelineLayout) != VK_SUCCESS) {
             throw std::runtime_error("failed to create compute pipeline layout!");
@@ -977,36 +848,37 @@ private:
         vkDestroyShaderModule(ctx.device, compShaderModule, nullptr);
     }
 
-    void initShaderStorageBuffer() {
-        std::cout << "..initShaderStorageBuffer" << std::endl;
-        VkDeviceSize bufferSize = STORAGE_BUFFER_SIZE;
-        VkBuffer stagingBuffer;
-        VkDeviceMemory stagingBufferMemory;
-        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                     stagingBuffer, stagingBufferMemory);
+    void initResources() {
+        std::cout << "..initResources" << std::endl;
 
-        void* data;
-        vkMapMemory(ctx.device, stagingBufferMemory, 0, bufferSize, 0, &data);
-        memcpy(data, vertices, bufferSize);
-        vkUnmapMemory(ctx.device, stagingBufferMemory);
+        // descriptor set layout creation
+        VkDescriptorSetLayoutBinding layoutBinding{};
+        layoutBinding.binding = 0;
+        layoutBinding.descriptorCount = 1;
+        layoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        layoutBinding.pImmutableSamplers = nullptr;
+        layoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-        storageBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-        storageBufferMemory.resize(MAX_FRAMES_IN_FLIGHT);
+        VkDescriptorSetLayoutCreateInfo layoutInfo{};
+        layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        layoutInfo.bindingCount = 1;
+        layoutInfo.pBindings = &layoutBinding;
 
-        VkBufferUsageFlags usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT  // used as a vertex buffer for vert shader
-                                   | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT // used as a storage buffer for compute shader
-                                   | VK_BUFFER_USAGE_TRANSFER_DST_BIT;  // transfer data from host to GPU
-        VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-
-        for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            createBuffer(bufferSize, usage, properties, storageBuffers[i], storageBufferMemory[i]);
-            // Copy data from the staging buffer (host) to the shader storage buffer (GPU)
-            copyBuffer(stagingBuffer, storageBuffers[i], bufferSize);
+        if (vkCreateDescriptorSetLayout(ctx.device, &layoutInfo, nullptr, &ctx.descriptorSetLayout) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create compute descriptor set layout!");
         }
 
-        vkDestroyBuffer(ctx.device, stagingBuffer, nullptr);
-        vkFreeMemory(ctx.device, stagingBufferMemory, nullptr);
+        // resource creation
+        verticesStorage.reserve(2);
+
+        for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+            verticesStorage.emplace_back(Resource(ctx, 0, STORAGE_BUFFER_SIZE, &vertices, true));
+        }
+
+        for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+            auto previous = verticesStorage[(i + 1) % MAX_FRAMES_IN_FLIGHT];
+            verticesStorage[i].updateDescriptorSets(previous.buffer, STORAGE_BUFFER_SIZE);
+        }
     }
 
     void initSync() {
@@ -1044,18 +916,16 @@ private:
         initPhysicalDevice();
         initLogicalDevice();
         initDebug();
+        initCommands();
         initSwapChain();
         initImageViews();
         initRenderPass();
         initDescriptorPool();
-        initComputeDescriptorSetLayout();
+        initResources();
         initComputePipeline();
         initFrameBuffers();
-        initCommands();
         initGraphicsPipeline();
         initSync();
-        initShaderStorageBuffer();
-        initComputeDescriptorSets();
     }
 
     void recordGraphicsCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageIndex) {
@@ -1096,7 +966,7 @@ private:
             vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
 
             VkDeviceSize offsets[] = {0};
-            vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &storageBuffers[currentFrame], offsets);
+            vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &verticesStorage[currentFrame].buffer, offsets);
 
             vkCmdDraw(cmdBuffer, VERTEX_COUNT, 1, 0, 0);
         }
@@ -1117,7 +987,7 @@ private:
 
         vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
         vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout,0,1,
-                                &computeDescriptorSets[imageIndex], 0, nullptr);
+                                &verticesStorage[imageIndex].descriptorSet, 0, nullptr);
 
         vkCmdDispatch(cmdBuffer, VERTEX_COUNT, 1, 1);
 
@@ -1194,7 +1064,6 @@ private:
     }
 
     void mainLoop() {
-        double lastTime = glfwGetTime();
         while (!glfwWindowShouldClose(ctx.window)) {
             glfwPollEvents();
             drawFrame();
@@ -1211,8 +1080,7 @@ private:
             vkDestroyFence(ctx.device, inFlightFences[i], nullptr);
             vkDestroyFence(ctx.device, computeInFlightFences[i], nullptr);
 
-            vkDestroyBuffer(ctx.device, storageBuffers[i], nullptr);
-            vkFreeMemory(ctx.device, storageBufferMemory[i], nullptr);
+            verticesStorage[i].destroy();
         }
         vkDestroyCommandPool(ctx.device, ctx.commandPool, nullptr);
         for (auto framebuffer : ctx.swapChainFramebuffers) {
@@ -1226,8 +1094,8 @@ private:
         for (auto imageView : ctx.swapChainImageViews) {
             vkDestroyImageView(ctx.device, imageView, nullptr);
         }
-        vkDestroyDescriptorPool(ctx.device, descriptorPool, nullptr);
-        vkDestroyDescriptorSetLayout(ctx.device, computeDescriptorSetLayout, nullptr);
+        vkDestroyDescriptorSetLayout(ctx.device, ctx.descriptorSetLayout, nullptr);
+        vkDestroyDescriptorPool(ctx.device, ctx.descriptorPool, nullptr);
         vkDestroySwapchainKHR(ctx.device, ctx.swapChain, nullptr); // before device
         vkDestroyDevice(ctx.device, nullptr);
         // graphics queue is implicitly destroyed with logical device

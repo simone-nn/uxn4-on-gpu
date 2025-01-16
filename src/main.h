@@ -1,6 +1,7 @@
 #ifndef MAIN_H
 #define MAIN_H
 #include <vector>
+#include <optional>
 
 typedef struct context {
     GLFWwindow* window;
@@ -15,6 +16,9 @@ typedef struct context {
     VkQueue computeQueue;
 
     VkCommandPool commandPool;
+    VkDescriptorPool descriptorPool;
+    bool isDescriptorSetLayoutInitialized;
+    VkDescriptorSetLayout descriptorSetLayout;
 
     VkSwapchainKHR swapChain;
     std::vector<VkImage> swapChainImages;

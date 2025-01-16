@@ -1,6 +1,4 @@
 #include "Resource.h"
-
-#include <memory>
 #include <stdexcept>
 
 uint32_t findMemoryType(
@@ -92,9 +90,6 @@ void copyBuffer(
 Resource::Resource(
     const Context &ctx,
     uint32_t binding,
-    VkDescriptorType descriptorType,
-    VkDescriptorType descriptorStageFlags,
-    VkDescriptorPool descriptorPool,
     int bufferSize,
     const void* bufferData,
     bool isVertexShaderAccessible
@@ -102,29 +97,12 @@ Resource::Resource(
     this->binding = binding;
     this->ctx = ctx;
 
-    // descriptor set layout
-    VkDescriptorSetLayoutBinding layoutBinding{};
-    layoutBinding.binding = binding;
-    layoutBinding.descriptorCount = 1;
-    layoutBinding.descriptorType = descriptorType;
-    layoutBinding.pImmutableSamplers = nullptr;
-    layoutBinding.stageFlags = descriptorStageFlags;
-
-    VkDescriptorSetLayoutCreateInfo layoutInfo{};
-    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 1;
-    layoutInfo.pBindings = &layoutBinding;
-
-    if (vkCreateDescriptorSetLayout(ctx.device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create compute descriptor set layout!");
-    }
-
     // descriptor sets
     VkDescriptorSetAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool = descriptorPool;
+    allocInfo.descriptorPool = ctx.descriptorPool;
     allocInfo.descriptorSetCount = 1;
-    allocInfo.pSetLayouts = &descriptorSetLayout;
+    allocInfo.pSetLayouts = &ctx.descriptorSetLayout;
 
     if (vkAllocateDescriptorSets(ctx.device, &allocInfo, &descriptorSet) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate descriptor set!");
@@ -147,7 +125,8 @@ Resource::Resource(
     VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
     if (isVertexShaderAccessible) {
-        usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;  // used as a vertex buffer for vert shader
+        // used as a vertex buffer for vert shader
+        usage = usage | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
     }
 
     createBuffer(ctx, bufferSize, usage, properties, buffer, bufferMemory);
@@ -160,9 +139,8 @@ Resource::Resource(
 
 void Resource::updateDescriptorSets(VkBuffer otherBuffer, VkDeviceSize otherBufferRange) {
     // update descriptor sets
-    // TODO this only really makes sense for SSBO storage
+    // this only really makes sense for SSBO storage
     VkDescriptorBufferInfo storageBufferInfoLast{};
-    // storageBufferInfoLastFrame.buffer = storageBuffers[(i-1) % MAX_FRAMES_IN_FLIGHT];
     storageBufferInfoLast.buffer = otherBuffer;
     storageBufferInfoLast.offset = 0;
     storageBufferInfoLast.range = otherBufferRange;
@@ -178,4 +156,9 @@ void Resource::updateDescriptorSets(VkBuffer otherBuffer, VkDeviceSize otherBuff
     descriptorWrite.pNext = nullptr;
 
     vkUpdateDescriptorSets(ctx.device, 1, &descriptorWrite, 0, nullptr);
+}
+
+void Resource::destroy() {
+    vkDestroyBuffer(ctx.device, buffer, nullptr);
+    vkFreeMemory(ctx.device, bufferMemory, nullptr);
 }
