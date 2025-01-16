@@ -17,7 +17,6 @@ typedef struct context {
 
     VkCommandPool commandPool;
     VkDescriptorPool descriptorPool;
-    bool isDescriptorSetLayoutInitialized;
     VkDescriptorSetLayout descriptorSetLayout;
 
     VkSwapchainKHR swapChain;
