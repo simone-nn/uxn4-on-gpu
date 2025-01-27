@@ -251,12 +251,12 @@ public:
     bool enableValidationLayers;
     std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
     std::vector<const char*> deviceExtensions = {
-        VK_KHR_STORAGE_BUFFER_STORAGE_CLASS_EXTENSION_NAME,
+        // VK_KHR_STORAGE_BUFFER_STORAGE_CLASS_EXTENSION_NAME,
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-        // VK_KHR_8BIT_STORAGE_EXTENSION_NAME
+        VK_KHR_8BIT_STORAGE_EXTENSION_NAME
     };
 
-    UXN_on_GPU(bool enableValidationLayers, std::vector<char> &program) {
+    UXN_on_GPU(bool enableValidationLayers, const std::vector<char> &program) {
         this->enableValidationLayers = enableValidationLayers;
         init(program);
     }
@@ -431,6 +431,17 @@ private:
         // Specify used device features
         VkPhysicalDeviceFeatures deviceFeatures{};
 
+        VkPhysicalDevice8BitStorageFeatures eightBitStorageFeatures{};
+        eightBitStorageFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES;
+        eightBitStorageFeatures.uniformAndStorageBuffer8BitAccess = VK_TRUE;
+        eightBitStorageFeatures.pNext = nullptr;
+
+        VkPhysicalDeviceFeatures2 deviceFeatures2{};
+        deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+        deviceFeatures2.pNext = &eightBitStorageFeatures;
+
+        vkGetPhysicalDeviceFeatures2(ctx.physicalDevice, &deviceFeatures2);
+
         VkDeviceCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
         createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
@@ -439,6 +450,7 @@ private:
         createInfo.pEnabledFeatures = &deviceFeatures;
         createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
         createInfo.ppEnabledExtensionNames = deviceExtensions.data();
+        createInfo.pNext = &deviceFeatures2;
 
         if (enableValidationLayers) {
             createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
