@@ -9,9 +9,10 @@
 #include "Resource.h"
 #include "main.h"
 
-#define VERT_SHADER_PATH "../shaders/vert.spv"
-#define FRAG_SHADER_PATH "../shaders/frag.spv"
-#define COMP_SHADER_PATH "../shaders/comp.spv"
+#define VERT_SHADER_PATH  "shaders/vert.spv"
+#define FRAG_SHADER_PATH  "shaders/frag.spv"
+#define COMP_SHADER_PATH  "shaders/comp.spv"
+#define UXN_EMULATOR_PATH "shaders/uxn_emu.spv"
 
 typedef struct vertex {
     glm::vec2 position;
@@ -249,14 +250,18 @@ public:
     int HEIGHT = 600;
     bool enableValidationLayers;
     std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
-    std::vector<const char*> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    std::vector<const char*> deviceExtensions = {
+        VK_KHR_STORAGE_BUFFER_STORAGE_CLASS_EXTENSION_NAME,
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        // VK_KHR_8BIT_STORAGE_EXTENSION_NAME
+    };
 
-    explicit UXN_on_GPU(bool enableValidationLayers) {
+    UXN_on_GPU(bool enableValidationLayers, std::vector<char> &program) {
         this->enableValidationLayers = enableValidationLayers;
-        init();
+        init(program);
     }
 
-    void run(void* uxn_program) {
+    void run() {
         std::cout << "Hello world!\n";
         mainLoop();
         cleanup();
@@ -273,7 +278,8 @@ private:
     VkPipeline computePipeline;
     std::vector<VkCommandBuffer> computeCommandBuffers;
 
-    std::vector<Resource> verticesStorage;
+    UxnMemory* uxnMemory;
+    Resource uxnResource;
 
     std::vector<VkSemaphore> imageAvailableSemaphores;
     std::vector<VkSemaphore> renderFinishedSemaphores;
@@ -281,19 +287,8 @@ private:
     std::vector<VkFence> inFlightFences;
     std::vector<VkFence> computeInFlightFences;
 
-    const int MAX_FRAMES_IN_FLIGHT = 2;
+    const int MAX_FRAMES_IN_FLIGHT = 1;
     uint32_t currentFrame = 0;
-
-    const int VERTEX_COUNT = 6;
-    const Vertex vertices[6] = {
-        vertex(-0.3, -0.1),
-        vertex(-0.3, -0.3),
-        vertex(-0.1, -0.3),
-        vertex(0.3, 0.1),
-        vertex(0.3, 0.3),
-        vertex(0.1, 0.3)
-    };
-    const int STORAGE_BUFFER_SIZE = VERTEX_COUNT * static_cast<int>(sizeof(Vertex));
 
     bool checkValidationLayerSupport() {
         uint32_t layerCount;
@@ -395,7 +390,7 @@ private:
     }
 
     void initPhysicalDevice() {
-        std::cout << "..initPhysicalDevice" << std::endl;
+        std::cout << "..initPhysicalDevice: ";
         uint32_t deviceCount = 0;
         ctx.physicalDevice = VK_NULL_HANDLE;
         vkEnumeratePhysicalDevices(ctx.instance, &deviceCount, nullptr);
@@ -819,7 +814,7 @@ private:
 
     void initComputePipeline() {
         std::cout << "..initComputePipeline" << std::endl;
-        auto compShaderCode = readFile(COMP_SHADER_PATH);
+        auto compShaderCode = readFile(UXN_EMULATOR_PATH);
         VkShaderModule compShaderModule = createShaderModule(compShaderCode, ctx.device);
         VkPipelineShaderStageCreateInfo compShaderStageInfo{};
         compShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -848,6 +843,17 @@ private:
         vkDestroyShaderModule(ctx.device, compShaderModule, nullptr);
     }
 
+    void initUxnMemory(const std::vector<char> &program) {
+        std::cout << "..initUxnMemory: ";
+        if (program.size() + 0x0100 > UXN_RAM_SIZE) {
+            throw std::runtime_error("uxn program is bigger than uxn ram!");
+        }
+        uxnMemory = new UxnMemory();
+        std::cout << "|" << program.data() << "|" << std::endl;
+        memcpy(uxnMemory->ram + 0x0100, program.data(), program.size());
+        std::cout << *(uxnMemory->ram + 0x0100) << std::endl;
+    }
+
     void initResources() {
         std::cout << "..initResources" << std::endl;
 
@@ -869,16 +875,8 @@ private:
         }
 
         // resource creation
-        verticesStorage.reserve(2);
-
-        for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-            verticesStorage.emplace_back(Resource(ctx, 0, STORAGE_BUFFER_SIZE, &vertices, true));
-        }
-
-        for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-            auto previous = verticesStorage[(i + 1) % MAX_FRAMES_IN_FLIGHT];
-            verticesStorage[i].updateDescriptorSets(previous.buffer, STORAGE_BUFFER_SIZE);
-        }
+        uxnResource = Resource(ctx, 0, sizeof(UxnMemory), uxnMemory, false, true);
+        uxnResource.updateDescriptorSets(uxnResource.buffer, sizeof(UxnMemory));
     }
 
     void initSync() {
@@ -908,7 +906,7 @@ private:
         }
     }
 
-    void init() {
+    void init(const std::vector<char> &program) {
         std::cout << "init:" << std::endl;
         initWindow();
         initVkInstance();
@@ -921,6 +919,7 @@ private:
         initImageViews();
         initRenderPass();
         initDescriptorPool();
+        initUxnMemory(program);
         initResources();
         initComputePipeline();
         initFrameBuffers();
@@ -928,6 +927,7 @@ private:
         initSync();
     }
 
+    // todo update recordGraphicsCommandBuffer
     void recordGraphicsCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageIndex) {
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -966,9 +966,9 @@ private:
             vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
 
             VkDeviceSize offsets[] = {0};
-            vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &verticesStorage[currentFrame].buffer, offsets);
+            // vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &verticesStorage[currentFrame].buffer, offsets);
 
-            vkCmdDraw(cmdBuffer, VERTEX_COUNT, 1, 0, 0);
+            // vkCmdDraw(cmdBuffer, VERTEX_COUNT, 1, 0, 0);
         }
         vkCmdEndRenderPass(cmdBuffer);
 
@@ -987,9 +987,9 @@ private:
 
         vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
         vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout,0,1,
-                                &verticesStorage[imageIndex].descriptorSet, 0, nullptr);
+                                &uxnResource.descriptorSet, 0, nullptr);
 
-        vkCmdDispatch(cmdBuffer, VERTEX_COUNT, 1, 1);
+        vkCmdDispatch(cmdBuffer, 1, 1, 1);
 
         if (vkEndCommandBuffer(cmdBuffer) != VK_SUCCESS) {
             throw std::runtime_error("failed to record command buffer!");
@@ -1015,58 +1015,74 @@ private:
 
         // Graphics submission
         // Wait for previous frame to finish drawing
-        vkWaitForFences(ctx.device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
-        vkResetFences(ctx.device, 1, &inFlightFences[currentFrame]);
+        // vkWaitForFences(ctx.device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+        // vkResetFences(ctx.device, 1, &inFlightFences[currentFrame]);
 
         // get the next image:
-        uint32_t imageIndex;
-        vkAcquireNextImageKHR(ctx.device, ctx.swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame],
-                              VK_NULL_HANDLE, &imageIndex);
+        // uint32_t imageIndex;
+        // vkAcquireNextImageKHR(ctx.device, ctx.swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame],
+        //                       VK_NULL_HANDLE, &imageIndex);
 
         // record commands in the current command buffer:
-        vkResetCommandBuffer(graphicsCommandBuffers[currentFrame], 0);
-        recordGraphicsCommandBuffer(graphicsCommandBuffers[currentFrame], imageIndex);
+        // vkResetCommandBuffer(graphicsCommandBuffers[currentFrame], 0);
+        // recordGraphicsCommandBuffer(graphicsCommandBuffers[currentFrame], imageIndex);
 
         // submit info that accompanies the commands:
-        submitInfo = {};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        VkSemaphore waitSemaphores[] = {computeFinishedSemaphores[currentFrame], imageAvailableSemaphores[currentFrame]};
-        submitInfo.waitSemaphoreCount = 2;
-        submitInfo.pWaitSemaphores = waitSemaphores;
-        VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-        submitInfo.pWaitDstStageMask = waitStages;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &graphicsCommandBuffers[currentFrame];
-        submitInfo.signalSemaphoreCount = 1;
-        submitInfo.pSignalSemaphores = &renderFinishedSemaphores[currentFrame];
-
-        // Graphic Commands get submitted:
-        if (vkQueueSubmit(ctx.graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS) {
-            throw std::runtime_error("failed to submit draw command buffer!");
-        }
+        // submitInfo = {};
+        // submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        // VkSemaphore waitSemaphores[] = {computeFinishedSemaphores[currentFrame], imageAvailableSemaphores[currentFrame]};
+        // submitInfo.waitSemaphoreCount = 2;
+        // submitInfo.pWaitSemaphores = waitSemaphores;
+        // VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+        // submitInfo.pWaitDstStageMask = waitStages;
+        // submitInfo.commandBufferCount = 1;
+        // submitInfo.pCommandBuffers = &graphicsCommandBuffers[currentFrame];
+        // submitInfo.signalSemaphoreCount = 1;
+        // submitInfo.pSignalSemaphores = &renderFinishedSemaphores[currentFrame];
+        //
+        // // Graphic Commands get submitted:
+        // if (vkQueueSubmit(ctx.graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS) {
+        //     throw std::runtime_error("failed to submit draw command buffer!");
+        // }
 
         // present commands:
-        VkPresentInfoKHR presentInfo{};
-        presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-        presentInfo.waitSemaphoreCount = 1;
-        presentInfo.pWaitSemaphores = &renderFinishedSemaphores[currentFrame];
-        VkSwapchainKHR swapChains[] = {ctx.swapChain};
-        presentInfo.swapchainCount = 1;
-        presentInfo.pSwapchains = swapChains;
-        presentInfo.pImageIndices = &imageIndex;
-        presentInfo.pResults = nullptr; // Optional
+        // VkPresentInfoKHR presentInfo{};
+        // presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+        // presentInfo.waitSemaphoreCount = 1;
+        // presentInfo.pWaitSemaphores = &renderFinishedSemaphores[currentFrame];
+        // VkSwapchainKHR swapChains[] = {ctx.swapChain};
+        // presentInfo.swapchainCount = 1;
+        // presentInfo.pSwapchains = swapChains;
+        // presentInfo.pImageIndices = &imageIndex;
+        // presentInfo.pResults = nullptr; // Optional
+        //
+        // // Present Commands get submitted:
+        // vkQueuePresentKHR(ctx.presentQueue, &presentInfo);
+        //
+        // // iter the currentFrame
+        // currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+    }
 
-        // Present Commands get submitted:
-        vkQueuePresentKHR(ctx.presentQueue, &presentInfo);
+    void printUxnDeviceMemory() {
+        memcpy(uxnMemory, uxnResource.bufferMemory, sizeof(UxnMemory));
 
-        // iter the currentFrame
-        currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+        if (!uxnMemory) {
+            std::cout << "uxnMemory is null!" << std::endl;
+            return;
+        }
+
+        // printing only device memory
+        auto device_chars = reinterpret_cast<char *>(uxnMemory->dev);
+        std::cout << "uxnMemory->dev:" << std::endl;
+        std::cout << device_chars[256] << std::endl;
+        std::cout << "---------------" << std::endl;
     }
 
     void mainLoop() {
         while (!glfwWindowShouldClose(ctx.window)) {
             glfwPollEvents();
             drawFrame();
+            printUxnDeviceMemory();
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
         vkDeviceWaitIdle(ctx.device);
@@ -1079,9 +1095,9 @@ private:
             vkDestroySemaphore(ctx.device, computeFinishedSemaphores[i], nullptr);
             vkDestroyFence(ctx.device, inFlightFences[i], nullptr);
             vkDestroyFence(ctx.device, computeInFlightFences[i], nullptr);
-
-            verticesStorage[i].destroy();
         }
+        delete uxnMemory;
+        uxnResource.destroy();
         vkDestroyCommandPool(ctx.device, ctx.commandPool, nullptr);
         for (auto framebuffer : ctx.swapChainFramebuffers) {
             vkDestroyFramebuffer(ctx.device, framebuffer, nullptr);
@@ -1110,10 +1126,21 @@ private:
 };
 
 int main(int nargs, char** args) {
-    UXN_on_GPU app(true);
-    //todo parse args and pass the uxn program into app.run()
+    // Check if filename is provided
+    if (nargs < 2) {
+        std::cerr << "Usage: " << args[0] << " <filename>\n";
+        return EXIT_FAILURE;
+    }
+    const char* filename = args[1];
+
+    auto uxnProgram = readFile(filename);
+
+    std::cout << "|" << uxnProgram.data() << "|" << std::endl;
+
+    UXN_on_GPU app(true, uxnProgram);
+
     try {
-        app.run(nullptr);
+        app.run();
     } catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;
         return EXIT_FAILURE;

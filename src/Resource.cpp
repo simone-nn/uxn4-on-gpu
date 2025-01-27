@@ -92,10 +92,11 @@ Resource::Resource(
     uint32_t binding,
     int bufferSize,
     const void* bufferData,
-    bool isVertexShaderAccessible
+    bool isVertexShaderAccessible,
+    bool memoryIsHostVisible
 ) {
     this->binding = binding;
-    this->ctx = ctx;
+    this->ctx = const_cast<Context *>(&ctx);
 
     // descriptor sets
     VkDescriptorSetAllocateInfo allocInfo{};
@@ -128,6 +129,10 @@ Resource::Resource(
         // used as a vertex buffer for vert shader
         usage = usage | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
     }
+    if (memoryIsHostVisible) {
+        // memory is visible by the host (CPU)
+        properties = properties | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    }
 
     createBuffer(ctx, bufferSize, usage, properties, buffer, bufferMemory);
     // Copy data from the staging buffer (host) to the shader storage buffer (GPU)
@@ -155,10 +160,10 @@ void Resource::updateDescriptorSets(VkBuffer otherBuffer, VkDeviceSize otherBuff
     descriptorWrite.pBufferInfo = &storageBufferInfoLast;
     descriptorWrite.pNext = nullptr;
 
-    vkUpdateDescriptorSets(ctx.device, 1, &descriptorWrite, 0, nullptr);
+    vkUpdateDescriptorSets(ctx->device, 1, &descriptorWrite, 0, nullptr);
 }
 
 void Resource::destroy() {
-    vkDestroyBuffer(ctx.device, buffer, nullptr);
-    vkFreeMemory(ctx.device, bufferMemory, nullptr);
+    vkDestroyBuffer(ctx->device, buffer, nullptr);
+    vkFreeMemory(ctx->device, bufferMemory, nullptr);
 }

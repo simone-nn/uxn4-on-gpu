@@ -35,14 +35,17 @@ class Resource {
     VkBuffer buffer;
     VkDeviceMemory bufferMemory;
     uint32_t binding;
-    Context ctx;
+    Context* ctx;
+
+    Resource() : descriptorSet(VK_NULL_HANDLE), buffer(VK_NULL_HANDLE), bufferMemory(VK_NULL_HANDLE), binding(0), ctx(nullptr) {};
 
     Resource(
         const Context &ctx,
         uint32_t binding,
         int bufferSize,
         const void* bufferData,
-        bool isVertexShaderAccessible
+        bool isVertexShaderAccessible,
+        bool memoryIsHostVisible
     );
 
     void updateDescriptorSets(VkBuffer otherBuffer, VkDeviceSize otherBufferRange);
