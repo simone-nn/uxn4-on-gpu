@@ -431,10 +431,15 @@ private:
         // Specify used device features
         VkPhysicalDeviceFeatures deviceFeatures{};
 
+        VkPhysicalDeviceVulkan12Features deviceVulkan12Features{};
+        deviceVulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+        deviceVulkan12Features.shaderInt8 = VK_TRUE;
+        deviceVulkan12Features.pNext = nullptr;
+
         VkPhysicalDevice8BitStorageFeatures eightBitStorageFeatures{};
         eightBitStorageFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES;
         eightBitStorageFeatures.uniformAndStorageBuffer8BitAccess = VK_TRUE;
-        eightBitStorageFeatures.pNext = nullptr;
+        eightBitStorageFeatures.pNext = &deviceVulkan12Features;
 
         VkPhysicalDeviceFeatures2 deviceFeatures2{};
         deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
