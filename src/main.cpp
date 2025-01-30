@@ -845,10 +845,19 @@ private:
         if (program.size() + 0x0100 > UXN_RAM_SIZE) {
             throw std::runtime_error("uxn program is bigger than uxn ram!");
         }
+
+        // Padding the opcodes from 8-bit to 32-bit
+        auto paddedProgram = std::vector<glm::uint>(program.size());
+        for (size_t i = 0; i < program.size(); i++) {
+            paddedProgram[i] = static_cast<glm::uint>(program[i] << 24);
+        }
+        for (glm::uint val : paddedProgram) {
+            std::cout << "0x" << std::hex << val << " ";
+        }
+        std::cout << std::endl;
+
         uxnMemory = new UxnMemory();
-        std::cout << "|" << program.data() << "|" << std::endl;
-        memcpy(uxnMemory->ram + 0x0100, program.data(), program.size());
-        std::cout << *(uxnMemory->ram + 0x0100) << std::endl;
+        memcpy(uxnMemory->ram + 0x0100, paddedProgram.data(), paddedProgram.size());
     }
 
     void initResources() {
@@ -1061,12 +1070,12 @@ private:
     }
 
     void printUxnDeviceMemory() {
-        memcpy(uxnMemory, uxnResource.bufferMemory, sizeof(UxnMemory));
-
         if (!uxnMemory) {
             std::cout << "uxnMemory is null!" << std::endl;
+            std::cout << "---------------" << std::endl;
             return;
         }
+        memcpy(uxnMemory, uxnResource.bufferMemory, sizeof(UxnMemory));
 
         // printing only device memory
         auto device_chars = reinterpret_cast<char *>(uxnMemory->dev);
