@@ -276,6 +276,8 @@ private:
 
     UxnMemory* uxnMemory;
     Resource uxnResource;
+    VkBuffer hostStagingBuffer;
+    VkDeviceMemory hostStagingMemory;
 
     std::vector<VkSemaphore> imageAvailableSemaphores;
     std::vector<VkSemaphore> renderFinishedSemaphores;
@@ -881,8 +883,14 @@ private:
         }
 
         // resource creation
-        uxnResource = Resource(ctx, 0, sizeof(UxnMemory), uxnMemory, false, true);
+        uxnResource = Resource(ctx, 0, sizeof(UxnMemory), uxnMemory, false, false);
         uxnResource.updateDescriptorSets(uxnResource.buffer, sizeof(UxnMemory));
+
+        // host staging buffer
+        createBuffer(ctx, sizeof(UxnMemory),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            hostStagingBuffer, hostStagingMemory);
     }
 
     void initSync() {
@@ -1075,7 +1083,20 @@ private:
             std::cout << "---------------" << std::endl;
             return;
         }
-        memcpy(uxnMemory, uxnResource.bufferMemory, sizeof(UxnMemory));
+
+        // copy from ssbo buffer to host staging buffer
+        copyBuffer(ctx, uxnResource.buffer, hostStagingBuffer, sizeof(UxnMemory));
+        void* data;
+        vkMapMemory(ctx.device, hostStagingMemory, 0, sizeof(UxnMemory), 0, &data);
+
+        // Copy data from mapped memory
+        // std::vector<uint8_t> hostData(sizeof(UxnMemory));
+        memcpy(uxnMemory, data, sizeof(UxnMemory));
+
+        // Unmap memory when done
+        vkUnmapMemory(ctx.device, hostStagingMemory);
+
+        // memcpy(uxnMemory, uxnResource.bufferMemory, sizeof(UxnMemory));  //todo SEG-FAULT here!
 
         // printing only device memory
         auto device_chars = reinterpret_cast<char *>(uxnMemory->dev);
@@ -1095,6 +1116,8 @@ private:
     }
 
     void cleanup() {
+        vkDestroyBuffer(ctx.device, hostStagingBuffer, nullptr);
+        vkFreeMemory(ctx.device, hostStagingMemory, nullptr);
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             vkDestroySemaphore(ctx.device, renderFinishedSemaphores[i], nullptr);
             vkDestroySemaphore(ctx.device, imageAvailableSemaphores[i], nullptr);

@@ -5,29 +5,27 @@
 #include <GLFW/glfw3.h>
 #include "main.h"
 
-namespace resource {
-    uint32_t findMemoryType(
-        Context &ctx,
-        uint32_t typeFilter,
-        VkMemoryPropertyFlags properties
-    );
+uint32_t findMemoryType(
+    const Context &ctx,
+    uint32_t typeFilter,
+    VkMemoryPropertyFlags properties
+);
 
-    void createBuffer(
-        Context &ctx,
-        VkDeviceSize size,
-        VkBufferUsageFlags usage,
-        VkMemoryPropertyFlags properties,
-        VkBuffer& buffer,
-        VkDeviceMemory& bufferMemory
-    );
+void createBuffer(
+    const Context &ctx,
+    VkDeviceSize size,
+    VkBufferUsageFlags usage,
+    VkMemoryPropertyFlags properties,
+    VkBuffer& buffer,
+    VkDeviceMemory& bufferMemory
+);
 
-    void copyBuffer(
-        Context &ctx,
-        VkBuffer srcBuffer,
-        VkBuffer dstBuffer,
-        VkDeviceSize size
-    );
-}
+void copyBuffer(
+    const Context &ctx,
+    VkBuffer srcBuffer,
+    VkBuffer dstBuffer,
+    VkDeviceSize size
+);
 
 class Resource {
     public:
