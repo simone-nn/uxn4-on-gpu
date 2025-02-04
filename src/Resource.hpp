@@ -3,7 +3,7 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-#include "main.h"
+#include "main.hpp"
 
 uint32_t findMemoryType(
     const Context &ctx,
@@ -43,12 +43,13 @@ class Resource {
         int bufferSize,
         const void* bufferData,
         bool isVertexShaderAccessible,
-        bool memoryIsHostVisible
+        bool memoryIsHostVisible,
+        bool isTransferSource
     );
 
-    void updateDescriptorSets(VkBuffer otherBuffer, VkDeviceSize otherBufferRange);
+    void updateDescriptorSets(VkBuffer otherBuffer, VkDeviceSize otherBufferRange) const;
 
-    void destroy();
+    void destroy() const;
 };
 
 #endif //RESOURCE_H

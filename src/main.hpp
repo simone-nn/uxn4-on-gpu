@@ -13,6 +13,7 @@ typedef struct uxn_stack {
 } UxnStack;
 
 typedef struct uxn_memory {
+    glm::uint pc;
     glm::uint ram[UXN_RAM_SIZE];
     UxnStack wst;  // working stack
     UxnStack rst;  // return stack

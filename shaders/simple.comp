@@ -1,0 +1,23 @@
+#version 450
+//
+// Created by Andrei Ghita
+//
+
+struct stack {
+    uint dat[256];
+	uint ptr;
+};
+
+layout(std140, binding = 0) buffer UXN_Buffer {
+    uint pc;
+    uint ram[65536];
+    stack wst;  // working stack
+    stack rst;  // return stack
+    uint dev[256];  // todo device data
+} uxn;
+
+layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+void main() {
+    uxn.pc = 10;
+}

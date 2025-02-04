@@ -1,4 +1,4 @@
-#include "Resource.h"
+#include "Resource.hpp"
 #include <stdexcept>
 
 uint32_t findMemoryType(
@@ -81,8 +81,8 @@ void copyBuffer(
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &commandBuffer;
 
-    vkQueueSubmit(ctx.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(ctx.graphicsQueue);
+    vkQueueSubmit(ctx.computeQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(ctx.computeQueue);
 
     vkFreeCommandBuffers(ctx.device, ctx.commandPool, 1, &commandBuffer);
 }
@@ -93,7 +93,8 @@ Resource::Resource(
     int bufferSize,
     const void* bufferData,
     bool isVertexShaderAccessible,
-    bool memoryIsHostVisible
+    bool memoryIsHostVisible,
+    bool isTransferSource
 ) {
     this->binding = binding;
     this->ctx = const_cast<Context *>(&ctx);
@@ -133,6 +134,9 @@ Resource::Resource(
         // memory is visible by the host (CPU)
         properties = properties | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
     }
+    if (isTransferSource) {
+        usage = usage | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    }
 
     createBuffer(ctx, bufferSize, usage, properties, buffer, bufferMemory);
     // Copy data from the staging buffer (host) to the shader storage buffer (GPU)
@@ -142,7 +146,7 @@ Resource::Resource(
     vkFreeMemory(ctx.device, stagingBufferMemory, nullptr);
 }
 
-void Resource::updateDescriptorSets(VkBuffer otherBuffer, VkDeviceSize otherBufferRange) {
+void Resource::updateDescriptorSets(VkBuffer otherBuffer, VkDeviceSize otherBufferRange) const {
     // update descriptor sets
     // this only really makes sense for SSBO storage
     VkDescriptorBufferInfo storageBufferInfoLast{};
@@ -163,7 +167,7 @@ void Resource::updateDescriptorSets(VkBuffer otherBuffer, VkDeviceSize otherBuff
     vkUpdateDescriptorSets(ctx->device, 1, &descriptorWrite, 0, nullptr);
 }
 
-void Resource::destroy() {
+void Resource::destroy() const {
     vkDestroyBuffer(ctx->device, buffer, nullptr);
     vkFreeMemory(ctx->device, bufferMemory, nullptr);
 }

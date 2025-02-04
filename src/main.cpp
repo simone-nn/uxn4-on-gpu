@@ -6,13 +6,14 @@
 #include <string>
 #include <thread>
 #include <glm/glm.hpp>
-#include "Resource.h"
-#include "main.h"
+#include "Resource.hpp"
+#include "main.hpp"
 
 #define VERT_SHADER_PATH  "shaders/vert.spv"
 #define FRAG_SHADER_PATH  "shaders/frag.spv"
 #define COMP_SHADER_PATH  "shaders/comp.spv"
-#define UXN_EMULATOR_PATH "shaders/uxn_emu.spv"
+// #define UXN_EMULATOR_PATH "shaders/uxn_emu.spv"
+#define UXN_EMULATOR_PATH "shaders/simple.spv"
 
 typedef struct vertex {
     glm::vec2 position;
@@ -274,6 +275,7 @@ private:
     VkPipeline computePipeline;
     std::vector<VkCommandBuffer> computeCommandBuffers;
 
+    UxnMemory* uxnOriginalMemory;
     UxnMemory* uxnMemory;
     Resource uxnResource;
     VkBuffer hostStagingBuffer;
@@ -284,6 +286,7 @@ private:
     std::vector<VkSemaphore> computeFinishedSemaphores;
     std::vector<VkFence> inFlightFences;
     std::vector<VkFence> computeInFlightFences;
+    VkFence uxnEvaluationFence;
 
     const int MAX_FRAMES_IN_FLIGHT = 1;
     uint32_t currentFrame = 0;
@@ -844,7 +847,7 @@ private:
 
     void initUxnMemory(const std::vector<char> &program) {
         std::cout << "..initUxnMemory: ";
-        if (program.size() + 0x0100 > UXN_RAM_SIZE) {
+        if (program.size() + 0x0100 * sizeof(glm::uint) > UXN_RAM_SIZE) {
             throw std::runtime_error("uxn program is bigger than uxn ram!");
         }
 
@@ -852,14 +855,16 @@ private:
         auto paddedProgram = std::vector<glm::uint>(program.size());
         for (size_t i = 0; i < program.size(); i++) {
             paddedProgram[i] = static_cast<glm::uint>(program[i] << 24);
-        }
-        for (glm::uint val : paddedProgram) {
-            std::cout << "0x" << std::hex << val << " ";
+            std::cout << "0x" << std::hex << paddedProgram[i] << " ";
         }
         std::cout << std::endl;
 
         uxnMemory = new UxnMemory();
-        memcpy(uxnMemory->ram + 0x0100, paddedProgram.data(), paddedProgram.size());
+        memcpy(uxnMemory->ram + 0x0100, paddedProgram.data(), paddedProgram.size() * sizeof(glm::uint));
+        uxnMemory->pc = 0x0100;  // set the program counter to where the program starts from
+
+        uxnOriginalMemory = new UxnMemory();
+        memcpy(uxnOriginalMemory, uxnMemory, sizeof(UxnMemory));
     }
 
     void initResources() {
@@ -883,7 +888,7 @@ private:
         }
 
         // resource creation
-        uxnResource = Resource(ctx, 0, sizeof(UxnMemory), uxnMemory, false, false);
+        uxnResource = Resource(ctx, 0, sizeof(UxnMemory), uxnMemory, false, true, true);
         uxnResource.updateDescriptorSets(uxnResource.buffer, sizeof(UxnMemory));
 
         // host staging buffer
@@ -907,6 +912,10 @@ private:
         VkFenceCreateInfo fenceInfo{};
         fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
         fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+        if (vkCreateFence(ctx.device, &fenceInfo, nullptr, &uxnEvaluationFence) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create synchronization objects!");
+        }
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             if (vkCreateSemaphore(ctx.device, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS ||
@@ -991,42 +1000,49 @@ private:
         }
     }
 
-    void recordComputeCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageIndex) {
+    void uxnStep() {
+        // Compute submission
+        vkResetFences(ctx.device, 1, &uxnEvaluationFence);
+        vkResetCommandBuffer(computeCommandBuffers[currentFrame], 0);
+
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-        if (vkBeginCommandBuffer(cmdBuffer, &beginInfo) != VK_SUCCESS) {
+        if (vkBeginCommandBuffer(computeCommandBuffers[currentFrame], &beginInfo) != VK_SUCCESS) {
             throw std::runtime_error("failed to begin recording command buffer!");
         }
 
-        vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
-        vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout,0,1,
-                                &uxnResource.descriptorSet, 0, nullptr);
+        vkCmdBindPipeline(computeCommandBuffers[currentFrame], VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
+        vkCmdBindDescriptorSets(computeCommandBuffers[currentFrame], VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout,
+            0,1, &uxnResource.descriptorSet, 0, nullptr);
 
-        vkCmdDispatch(cmdBuffer, 1, 1, 1);
+        VkMemoryBarrier memoryBarrier{};
+        memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+        memoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+        memoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        vkCmdPipelineBarrier(computeCommandBuffers[currentFrame], VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
 
-        if (vkEndCommandBuffer(cmdBuffer) != VK_SUCCESS) {
+        vkCmdDispatch(computeCommandBuffers[currentFrame], 1, 1, 1);
+
+        if (vkEndCommandBuffer(computeCommandBuffers[currentFrame]) != VK_SUCCESS) {
             throw std::runtime_error("failed to record command buffer!");
         }
-    }
-
-    void drawFrame() {
-        // Compute submission
-        vkWaitForFences(ctx.device, 1, &computeInFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
-        vkResetFences(ctx.device, 1, &computeInFlightFences[currentFrame]);
-        vkResetCommandBuffer(computeCommandBuffers[currentFrame], 0);
-        recordComputeCommandBuffer(computeCommandBuffers[currentFrame], currentFrame);
 
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &computeCommandBuffers[currentFrame];
-        submitInfo.signalSemaphoreCount = 1;
-        submitInfo.pSignalSemaphores = &computeFinishedSemaphores[currentFrame];
-        if (vkQueueSubmit(ctx.computeQueue, 1, &submitInfo, computeInFlightFences[currentFrame]) != VK_SUCCESS) {
+        // submitInfo.signalSemaphoreCount = 1;
+        // submitInfo.pSignalSemaphores = &computeFinishedSemaphores[currentFrame];
+        if (vkQueueSubmit(ctx.computeQueue, 1, &submitInfo, uxnEvaluationFence) != VK_SUCCESS) {
             throw std::runtime_error("failed to submit compute command buffer!");
         }
+        // wait for uxn step to be done
+        vkWaitForFences(ctx.device, 1, &uxnEvaluationFence, VK_TRUE, UINT64_MAX);
+    }
 
+    void drawFrame() {
         // Graphics submission
         // Wait for previous frame to finish drawing
         // vkWaitForFences(ctx.device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
@@ -1072,9 +1088,6 @@ private:
         //
         // // Present Commands get submitted:
         // vkQueuePresentKHR(ctx.presentQueue, &presentInfo);
-        //
-        // // iter the currentFrame
-        // currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
     }
 
     void printUxnDeviceMemory() {
@@ -1086,32 +1099,40 @@ private:
 
         // copy from ssbo buffer to host staging buffer
         copyBuffer(ctx, uxnResource.buffer, hostStagingBuffer, sizeof(UxnMemory));
+
         void* data;
-        vkMapMemory(ctx.device, hostStagingMemory, 0, sizeof(UxnMemory), 0, &data);
+        if (vkMapMemory(ctx.device, hostStagingMemory, 0, sizeof(UxnMemory), 0, &data) != VK_SUCCESS) {
+            std::cerr << "Failed to map memory!" << std::endl;
+            return;
+        }
 
-        // Copy data from mapped memory
-        // std::vector<uint8_t> hostData(sizeof(UxnMemory));
-        memcpy(uxnMemory, data, sizeof(UxnMemory));
+        auto* mappedMemory = static_cast<UxnMemory*>(data);
+        memset(uxnMemory, 0, sizeof(UxnMemory));
+        memcpy(uxnMemory, mappedMemory, sizeof(UxnMemory));
 
-        // Unmap memory when done
         vkUnmapMemory(ctx.device, hostStagingMemory);
 
-        // memcpy(uxnMemory, uxnResource.bufferMemory, sizeof(UxnMemory));  //todo SEG-FAULT here!
-
         // printing only device memory
-        auto device_chars = reinterpret_cast<char *>(uxnMemory->dev);
-        std::cout << "uxnMemory->dev:" << std::endl;
-        std::cout << device_chars[256] << std::endl;
+        // auto device_chars = reinterpret_cast<char *>(uxnMemory->dev);
+        // std::cout << "uxnMemory->dev:" << std::endl;
+        // std::cout << device_chars[256] << std::endl;
+        std::cout << "uxnMemory->pc:" << std::hex << "0x" << uxnMemory->pc << std::dec << std::endl;
         std::cout << "---------------" << std::endl;
     }
 
     void mainLoop() {
-        while (!glfwWindowShouldClose(ctx.window)) {
+        int step = 3;
+        while (!glfwWindowShouldClose(ctx.window) && step > 0) {
+            step--;
             glfwPollEvents();
+            uxnStep();
             drawFrame();
-            printUxnDeviceMemory();
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            // iter the currentFrame
+            currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
         }
+        printUxnDeviceMemory();
+        std::cout << "finished at pc: 0x" << std::hex << uxnMemory->pc << std::dec << "!" << std::endl;
         vkDeviceWaitIdle(ctx.device);
     }
 
@@ -1125,6 +1146,7 @@ private:
             vkDestroyFence(ctx.device, inFlightFences[i], nullptr);
             vkDestroyFence(ctx.device, computeInFlightFences[i], nullptr);
         }
+        vkDestroyFence(ctx.device, uxnEvaluationFence, nullptr);
         delete uxnMemory;
         uxnResource.destroy();
         vkDestroyCommandPool(ctx.device, ctx.commandPool, nullptr);

@@ -14,6 +14,7 @@ layout(std140, binding = 0) buffer UXN_Buffer {
     stack wst;  // working stack
     stack rst;  // return stack
     uint dev[256];  // todo device data
+    uint pc;
 } uxn;
 
 layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
@@ -50,7 +51,6 @@ void emu_deo(uint addr, uint value) {
 #define DEC(s) uxn.s.dat[--uxn.s.ptr]
 
 struct State {
-    uint pc;
     uint a, b, c;
     uvec2 x, y, z;
 };
@@ -63,8 +63,8 @@ void RP1(uint i, int _r) {
     }
 }
 
-uint JMP(uint i, uint pc, int _2) {
-    return (_2 != 0) ? i : pc + i;
+void JMP(uint i, int _2) {
+    uxn.pc = (_2 != 0) ? i : uxn.pc + i;
 }
 
 uint PO1(int _r) {
@@ -133,8 +133,8 @@ uvec2 GET(uvec2 prev, int _r, int _2) {
 }
 
 State JMI(State s) {
-    s.a = uxn.ram[s.pc] << 8 | uxn.ram[s.pc + 1];
-    s.pc += s.a + 2;
+    s.a = uxn.ram[uxn.pc] << 8 | uxn.ram[uxn.pc + 1];
+    uxn.pc += s.a + 2;
     return s;
 }
 
@@ -166,131 +166,131 @@ State PUx(State s, uint i, int _r, int _2) {
 }
 
 int uxn_eval(State state) {
-    uint step = 524288; //0x80000
-	if((state.pc == 0) || (uxn.dev[0x0f] != 0)) return 0;
-	while((step--) != 0) {
-		switch(uxn.ram[state.pc++]) {
-		/* BRK */ case 0x00000000: return 1;
-		/* JCI */ case 0x20000000:
-		            if(DEC(wst) != 0) { state = JMI(state); }
-					else { state.pc += 2; }
-		            break;
-		/* JMI */ case 0x40000000: state = JMI(state); break;
-		/* JSI */ case 0x60000000:
-		            state.c = state.pc + 2;
-					INC(rst) = state.c >> 8;
-					INC(rst) = state.c;
-					state = JMI(state); break;
-		/* LI2 */ case 0xa0000000: INC(wst) = uxn.ram[state.pc++]; /* fall-through */
-		/* LIT */ case 0x80000000: INC(wst) = uxn.ram[state.pc++]; break;
-		/* L2r */ case 0xe0000000: INC(rst) = uxn.ram[state.pc++]; /* fall-through */
-		/* LIr */ case 0xc0000000: INC(rst) = uxn.ram[state.pc++]; break;
-		/* INC */ OPC(0x01000000, state.a = POx(_r, _2);, state = PUx(state, state.a + 1, _r, _2);)
-		/* POP */ OPC(0x02000000, REM(_r, _2);, {})
-		/* NIP */ OPC(0x03000000,
-		              state.x = GET(state.x, _r, _2); REM(_r, _2); ,
-					  PUT(state.x, _r, _2); )
-		/* SWP */ OPC(0x04000000,
-		              state.x = GET(state.x, _r, _2); state.y = GET(state.y, _r, _2); ,
-					  PUT(state.x, _r, _2); PUT(state.y, _r, _2); )
-		/* ROT */ OPC(0x05000000,
-		              state.x = GET(state.x,_r,_2);
-					  state.y = GET(state.y,_r,_2);
-					  state.z = GET(state.z,_r,_2); ,
-					  PUT(state.y,_r,_2);
-					  PUT(state.x,_r,_2);
-					  PUT(state.z,_r,_2); )
-		/* DUP */ OPC(0x06000000,
-		              state.x = GET(state.x,_r,_2); ,
-					  PUT(state.x,_r,_2);
-					  PUT(state.x,_r,_2); )
-		/* OVR */ OPC(0x07000000,
-		              state.x = GET(state.x,_r,_2); state.y = GET(state.y,_r,_2); ,
-					  PUT(state.y,_r,_2); PUT(state.x,_r,_2); PUT(state.y,_r,_2); )
-		/* EQU */ OPC(0x08000000,
-		              state.a = POx(_r,_2); state.b = POx(_r,_2); ,
-					  if (state.b == state.a) { PU1(1,_r); }
-					  else { PU1(0,_r); })
-		/* NEQ */ OPC(0x09000000,
-		              state.a = POx(_r,_2); state.b = POx(_r,_2); ,
-					  if (state.b != state.a) { PU1(1,_r); }
-					  else { PU1(0,_r); })
-		/* GTH */ OPC(0x0a000000,
-                      state.a = POx(_r,_2); state.b = POx(_r,_2); ,
-                      if (state.b > state.a) { PU1(1,_r); }
-                      else { PU1(0,_r); })
-		/* LTH */ OPC(0x0b000000,
-                      state.a = POx(_r,_2); state.b = POx(_r,_2); ,
-                      if (state.b < state.a) { PU1(1,_r); }
-                      else { PU1(0,_r); })
-		/* JMP */ OPC(0x0c000000,
-		              state.a = POx(_r,_2); ,
-					  state.pc = JMP(state.a, state.pc, _2); )
-		/* JCN */ OPC(0x0d000000,
-		              state.a = POx(_r,_2); state.b = PO1(_r); ,
-					  if(state.b != 0) { state.pc = JMP(state.a, state.pc, _2); })
-		/* JSR */ OPC(0x0e000000,
-		              state.a = POx(_r,_2); ,
-			          RP1(state.pc >> 8,_r); RP1(state.pc,_r); state.pc = JMP(state.a, state.pc, _2); )
-		/* STH */ OPC(0x0f000000,
-		              state.x = GET(state.x,_r,_2); ,
-					  RP1(state.x.x,_r);
-					  if(_2 != 0) { RP1(state.x.y,_r); })
-		/* LDZ */ OPC(0x10000000,
-		              state.a = PO1(_r); ,
-					  state.x = PEK(state.a, state.x, 0xff000000, _r, _2); )
-		/* STZ */ OPC(0x11000000,
-		              state.a = PO1(_r); state.y = GET(state.y,_r,_2); ,
-					  POK(state.a, state.y, 0xff000000, _r, _2); )
-		/* LDR */ OPC(0x12000000,
-		              state.a = PO1(_r); ,
-					  state.x = PEK(state.pc + state.a, state.x, 0xffff0000, _r,_2); )
-		/* STR */ OPC(0x13000000,
-		              state.a = PO1(_r); state.y = GET(state.y,_r,_2); ,
-					  POK(state.pc + state.a, state.y, 0xffff0000, _r,_2); )
-		/* LDA */ OPC(0x14000000,
-		              state.a = PO2(_r); ,
-					  state.x = PEK(state.a, state.x, 0xffff, _r,_2); )
-		/* STA */ OPC(0x15000000,
-		              state.a = PO2(_r); state.y = GET(state.y,_r,_2); ,
-					  POK(state.a, state.y, 0xffff0000, _r,_2); )
-		/* DEI */ OPC(0x16000000,
-		              state.a = PO1(_r); ,
-					  state.x = DEI(state.a, state.x, _r,_2); )
-		/* DEO */ OPC(0x17000000,
-		              state.a = PO1(_r); state.y = GET(state.y,_r,_2); ,
-					  DEO(state.a, state.y, _2); )
-		/* ADD */ OPC(0x18000000,
-		              state.a = POx(_r,_2); state.b = POx(_r,_2); ,
-					  state = PUx(state, state.b + state.a, _r,_2); )
-		/* SUB */ OPC(0x19000000,
-                      state.a = POx(_r,_2); state.b = POx(_r,_2); ,
-                      state = PUx(state, state.b - state.a, _r,_2); )
-		/* MUL */ OPC(0x1a000000,
-		              state.a = POx(_r,_2); state.b = POx(_r,_2); ,
-                      state = PUx(state, state.b * state.a, _r,_2); )
-		/* DIV */ OPC(0x1b000000,
-                      state.a = POx(_r,_2); state.b = POx(_r,_2); ,
-                      state = PUx(state, (state.a!=0) ? state.b / state.a : 0, _r,_2); )
-		/* AND */ OPC(0x1c000000,
-                      state.a = POx(_r,_2); state.b = POx(_r,_2); ,
-                      state = PUx(state, state.a & state.b, _r,_2); )
-		/* ORA */ OPC(0x1d000000,
-		              state.a = POx(_r,_2); state.b = POx(_r,_2); ,
-                      state = PUx(state, state.a | state.b, _r,_2); )
-		/* EOR */ OPC(0x1e000000,
-                      state.a = POx(_r,_2); state.b = POx(_r,_2); ,
-                      state = PUx(state, state.a ^ state.b, _r,_2); )
-		/* SFT */ OPC(0x1f000000,
-		              state.a = PO1(_r); state.b = POx(_r,_2); ,
-					  state = PUx(state, state.b >> (state.a & 0xf000000) << (state.a >> 4), _r,_2); )
-		          default: break;
-		}
+	if((uxn.pc == 0) || (uxn.dev[0x0f] != 0)) return 0;
+	uxn.pc++;
+	switch(uxn.ram[uxn.pc]) {
+    /* BRK */ case 0x00000000: return 1;
+    /* JCI */ case 0x20000000:
+                if(DEC(wst) != 0) { state = JMI(state); }
+                else { uxn.pc += 2; }
+                break;
+    /* JMI */ case 0x40000000: state = JMI(state); break;
+    /* JSI */ case 0x60000000:
+                state.c = uxn.pc + 2;
+                INC(rst) = state.c >> 8;
+                INC(rst) = state.c;
+                state = JMI(state); break;
+    /* LI2 */ case 0xa0000000: INC(wst) = uxn.ram[uxn.pc++]; /* fall-through */
+    /* LIT */ case 0x80000000: INC(wst) = uxn.ram[uxn.pc++]; break;
+    /* L2r */ case 0xe0000000: INC(rst) = uxn.ram[uxn.pc++]; /* fall-through */
+    /* LIr */ case 0xc0000000: INC(rst) = uxn.ram[uxn.pc++]; break;
+    /* INC */ OPC(0x01000000, state.a = POx(_r, _2);, state = PUx(state, state.a + 1, _r, _2);)
+    /* POP */ OPC(0x02000000, REM(_r, _2);, {})
+    /* NIP */ OPC(0x03000000,
+                  state.x = GET(state.x, _r, _2); REM(_r, _2); ,
+                  PUT(state.x, _r, _2); )
+    /* SWP */ OPC(0x04000000,
+                  state.x = GET(state.x, _r, _2); state.y = GET(state.y, _r, _2); ,
+                  PUT(state.x, _r, _2); PUT(state.y, _r, _2); )
+    /* ROT */ OPC(0x05000000,
+                  state.x = GET(state.x,_r,_2);
+                  state.y = GET(state.y,_r,_2);
+                  state.z = GET(state.z,_r,_2); ,
+                  PUT(state.y,_r,_2);
+                  PUT(state.x,_r,_2);
+                  PUT(state.z,_r,_2); )
+    /* DUP */ OPC(0x06000000,
+                  state.x = GET(state.x,_r,_2); ,
+                  PUT(state.x,_r,_2);
+                  PUT(state.x,_r,_2); )
+    /* OVR */ OPC(0x07000000,
+                  state.x = GET(state.x,_r,_2); state.y = GET(state.y,_r,_2); ,
+                  PUT(state.y,_r,_2); PUT(state.x,_r,_2); PUT(state.y,_r,_2); )
+    /* EQU */ OPC(0x08000000,
+                  state.a = POx(_r,_2); state.b = POx(_r,_2); ,
+                  if (state.b == state.a) { PU1(1,_r); }
+                  else { PU1(0,_r); })
+    /* NEQ */ OPC(0x09000000,
+                  state.a = POx(_r,_2); state.b = POx(_r,_2); ,
+                  if (state.b != state.a) { PU1(1,_r); }
+                  else { PU1(0,_r); })
+    /* GTH */ OPC(0x0a000000,
+                  state.a = POx(_r,_2); state.b = POx(_r,_2); ,
+                  if (state.b > state.a) { PU1(1,_r); }
+                  else { PU1(0,_r); })
+    /* LTH */ OPC(0x0b000000,
+                  state.a = POx(_r,_2); state.b = POx(_r,_2); ,
+                  if (state.b < state.a) { PU1(1,_r); }
+                  else { PU1(0,_r); })
+    /* JMP */ OPC(0x0c000000,
+                  state.a = POx(_r,_2); ,
+                  JMP(state.a, _2); )
+    /* JCN */ OPC(0x0d000000,
+                  state.a = POx(_r,_2); state.b = PO1(_r); ,
+                  if(state.b != 0) { JMP(state.a, _2); })
+    /* JSR */ OPC(0x0e000000,
+                  state.a = POx(_r,_2); ,
+                  RP1(uxn.pc >> 8,_r); RP1(uxn.pc,_r); JMP(state.a, _2); )
+    /* STH */ OPC(0x0f000000,
+                  state.x = GET(state.x,_r,_2); ,
+                  RP1(state.x.x,_r);
+                  if(_2 != 0) { RP1(state.x.y,_r); })
+    /* LDZ */ OPC(0x10000000,
+                  state.a = PO1(_r); ,
+                  state.x = PEK(state.a, state.x, 0xff000000, _r, _2); )
+    /* STZ */ OPC(0x11000000,
+                  state.a = PO1(_r); state.y = GET(state.y,_r,_2); ,
+                  POK(state.a, state.y, 0xff000000, _r, _2); )
+    /* LDR */ OPC(0x12000000,
+                  state.a = PO1(_r); ,
+                  state.x = PEK(uxn.pc + state.a, state.x, 0xffff0000, _r,_2); )
+    /* STR */ OPC(0x13000000,
+                  state.a = PO1(_r); state.y = GET(state.y,_r,_2); ,
+                  POK(uxn.pc + state.a, state.y, 0xffff0000, _r,_2); )
+    /* LDA */ OPC(0x14000000,
+                  state.a = PO2(_r); ,
+                  state.x = PEK(state.a, state.x, 0xffff, _r,_2); )
+    /* STA */ OPC(0x15000000,
+                  state.a = PO2(_r); state.y = GET(state.y,_r,_2); ,
+                  POK(state.a, state.y, 0xffff0000, _r,_2); )
+    /* DEI */ OPC(0x16000000,
+                  state.a = PO1(_r); ,
+                  state.x = DEI(state.a, state.x, _r,_2); )
+    /* DEO */ OPC(0x17000000,
+                  state.a = PO1(_r); state.y = GET(state.y,_r,_2); ,
+                  DEO(state.a, state.y, _2); )
+    /* ADD */ OPC(0x18000000,
+                  state.a = POx(_r,_2); state.b = POx(_r,_2); ,
+                  state = PUx(state, state.b + state.a, _r,_2); )
+    /* SUB */ OPC(0x19000000,
+                  state.a = POx(_r,_2); state.b = POx(_r,_2); ,
+                  state = PUx(state, state.b - state.a, _r,_2); )
+    /* MUL */ OPC(0x1a000000,
+                  state.a = POx(_r,_2); state.b = POx(_r,_2); ,
+                  state = PUx(state, state.b * state.a, _r,_2); )
+    /* DIV */ OPC(0x1b000000,
+                  state.a = POx(_r,_2); state.b = POx(_r,_2); ,
+                  state = PUx(state, (state.a!=0) ? state.b / state.a : 0, _r,_2); )
+    /* AND */ OPC(0x1c000000,
+                  state.a = POx(_r,_2); state.b = POx(_r,_2); ,
+                  state = PUx(state, state.a & state.b, _r,_2); )
+    /* ORA */ OPC(0x1d000000,
+                  state.a = POx(_r,_2); state.b = POx(_r,_2); ,
+                  state = PUx(state, state.a | state.b, _r,_2); )
+    /* EOR */ OPC(0x1e000000,
+                  state.a = POx(_r,_2); state.b = POx(_r,_2); ,
+                  state = PUx(state, state.a ^ state.b, _r,_2); )
+    /* SFT */ OPC(0x1f000000,
+                  state.a = PO1(_r); state.b = POx(_r,_2); ,
+                  state = PUx(state, state.b >> (state.a & 0xf000000) << (state.a >> 4), _r,_2); )
+              default: break;
 	}
+	return 2;
 }
 
 void main() {
-    State state = {0x01000000, 0, 0, 0, uvec2(0,0), uvec2(0,0), uvec2(0,0)};
-    // this runs an entire uxn program
-    uxn_eval(state);
+    //State state = {0, 0, 0, uvec2(0,0), uvec2(0,0), uvec2(0,0)};
+    // this runs one uxn instruction
+    uxn.pc = uxn.pc+1; //TODO: remove this line
+    //uxn.dev[uxn.pc - 0x100] = uxn_eval(state);
 }
