@@ -12,8 +12,7 @@
 #define VERT_SHADER_PATH  "shaders/vert.spv"
 #define FRAG_SHADER_PATH  "shaders/frag.spv"
 #define COMP_SHADER_PATH  "shaders/comp.spv"
-// #define UXN_EMULATOR_PATH "shaders/uxn_emu.spv"
-#define UXN_EMULATOR_PATH "shaders/simple.spv"
+#define UXN_EMULATOR_PATH "shaders/uxn_emu.spv"
 
 typedef struct vertex {
     glm::vec2 position;
@@ -251,7 +250,7 @@ public:
     int HEIGHT = 600;
     bool enableValidationLayers;
     std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
-    std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+    std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, "VK_KHR_portability_subset" };
 
     UXN_on_GPU(bool enableValidationLayers, const std::vector<char> &program) {
         this->enableValidationLayers = enableValidationLayers;
@@ -346,7 +345,7 @@ private:
         appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
         appInfo.pEngineName = "No Engine";
         appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-        appInfo.apiVersion = VK_API_VERSION_1_3;
+        appInfo.apiVersion = VK_API_VERSION_1_2;
 
         VkInstanceCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;

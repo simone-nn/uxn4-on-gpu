@@ -7,16 +7,13 @@
 #define UXN_STACK_SIZE 256
 #define UXN_DEV_SIZE 256
 
-typedef struct uxn_stack {
-    glm::uint dat[UXN_STACK_SIZE];
-    glm::uint ptr;
-} UxnStack;
-
 typedef struct uxn_memory {
     glm::uint pc;
     glm::uint ram[UXN_RAM_SIZE];
-    UxnStack wst;  // working stack
-    UxnStack rst;  // return stack
+    glm::uint wst[UXN_STACK_SIZE];  // working stack
+    glm::uint pWst;
+    glm::uint rst[UXN_STACK_SIZE];  // return stack
+    glm::uint pRst;
     glm::uint dev[UXN_DEV_SIZE];
 } UxnMemory;
 

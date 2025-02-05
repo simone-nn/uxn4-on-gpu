@@ -4,20 +4,17 @@
 // Based on the UXN emulator from https://wiki.xxiivv.com/site/uxn.html
 //
 
-struct stack {
-    uint dat[256];
-	uint ptr;
-};
-
 layout(std140, binding = 0) buffer UXN_Buffer {
-    uint ram[65536];
-    stack wst;  // working stack
-    stack rst;  // return stack
-    uint dev[256];  // todo device data
     uint pc;
+    uint ram[65536];
+    uint wst[256];  // working stack
+    uint pWst;
+    uint rst[256];  // return stack
+    uint pRst;
+    uint dev[256];  // todo device data
 } uxn;
 
-layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout (local_size_x = 1) in;
 
 /* Devices */
 // device in
@@ -35,31 +32,49 @@ void emu_deo(uint addr, uint value) {
 	// uxn.dev[addr+3] = value << 24;
 }
 
+/* VM Registry State */
+struct State {
+    uint a, b, c;
+    uvec2 x, y, z;
+};
+
 /* Unroll */
 #define OPC(opc, init, body) \
 	case 0x00|opc: {const int _2=0,_r=0;init body;} break;\
 	case 0x20|opc: {const int _2=1,_r=0;init body;} break;\
 	case 0x40|opc: {const int _2=0,_r=1;init body;} break;\
 	case 0x60|opc: {const int _2=1,_r=1;init body;} break;\
-	case 0x80|opc: {const int _2=0,_r=0;uint k=uxn.wst.ptr;init uxn.wst.ptr=k;body;} break;\
-	case 0xa0|opc: {const int _2=1,_r=0;uint k=uxn.wst.ptr;init uxn.wst.ptr=k;body;} break;\
-	case 0xc0|opc: {const int _2=0,_r=1;uint k=uxn.rst.ptr;init uxn.rst.ptr=k;body;} break;\
-	case 0xe0|opc: {const int _2=1,_r=1;uint k=uxn.rst.ptr;init uxn.rst.ptr=k;body;} break;\
+	case 0x80|opc: {const int _2=0,_r=0;uint k=uxn.pWst;init uxn.pWst=k;body;} break;\
+	case 0xa0|opc: {const int _2=1,_r=0;uint k=uxn.pWst;init uxn.pWst=k;body;} break;\
+	case 0xc0|opc: {const int _2=0,_r=1;uint k=uxn.pRst;init uxn.pRst=k;body;} break;\
+	case 0xe0|opc: {const int _2=1,_r=1;uint k=uxn.pRst;init uxn.pRst=k;body;} break;\
 
 /* Microcode */
-#define INC(s) uxn.s.dat[uxn.s.ptr++]
-#define DEC(s) uxn.s.dat[--uxn.s.ptr]
+void push_wst(uint i) {
+    uxn.wst[uxn.pWst] = i;
+    uxn.pWst++;
+}
 
-struct State {
-    uint a, b, c;
-    uvec2 x, y, z;
-};
+void push_rst(uint i) {
+    uxn.rst[uxn.pRst] = i;
+    uxn.pRst++;
+}
+
+uint pop_wst() {
+    uxn.pWst--;
+    return uxn.wst[uxn.pWst];
+}
+
+uint pop_rst() {
+    uxn.pRst--;
+    return uxn.rst[uxn.pRst];
+}
 
 void RP1(uint i, int _r) {
     if(_r != 0) {
-        INC(wst) = i;
+        push_wst(i);
     } else {
-        INC(rst) = i;
+        push_rst(i);
     }
 }
 
@@ -68,18 +83,18 @@ void JMP(uint i, int _2) {
 }
 
 uint PO1(int _r) {
-    return (_r != 0) ? DEC(rst) : DEC(wst);
+    return (_r != 0) ? pop_rst() : pop_wst();
 }
 
 uint PO2(int _r) {
-    return (_r != 0) ? DEC(rst) | DEC(rst) << 8 : DEC(wst) | DEC(wst) << 8;
+    return (_r != 0) ? pop_rst() | pop_rst() << 8 : pop_wst() | pop_wst() << 8;
 }
 
 void PU1(uint i, int _r) {
     if(_r != 0) {
-        INC(rst) = i;
+        push_rst(i);
     } else {
-        INC(wst) = i;
+        push_wst(i);
     }
 }
 
@@ -140,9 +155,9 @@ State JMI(State s) {
 
 void REM(int _r, int _2) {
     if(_r != 0) {
-        uxn.rst.ptr -= 1 + _2;
+        uxn.pRst -= 1 + _2;
     } else {
-        uxn.wst.ptr -= 1 + _2;
+        uxn.pWst -= 1 + _2;
     }
 }
 
@@ -171,19 +186,19 @@ int uxn_eval(State state) {
 	switch(uxn.ram[uxn.pc]) {
     /* BRK */ case 0x00000000: return 1;
     /* JCI */ case 0x20000000:
-                if(DEC(wst) != 0) { state = JMI(state); }
+                if(pop_wst() != 0) { state = JMI(state); }
                 else { uxn.pc += 2; }
                 break;
     /* JMI */ case 0x40000000: state = JMI(state); break;
     /* JSI */ case 0x60000000:
                 state.c = uxn.pc + 2;
-                INC(rst) = state.c >> 8;
-                INC(rst) = state.c;
+                push_rst(state.c >> 8);
+                push_rst(state.c);
                 state = JMI(state); break;
-    /* LI2 */ case 0xa0000000: INC(wst) = uxn.ram[uxn.pc++]; /* fall-through */
-    /* LIT */ case 0x80000000: INC(wst) = uxn.ram[uxn.pc++]; break;
-    /* L2r */ case 0xe0000000: INC(rst) = uxn.ram[uxn.pc++]; /* fall-through */
-    /* LIr */ case 0xc0000000: INC(rst) = uxn.ram[uxn.pc++]; break;
+    /* LI2 */ case 0xa0000000: push_wst(uxn.ram[uxn.pc++]); /* fall-through */
+    /* LIT */ case 0x80000000: push_wst(uxn.ram[uxn.pc++]); break;
+    /* L2r */ case 0xe0000000: push_rst(uxn.ram[uxn.pc++]); /* fall-through */
+    /* LIr */ case 0xc0000000: push_rst(uxn.ram[uxn.pc++]); break;
     /* INC */ OPC(0x01000000, state.a = POx(_r, _2);, state = PUx(state, state.a + 1, _r, _2);)
     /* POP */ OPC(0x02000000, REM(_r, _2);, {})
     /* NIP */ OPC(0x03000000,
@@ -291,6 +306,8 @@ int uxn_eval(State state) {
 void main() {
     //State state = {0, 0, 0, uvec2(0,0), uvec2(0,0), uvec2(0,0)};
     // this runs one uxn instruction
-    uxn.pc = uxn.pc+1; //TODO: remove this line
+    uxn.pc = uxn.pc + 1; //TODO: remove this line
+    uxn.ram[uxn.pc - 256] = 1;
+    uxn.dev[uxn.pc - 256] = 1;
     //uxn.dev[uxn.pc - 0x100] = uxn_eval(state);
 }
