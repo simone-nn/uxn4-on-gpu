@@ -860,8 +860,10 @@ private:
         std::cout << std::endl;
 
         uxnMemory = new UxnMemory();
+        // copy the program into memory
         memcpy(uxnMemory->ram + 0x0100, paddedProgram.data(), paddedProgram.size() * sizeof(glm::uint));
-        uxnMemory->pc = 0x0100;  // set the program counter to where the program starts from
+        // set the program counter to where the program starts from
+        uxnMemory->pc = 0x0100;
 
         uxnOriginalMemory = new UxnMemory();
         memcpy(uxnOriginalMemory, uxnMemory, sizeof(UxnMemory));
@@ -888,7 +890,7 @@ private:
         }
 
         // resource creation
-        uxnResource = Resource(ctx, 0, sizeof(UxnMemory), uxnMemory, false, true, true);
+        uxnResource = Resource(ctx, 0, sizeof(UxnMemory), uxnMemory, false, false, true);
         uxnResource.updateDescriptorSets(uxnResource.buffer, sizeof(UxnMemory));
 
         // host staging buffer
