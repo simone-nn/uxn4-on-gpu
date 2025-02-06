@@ -6,7 +6,7 @@
 
 layout(std140, binding = 0) buffer UXN_Buffer {
     uint pc;
-    uint ram[65536];
+    uvec4 ram[65536];
     uint wst[256];  // working stack
     uint pWst;
     uint rst[256];  // return stack
@@ -303,11 +303,20 @@ int uxn_eval(State state) {
 	return 2;
 }
 
+
+
 void main() {
     //State state = {0, 0, 0, uvec2(0,0), uvec2(0,0), uvec2(0,0)};
     // this runs one uxn instruction
+
+
     uxn.pc = uxn.pc + 1; //TODO: remove this line
-    uxn.ram[uxn.pc - 256] = 1;
-    uxn.dev[uxn.pc - 256] = 1;
+    uxn.ram[uxn.pc - 256].x = 0xffffffff;
+    //uxn.ram[uxn.pc - 256].y = uxn.pc + 1;
+    //uxn.ram[uxn.pc - 256].z = uxn.pc + 2;
+    //uxn.ram[uxn.pc - 256].w = uxn.pc + 3;
+    //uxn.dev[uxn.pc - 256] = uxn.pc;
+
+
     //uxn.dev[uxn.pc - 0x100] = uxn_eval(state);
 }

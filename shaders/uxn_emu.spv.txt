@@ -1,0 +1,70 @@
+; SPIR-V
+; Version: 1.6
+; Generator: Khronos SPIR-V Tools Assembler; 0
+; Bound: 32
+; Schema: 0
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint GLCompute %main "main" %uxn
+               OpExecutionMode %main LocalSize 1 1 1
+               OpSource GLSL 450
+               OpName %main "main"
+               OpName %UXN_Buffer "UXN_Buffer"
+               OpMemberName %UXN_Buffer 0 "pc"
+               OpMemberName %UXN_Buffer 1 "ram"
+               OpMemberName %UXN_Buffer 2 "wst"
+               OpMemberName %UXN_Buffer 3 "pWst"
+               OpMemberName %UXN_Buffer 4 "rst"
+               OpMemberName %UXN_Buffer 5 "pRst"
+               OpMemberName %UXN_Buffer 6 "dev"
+               OpName %uxn "uxn"
+               OpDecorate %_arr_uint_uint_65536 ArrayStride 4
+               OpDecorate %_arr_uint_uint_256 ArrayStride 4
+               OpDecorate %_arr_uint_uint_256_0 ArrayStride 4
+               OpDecorate %_arr_uint_uint_256_1 ArrayStride 4
+               OpMemberDecorate %UXN_Buffer 0 Offset 0
+               OpMemberDecorate %UXN_Buffer 1 Offset 4
+               OpMemberDecorate %UXN_Buffer 2 Offset 262148
+               OpMemberDecorate %UXN_Buffer 3 Offset 263172
+               OpMemberDecorate %UXN_Buffer 4 Offset 263176
+               OpMemberDecorate %UXN_Buffer 5 Offset 264200
+               OpMemberDecorate %UXN_Buffer 6 Offset 264204
+               OpDecorate %UXN_Buffer Block
+               OpDecorate %uxn DescriptorSet 0
+               OpDecorate %uxn Binding 0
+               OpDecorate %gl_WorkGroupSize BuiltIn WorkgroupSize
+       %void = OpTypeVoid
+         %11 = OpTypeFunction %void
+       %uint = OpTypeInt 32 0
+ %uint_65536 = OpConstant %uint 65536
+%_arr_uint_uint_65536 = OpTypeArray %uint %uint_65536
+   %uint_256 = OpConstant %uint 256
+%_arr_uint_uint_256 = OpTypeArray %uint %uint_256
+%_arr_uint_uint_256_0 = OpTypeArray %uint %uint_256
+%_arr_uint_uint_256_1 = OpTypeArray %uint %uint_256
+ %UXN_Buffer = OpTypeStruct %uint %_arr_uint_uint_65536 %_arr_uint_uint_256 %uint %_arr_uint_uint_256_0 %uint %_arr_uint_uint_256_1
+%_ptr_StorageBuffer_UXN_Buffer = OpTypePointer StorageBuffer %UXN_Buffer
+        %uxn = OpVariable %_ptr_StorageBuffer_UXN_Buffer StorageBuffer
+        %int = OpTypeInt 32 1
+      %int_0 = OpConstant %int 0
+%_ptr_StorageBuffer_uint = OpTypePointer StorageBuffer %uint
+     %uint_1 = OpConstant %uint 1
+      %int_1 = OpConstant %int 1
+%uint_4294967295 = OpConstant %uint 4294967295
+     %v3uint = OpTypeVector %uint 3
+%gl_WorkGroupSize = OpConstantComposite %v3uint %uint_1 %uint_1 %uint_1
+       %main = OpFunction %void None %11
+         %23 = OpLabel
+         %24 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_0
+         %25 = OpLoad %uint %24
+         %26 = OpIAdd %uint %25 %uint_1
+         %27 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_0
+               OpStore %27 %26
+         %28 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_0
+         %29 = OpLoad %uint %28
+         %30 = OpISub %uint %29 %uint_256
+         %31 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_1 %30
+               OpStore %31 %uint_4294967295
+               OpReturn
+               OpFunctionEnd

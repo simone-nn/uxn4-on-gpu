@@ -864,6 +864,9 @@ private:
         // set the program counter to where the program starts from
         uxnMemory->pc = 0x0100;
 
+        uxnMemory->ram[0] = 1;
+        uxnMemory->ram[1] = 1;
+
         uxnOriginalMemory = new UxnMemory();
         memcpy(uxnOriginalMemory, uxnMemory, sizeof(UxnMemory));
     }
@@ -1122,6 +1125,7 @@ private:
     }
 
     void mainLoop() {
+        std::cout << sizeof(glm::uint) << std::endl;
         int step = 3;
         while (!glfwWindowShouldClose(ctx.window) && step > 0) {
             step--;
