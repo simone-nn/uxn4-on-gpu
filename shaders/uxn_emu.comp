@@ -6,7 +6,7 @@
 
 layout(std140, binding = 0) buffer UXN_Buffer {
     uint pc;
-    uvec4 ram[65536];
+    uint ram[65536];
     uint wst[256];  // working stack
     uint pWst;
     uint rst[256];  // return stack

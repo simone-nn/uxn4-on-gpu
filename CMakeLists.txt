@@ -3,14 +3,28 @@ project(uxn-on-gpu)
 
 set(CMAKE_CXX_STANDARD 20)
 
-# CLion fix
-# set(CMAKE_OSX_SYSROOT /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk)
+#message(STATUS ${CMAKE_BINARY_DIR},${CMAKE_SOURCE_DIR})
+
+# Shader compilation
+add_custom_command(
+        OUTPUT ${CMAKE_BINARY_DIR}/shaders/uxn_emu.spv
+        COMMAND ${CMAKE_SOURCE_DIR}/compile_shaders.sh
+        DEPENDS ${CMAKE_SOURCE_DIR}/shaders/uxn_emu.comp
+        COMMENT "Compiling shaders..."
+)
+# Define a target for shader compilation
+add_custom_target(compile_shaders DEPENDS ${CMAKE_BINARY_DIR}/shaders/uxn_emu.spv)
 
 add_executable(uxn-on-gpu
-        src/Resource.h
-        src/main.h
-        src/main.cpp
-        src/Resource.cpp)
+        ${CMAKE_SOURCE_DIR}/src/Resource.hpp
+        ${CMAKE_SOURCE_DIR}/src/main.hpp
+        ${CMAKE_SOURCE_DIR}/src/main.cpp
+        ${CMAKE_SOURCE_DIR}/src/Resource.cpp)
+
+add_dependencies(uxn-on-gpu compile_shaders)
+
+# CLion fix
+# set(CMAKE_OSX_SYSROOT /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk)
 
 # Vulkan
 set(VK_ICD_FILENAMES /Users/andrei/libs/VulkanSDK/macOS/share/vulkan/icd.d/MoltenVK_icd.json)

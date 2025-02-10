@@ -1,12 +1,24 @@
-#!/bin/sh
+#!/bin/bash
 
-cd shaders || exit
+OUTPUT_DIR="cmake-build-debug"
+SHADER_DIR="shaders"
 
-glslc shader.vert -o vert.spv
-glslc shader.frag -o frag.spv
-glslc shader.comp -o comp.spv
+cd ../${SHADER_DIR} || exit
+
+#glslc shader.vert -o vert.spv
+#glslc shader.frag -o frag.spv
+
+# Compile
 glslangValidator -V --target-env vulkan1.2 uxn_emu.comp -o uxn_emu.spv
-#glslangValidator -V --target-env vulkan1.2 simple.comp -o simple.spv
+
+# Patch the shader
+spirv-as <(sed 's/ArrayStride 16/ArrayStride 4/g' <(spirv-dis uxn_emu.spv)) -o uxn_emu.spv
+
 
 cd ..
+
+# Copy shader to binary directory
+mkdir -p ./${OUTPUT_DIR}/shaders
+cp ./${SHADER_DIR}/uxn_emu.spv ./${OUTPUT_DIR}/shaders/uxn_emu.spv
+
 echo "Shaders compiled successfully!"
