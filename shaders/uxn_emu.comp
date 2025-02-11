@@ -303,11 +303,18 @@ int uxn_eval(State state) {
 	return 2;
 }
 
-
-
 void main() {
     State state = {0, 0, 0, uvec2(0,0), uvec2(0,0), uvec2(0,0)};
 
     // this runs one uxn instruction
-    uxn.dev[uxn.pc - 0x100] = uxn_eval(state);
+    //uxn.dev[uxn.pc - 0x100] = uxn_eval(state);
+
+    uxn.ram[0] = 1;
+    uxn.ram[65535] = 1;
+    uxn.wst[0] = 1;
+    uxn.wst[255] = 1;
+    uxn.rst[0] = 1;
+    uxn.rst[255] = 1;
+    uxn.dev[0] = 1;
+    uxn.dev[255] = 1;
 }

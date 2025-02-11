@@ -12,8 +12,7 @@ cd ../${SHADER_DIR} || exit
 glslangValidator -V --target-env vulkan1.2 uxn_emu.comp -o uxn_emu.spv
 
 # Patch the shader
-spirv-as <(sed 's/ArrayStride 16/ArrayStride 4/g' <(spirv-dis uxn_emu.spv)) -o uxn_emu.spv
-
+spirv-as <(sed -f shader_patch.sed <(spirv-dis uxn_emu.spv)) -o uxn_emu.spv
 
 cd ..
 
