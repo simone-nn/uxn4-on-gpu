@@ -854,9 +854,7 @@ private:
         auto paddedProgram = std::vector<glm::uint>(program.size());
         for (size_t i = 0; i < program.size(); i++) {
             paddedProgram[i] = static_cast<glm::uint>(program[i] << 24);
-            std::cout << "0x" << std::hex << paddedProgram[i] << " ";
         }
-        std::cout << std::endl;
 
         uxnMemory = new UxnMemory();
         // copy the program into memory
@@ -1144,6 +1142,7 @@ private:
                 outFile << "[0x" << i << "]: 0x" << uxn->ram[i] << "\n";
             }
         }
+        outFile << std::dec;
 
         outFile.close();
         std::cout << "Printed Uxn Memory to file: " << filename << "\n";
