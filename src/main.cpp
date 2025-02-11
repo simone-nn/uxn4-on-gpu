@@ -864,9 +864,6 @@ private:
         // set the program counter to where the program starts from
         uxnMemory->pc = 0x0100;
 
-        uxnMemory->ram[0] = 1;
-        uxnMemory->ram[1] = 1;
-
         uxnOriginalMemory = new UxnMemory();
         memcpy(uxnOriginalMemory, uxnMemory, sizeof(UxnMemory));
     }
@@ -1094,13 +1091,7 @@ private:
         // vkQueuePresentKHR(ctx.presentQueue, &presentInfo);
     }
 
-    void printUxnDeviceMemory() {
-        if (!uxnMemory) {
-            std::cout << "uxnMemory is null!" << std::endl;
-            std::cout << "---------------" << std::endl;
-            return;
-        }
-
+    void copyDeviceUxnMemory(UxnMemory *target) {
         // copy from ssbo buffer to host staging buffer
         copyBuffer(ctx, uxnResource.buffer, hostStagingBuffer, sizeof(UxnMemory));
 
@@ -1111,22 +1102,55 @@ private:
         }
 
         auto* mappedMemory = static_cast<UxnMemory*>(data);
-        memset(uxnMemory, 0, sizeof(UxnMemory));
-        memcpy(uxnMemory, mappedMemory, sizeof(UxnMemory));
-
+        memset(target, 0, sizeof(UxnMemory));
+        memcpy(target, mappedMemory, sizeof(UxnMemory));
         vkUnmapMemory(ctx.device, hostStagingMemory);
+    }
 
-        // printing only device memory
-        // auto device_chars = reinterpret_cast<char *>(uxnMemory->dev);
-        // std::cout << "uxnMemory->dev:" << std::endl;
-        // std::cout << device_chars[256] << std::endl;
-        std::cout << "uxnMemory->pc:" << std::hex << "0x" << uxnMemory->pc << std::dec << std::endl;
-        std::cout << "---------------" << std::endl;
+    static void outputUxnMemory(const UxnMemory *uxn, const char* filename) {
+        std::ofstream outFile(filename, std::ios::out | std::ios::app);
+        // Check if the file opened successfully
+        if (!outFile) {
+            std::string message = "Failed to open file: ";
+            message += filename;
+            throw std::runtime_error(message);
+        }
+        outFile << std::hex;
+        outFile << "---Uxn Memory:---\n";
+        outFile << "Program Counter: 0x" << uxn->pc << "\n";
+        outFile << "--RAM:--\n";
+        for (int i = 0; i < UXN_RAM_SIZE; ++i) {
+            if (uxn->ram[i]) {
+                outFile << "[0x" << i << "]: 0x" << uxn->ram[i] << "\n";
+            }
+        }
+        outFile << "--Working Stack:--\n";
+        outFile << "wst pointer: " << uxn->pWst << "\n";
+        for (int i = 0; i < UXN_STACK_SIZE; ++i) {
+            if (uxn->wst[i]) {
+                outFile << "[0x" << i << "]: 0x" << uxn->ram[i] << "\n";
+            }
+        }
+        outFile << "--Return Stack:--\n";
+        outFile << "rst pointer: " << uxn->pRst << "\n";
+        for (int i = 0; i < UXN_STACK_SIZE; ++i) {
+            if (uxn->rst[i]) {
+                outFile << "[0x" << i << "]: 0x" << uxn->ram[i] << "\n";
+            }
+        }
+        outFile << "--Device Data:--\n";
+        for (int i = 0; i < UXN_DEV_SIZE; ++i) {
+            if (uxn->dev[i]) {
+                outFile << "[0x" << i << "]: 0x" << uxn->ram[i] << "\n";
+            }
+        }
+
+        outFile.close();
+        std::cout << "Printed Uxn Memory to file: " << filename << "\n";
     }
 
     void mainLoop() {
-        std::cout << sizeof(glm::uint) << std::endl;
-        int step = 3;
+        int step = 20;
         while (!glfwWindowShouldClose(ctx.window) && step > 0) {
             step--;
             glfwPollEvents();
@@ -1136,8 +1160,8 @@ private:
             // iter the currentFrame
             currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
         }
-        printUxnDeviceMemory();
-        std::cout << "finished at pc: 0x" << std::hex << uxnMemory->pc << std::dec << "!" << std::endl;
+        copyDeviceUxnMemory(uxnMemory);
+        outputUxnMemory(uxnMemory, "output.txt");
         vkDeviceWaitIdle(ctx.device);
     }
 
