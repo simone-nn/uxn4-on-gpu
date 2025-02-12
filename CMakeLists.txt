@@ -13,7 +13,9 @@ add_custom_command(
         COMMENT "Compiling shaders..."
 )
 # Define a target for shader compilation
-add_custom_target(compile_shaders DEPENDS ${CMAKE_BINARY_DIR}/shaders/uxn_emu.spv)
+add_custom_target(compile_shaders ALL
+        DEPENDS ${CMAKE_BINARY_DIR}/shaders/uxn_emu.spv
+)
 
 add_executable(uxn-on-gpu
         ${CMAKE_SOURCE_DIR}/src/Resource.hpp

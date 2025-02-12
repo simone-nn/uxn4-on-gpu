@@ -306,8 +306,8 @@ int uxn_eval(State state) {
 void main() {
     State state = {0, 0, 0, uvec2(0,0), uvec2(0,0), uvec2(0,0)};
 
-    // this runs one uxn instruction
-    uxn.dev[uxn.pc - 0x100] = uxn_eval(state);
+    // Run the next Uxn instruction
+    uxn_eval(state);
 
     // Test memory offsets and strides with this:
     // uxn.ram[0] = 1;

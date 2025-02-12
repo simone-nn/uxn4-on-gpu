@@ -1106,6 +1106,8 @@ private:
     }
 
     static void outputUxnMemory(const UxnMemory *uxn, const char* filename) {
+        #define printValue(i, arr) if (arr[i]!=0) { outFile << "[0x" << i << "]: 0x" << arr[i] << "\n"; }
+
         std::ofstream outFile(filename, std::ios::out | std::ios::app);
         // Check if the file opened successfully
         if (!outFile) {
@@ -1118,29 +1120,21 @@ private:
         outFile << "Program Counter: 0x" << uxn->pc << "\n";
         outFile << "--RAM:--\n";
         for (int i = 0; i < UXN_RAM_SIZE; ++i) {
-            if (uxn->ram[i]) {
-                outFile << "[0x" << i << "]: 0x" << uxn->ram[i] << "\n";
-            }
+            printValue(i, uxn->ram);
         }
         outFile << "--Working Stack:--\n";
         outFile << "wst pointer: " << uxn->pWst << "\n";
         for (int i = 0; i < UXN_STACK_SIZE; ++i) {
-            if (uxn->wst[i]) {
-                outFile << "[0x" << i << "]: 0x" << uxn->ram[i] << "\n";
-            }
+            printValue(i, uxn->wst);
         }
         outFile << "--Return Stack:--\n";
         outFile << "rst pointer: " << uxn->pRst << "\n";
         for (int i = 0; i < UXN_STACK_SIZE; ++i) {
-            if (uxn->rst[i]) {
-                outFile << "[0x" << i << "]: 0x" << uxn->ram[i] << "\n";
-            }
+            printValue(i, uxn->rst);
         }
         outFile << "--Device Data:--\n";
         for (int i = 0; i < UXN_DEV_SIZE; ++i) {
-            if (uxn->dev[i]) {
-                outFile << "[0x" << i << "]: 0x" << uxn->ram[i] << "\n";
-            }
+            printValue(i, uxn->dev);
         }
         outFile << std::dec;
 
