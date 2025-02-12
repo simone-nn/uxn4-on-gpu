@@ -7,7 +7,7 @@
 #include <thread>
 #include <glm/glm.hpp>
 #include "Resource.hpp"
-#include "main.hpp"
+#include "DeviceController.hpp"
 
 #define VERT_SHADER_PATH  "shaders/vert.spv"
 #define FRAG_SHADER_PATH  "shaders/frag.spv"
@@ -244,7 +244,7 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT
     }
 }
 
-class UXN_on_GPU {
+class DeviceController {
 public:
     int WIDTH = 800;
     int HEIGHT = 600;
@@ -252,7 +252,7 @@ public:
     std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
     std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, "VK_KHR_portability_subset" };
 
-    UXN_on_GPU(bool enableValidationLayers, const std::vector<char> &program) {
+    DeviceController(bool enableValidationLayers, const std::vector<char> &program) {
         this->enableValidationLayers = enableValidationLayers;
         init(program);
     }
@@ -1144,7 +1144,7 @@ private:
 
     void handleUxn(const UxnMemory* uxn, const char* console_buffer) {
         // Console Output
-        
+
     }
 
     void mainLoop() {
@@ -1232,7 +1232,7 @@ int main(int nargs, char** args) {
 
     std::cout << "|" << uxnProgram.data() << "|" << std::endl;
 
-    UXN_on_GPU app(true, uxnProgram);
+    DeviceController app(true, uxnProgram);
 
     try {
         app.run();

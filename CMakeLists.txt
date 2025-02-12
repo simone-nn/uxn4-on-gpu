@@ -19,8 +19,8 @@ add_custom_target(compile_shaders ALL
 
 add_executable(uxn-on-gpu
         ${CMAKE_SOURCE_DIR}/src/Resource.hpp
-        ${CMAKE_SOURCE_DIR}/src/main.hpp
-        ${CMAKE_SOURCE_DIR}/src/main.cpp
+        ${CMAKE_SOURCE_DIR}/src/DeviceController.hpp
+        ${CMAKE_SOURCE_DIR}/src/DeviceController.cpp
         ${CMAKE_SOURCE_DIR}/src/Resource.cpp)
 
 add_dependencies(uxn-on-gpu compile_shaders)
