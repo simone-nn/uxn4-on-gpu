@@ -34,7 +34,7 @@ Uxn::~Uxn() {
 }
 
 void Uxn::reset() {
-    // todo Uxn::reset
+    memory = original_memory;
 }
 
 void Uxn::outputToFile(const char* output_file_name) {
