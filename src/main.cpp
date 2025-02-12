@@ -1089,7 +1089,7 @@ private:
         // vkQueuePresentKHR(ctx.presentQueue, &presentInfo);
     }
 
-    void copyDeviceUxnMemory(UxnMemory *target) {
+    void copyDeviceUxnMemory(UxnMemory* target) {
         // copy from ssbo buffer to host staging buffer
         copyBuffer(ctx, uxnResource.buffer, hostStagingBuffer, sizeof(UxnMemory));
 
@@ -1105,7 +1105,7 @@ private:
         vkUnmapMemory(ctx.device, hostStagingMemory);
     }
 
-    static void outputUxnMemory(const UxnMemory *uxn, const char* filename) {
+    static void outputUxnMemory(const UxnMemory* uxn, const char* filename) {
         #define printValue(i, arr) if (arr[i]!=0) { outFile << "[0x" << i << "]: 0x" << arr[i] << "\n"; }
 
         std::ofstream outFile(filename, std::ios::out | std::ios::app);
@@ -1142,8 +1142,14 @@ private:
         std::cout << "Printed Uxn Memory to file: " << filename << "\n";
     }
 
+    void handleUxn(const UxnMemory* uxn, const char* console_buffer) {
+        // Console Output
+        
+    }
+
     void mainLoop() {
         constexpr int TOTAL_STEPS = 20;
+        auto console_buffer = static_cast<char *>(malloc(20 * sizeof(char)));
 
         int step = 0;
         std::chrono::steady_clock::time_point last_time = std::chrono::steady_clock::now();
@@ -1163,10 +1169,15 @@ private:
             auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(now_time - last_time).count();
             last_time = now_time;
             std::cout << "Frame " << step << ", time: " << static_cast<double>(elapsed)/1000000.0 << "[s]\n";
+
+            copyDeviceUxnMemory(uxnMemory);
+            handleUxn(uxnMemory, console_buffer);
+            outputUxnMemory(uxnMemory, "output.txt");
         }
         copyDeviceUxnMemory(uxnMemory);
         outputUxnMemory(uxnMemory, "output.txt");
         vkDeviceWaitIdle(ctx.device);
+        free(console_buffer);
     }
 
     void cleanup() {

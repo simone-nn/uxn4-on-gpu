@@ -11,7 +11,7 @@ layout(std140, binding = 0) buffer UXN_Buffer {
     uint pWst;
     uint rst[256];  // return stack
     uint pRst;
-    uint dev[256];  // todo device data
+    uint dev[256];  // device data
 } uxn;
 
 layout (local_size_x = 1) in;
@@ -25,11 +25,6 @@ uint emu_dei(uint addr) {
 // device out
 void emu_deo(uint addr, uint value) {
 	uxn.dev[addr] = value;
-	// these are commented because they could very easily overwrite other data
-	// especially when value was a uint8 casted into uint32
-	// uxn.dev[addr+1] = value << 8;
-	// uxn.dev[addr+2] = value << 16;
-	// uxn.dev[addr+3] = value << 24;
 }
 
 /* VM Registry State */
@@ -182,8 +177,7 @@ State PUx(State s, uint i, int _r, int _2) {
 
 int uxn_eval(State state) {
 	if((uxn.pc == 0) || (uxn.dev[0x0f] != 0)) return 0;
-	uxn.pc++;
-	switch(uxn.ram[uxn.pc]) {
+	switch(uxn.ram[uxn.pc++]) {
     /* BRK */ case 0x00000000: return 1;
     /* JCI */ case 0x20000000:
                 if(pop_wst() != 0) { state = JMI(state); }
@@ -272,7 +266,7 @@ int uxn_eval(State state) {
                   state.a = PO1(_r); ,
                   state.x = DEI(state.a, state.x, _r,_2); )
     /* DEO */ OPC(0x17000000,
-                  state.a = PO1(_r); state.y = GET(state.y,_r,_2); ,
+                  state.a = PO1(_r); state.y = GET(state.y,_r,_2); , ------------------------
                   DEO(state.a, state.y, _2); )
     /* ADD */ OPC(0x18000000,
                   state.a = POx(_r,_2); state.b = POx(_r,_2); ,
