@@ -266,7 +266,7 @@ int uxn_eval(State state) {
                   state.a = PO1(_r); ,
                   state.x = DEI(state.a, state.x, _r,_2); )
     /* DEO */ OPC(0x17000000,
-                  state.a = PO1(_r); state.y = GET(state.y,_r,_2); , ------------------------
+                  state.a = PO1(_r); state.y = GET(state.y,_r,_2); ,
                   DEO(state.a, state.y, _2); )
     /* ADD */ OPC(0x18000000,
                   state.a = POx(_r,_2); state.b = POx(_r,_2); ,
