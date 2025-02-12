@@ -1149,15 +1149,26 @@ private:
     }
 
     void mainLoop() {
-        int step = 20;
-        while (!glfwWindowShouldClose(ctx.window) && step > 0) {
-            step--;
+        constexpr int TOTAL_STEPS = 20;
+
+        int step = 0;
+        std::chrono::steady_clock::time_point last_time = std::chrono::steady_clock::now();
+        while (!glfwWindowShouldClose(ctx.window) && step < TOTAL_STEPS) {
+
+            // Main Loop:
             glfwPollEvents();
             uxnStep();
             drawFrame();
-            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-            // iter the currentFrame
+
+            // Iterate frame counters:
             currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+            step++;
+
+            // Print elapsed time:
+            std::chrono::steady_clock::time_point now_time = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(now_time - last_time).count();
+            last_time = now_time;
+            std::cout << "Frame " << step << ", time: " << static_cast<double>(elapsed)/1000000.0 << "[s]\n";
         }
         copyDeviceUxnMemory(uxnMemory);
         outputUxnMemory(uxnMemory, "output.txt");
