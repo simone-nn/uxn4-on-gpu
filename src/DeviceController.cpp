@@ -8,6 +8,7 @@
 #include <glm/glm.hpp>
 #include "Resource.hpp"
 #include "DeviceController.hpp"
+#include "Uxn.hpp"
 
 #define VERT_SHADER_PATH  "shaders/vert.spv"
 #define FRAG_SHADER_PATH  "shaders/frag.spv"
@@ -150,7 +151,7 @@ VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities, GLFWwi
     return actualExtent;
 }
 
-static std::vector<char> readFile(const std::string& filename) {
+std::vector<char> readFile(const std::string& filename) {
     // std::ios::ate means start reading at the end of the file
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
     if (!file.is_open())
@@ -252,9 +253,10 @@ public:
     std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
     std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, "VK_KHR_portability_subset" };
 
-    DeviceController(bool enableValidationLayers, const std::vector<char> &program) {
+    DeviceController(bool enableValidationLayers, Uxn* uxn) {
         this->enableValidationLayers = enableValidationLayers;
-        init(program);
+        this->uxn = uxn;
+        init();
     }
 
     void run() {
@@ -264,6 +266,7 @@ public:
     }
 private:
     Context ctx;
+    Uxn *uxn;
 
     VkRenderPass renderPass;
     VkPipelineLayout graphicsPipelineLayout;
@@ -274,8 +277,6 @@ private:
     VkPipeline computePipeline;
     std::vector<VkCommandBuffer> computeCommandBuffers;
 
-    UxnMemory* uxnOriginalMemory;
-    UxnMemory* uxnMemory;
     Resource uxnResource;
     VkBuffer hostStagingBuffer;
     VkDeviceMemory hostStagingMemory;
@@ -844,28 +845,6 @@ private:
         vkDestroyShaderModule(ctx.device, compShaderModule, nullptr);
     }
 
-    void initUxnMemory(const std::vector<char> &program) {
-        std::cout << "..initUxnMemory: ";
-        if (program.size() + 0x0100 * sizeof(glm::uint) > UXN_RAM_SIZE) {
-            throw std::runtime_error("uxn program is bigger than uxn ram!");
-        }
-
-        // Padding the opcodes from 8-bit to 32-bit
-        auto paddedProgram = std::vector<glm::uint>(program.size());
-        for (size_t i = 0; i < program.size(); i++) {
-            paddedProgram[i] = static_cast<glm::uint>(program[i] << 24);
-        }
-
-        uxnMemory = new UxnMemory();
-        // copy the program into memory
-        memcpy(uxnMemory->ram + 0x0100, paddedProgram.data(), paddedProgram.size() * sizeof(glm::uint));
-        // set the program counter to where the program starts from
-        uxnMemory->pc = 0x0100;
-
-        uxnOriginalMemory = new UxnMemory();
-        memcpy(uxnOriginalMemory, uxnMemory, sizeof(UxnMemory));
-    }
-
     void initResources() {
         std::cout << "..initResources" << std::endl;
 
@@ -887,7 +866,8 @@ private:
         }
 
         // resource creation
-        uxnResource = Resource(ctx, 0, sizeof(UxnMemory), uxnMemory, false, false, true);
+        uxnResource = Resource(ctx, 0, sizeof(UxnMemory), &uxn->memory,
+            false, false, true);
         uxnResource.updateDescriptorSets(uxnResource.buffer, sizeof(UxnMemory));
 
         // host staging buffer
@@ -928,8 +908,8 @@ private:
         }
     }
 
-    void init(const std::vector<char> &program) {
-        std::cout << "init:" << std::endl;
+    void init() {
+        std::cout << "Initialising the Device Controller:" << std::endl;
         initWindow();
         initVkInstance();
         initSurface();
@@ -941,7 +921,6 @@ private:
         initImageViews();
         initRenderPass();
         initDescriptorPool();
-        initUxnMemory(program);
         initResources();
         initComputePipeline();
         initFrameBuffers();
@@ -1105,48 +1084,6 @@ private:
         vkUnmapMemory(ctx.device, hostStagingMemory);
     }
 
-    static void outputUxnMemory(const UxnMemory* uxn, const char* filename) {
-        #define printValue(i, arr) if (arr[i]!=0) { outFile << "[0x" << i << "]: 0x" << arr[i] << "\n"; }
-
-        std::ofstream outFile(filename, std::ios::out | std::ios::app);
-        // Check if the file opened successfully
-        if (!outFile) {
-            std::string message = "Failed to open file: ";
-            message += filename;
-            throw std::runtime_error(message);
-        }
-        outFile << std::hex;
-        outFile << "---Uxn Memory:---\n";
-        outFile << "Program Counter: 0x" << uxn->pc << "\n";
-        outFile << "--RAM:--\n";
-        for (int i = 0; i < UXN_RAM_SIZE; ++i) {
-            printValue(i, uxn->ram);
-        }
-        outFile << "--Working Stack:--\n";
-        outFile << "wst pointer: " << uxn->pWst << "\n";
-        for (int i = 0; i < UXN_STACK_SIZE; ++i) {
-            printValue(i, uxn->wst);
-        }
-        outFile << "--Return Stack:--\n";
-        outFile << "rst pointer: " << uxn->pRst << "\n";
-        for (int i = 0; i < UXN_STACK_SIZE; ++i) {
-            printValue(i, uxn->rst);
-        }
-        outFile << "--Device Data:--\n";
-        for (int i = 0; i < UXN_DEV_SIZE; ++i) {
-            printValue(i, uxn->dev);
-        }
-        outFile << std::dec;
-
-        outFile.close();
-        std::cout << "Printed Uxn Memory to file: " << filename << "\n";
-    }
-
-    void handleUxn(const UxnMemory* uxn, const char* console_buffer) {
-        // Console Output
-
-    }
-
     void mainLoop() {
         constexpr int TOTAL_STEPS = 20;
         auto console_buffer = static_cast<char *>(malloc(20 * sizeof(char)));
@@ -1170,17 +1107,18 @@ private:
             last_time = now_time;
             std::cout << "Frame " << step << ", time: " << static_cast<double>(elapsed)/1000000.0 << "[s]\n";
 
-            copyDeviceUxnMemory(uxnMemory);
-            handleUxn(uxnMemory, console_buffer);
-            outputUxnMemory(uxnMemory, "output.txt");
+            copyDeviceUxnMemory(uxn->memory);
+            uxn->handleUxnIO();
+            uxn->outputToFile("output.txt");
         }
-        copyDeviceUxnMemory(uxnMemory);
-        outputUxnMemory(uxnMemory, "output.txt");
-        vkDeviceWaitIdle(ctx.device);
+        copyDeviceUxnMemory(uxn->memory);
+        uxn->handleUxnIO();
+        uxn->outputToFile("output.txt");
         free(console_buffer);
     }
 
     void cleanup() {
+        delete uxn;
         vkDestroyBuffer(ctx.device, hostStagingBuffer, nullptr);
         vkFreeMemory(ctx.device, hostStagingMemory, nullptr);
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
@@ -1191,7 +1129,6 @@ private:
             vkDestroyFence(ctx.device, computeInFlightFences[i], nullptr);
         }
         vkDestroyFence(ctx.device, uxnEvaluationFence, nullptr);
-        delete uxnMemory;
         uxnResource.destroy();
         vkDestroyCommandPool(ctx.device, ctx.commandPool, nullptr);
         for (auto framebuffer : ctx.swapChainFramebuffers) {
@@ -1227,12 +1164,9 @@ int main(int nargs, char** args) {
         return EXIT_FAILURE;
     }
     const char* filename = args[1];
+    auto uxn = new Uxn(filename);
 
-    auto uxnProgram = readFile(filename);
-
-    std::cout << "|" << uxnProgram.data() << "|" << std::endl;
-
-    DeviceController app(true, uxnProgram);
+    DeviceController app(true, uxn);
 
     try {
         app.run();
