@@ -9,6 +9,8 @@
 #include "Resource.hpp"
 #include "DeviceController.hpp"
 #include "Uxn.hpp"
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 #define VERT_SHADER_PATH  "shaders/vert.spv"
 #define FRAG_SHADER_PATH  "shaders/frag.spv"

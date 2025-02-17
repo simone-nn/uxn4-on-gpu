@@ -58,6 +58,10 @@ target_link_libraries(uxn-on-gpu PRIVATE glm)
 #FetchContent_MakeAvailable(fetch_vk_bootstrap)
 #target_link_libraries(uxn-on-gpu PRIVATE vk-bootstrap::vk-bootstrap)
 
+# STB
+set(STB_INCLUDE_PATH ${CMAKE_SOURCE_DIR}/external/stb/)
+target_include_directories(uxn-on-gpu PUBLIC ${STB_INCLUDE_PATH})
+
 # output directories
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
