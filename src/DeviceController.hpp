@@ -2,8 +2,6 @@
 #define MAIN_H
 #include <vector>
 
-std::vector<char> readFile(const std::string& filename);
-
 typedef struct context {
     GLFWwindow* window;
     VkInstance instance;
@@ -27,5 +25,11 @@ typedef struct context {
     std::vector<VkImageView> swapChainImageViews;
     std::vector<VkFramebuffer> swapChainFramebuffers;
 } Context;
+
+std::vector<char> readFile(const std::string& filename);
+
+VkCommandBuffer beginSingleTimeCommands(const Context &ctx);
+
+void endSingleTimeCommands(const Context &ctx, VkCommandBuffer commandBuffer);
 
 #endif //MAIN_H
