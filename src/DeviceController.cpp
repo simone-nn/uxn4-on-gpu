@@ -286,10 +286,10 @@ private:
     std::vector<VkSemaphore> computeFinishedSemaphores;
     std::vector<VkFence> inFlightFences;
     std::vector<VkFence> computeInFlightFences;
-    VkFence uxnEvaluationFence;
+    std::vector<VkFence> uxnEvaluationFences;
 
-    const int MAX_FRAMES_IN_FLIGHT = 1;
-    uint32_t currentFrame = 0;
+    const int MAX_FRAME_STEPS = 2;
+    uint32_t frameStep = 0;
 
     bool checkValidationLayerSupport() {
         uint32_t layerCount;
@@ -631,14 +631,14 @@ private:
         }
 
         // Command Buffers
-        graphicsCommandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-        computeCommandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+        graphicsCommandBuffers.resize(MAX_FRAME_STEPS);
+        computeCommandBuffers.resize(MAX_FRAME_STEPS);
 
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         allocInfo.commandPool = ctx.commandPool;
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocInfo.commandBufferCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+        allocInfo.commandBufferCount = static_cast<uint32_t>(MAX_FRAME_STEPS);
 
         VkResult graphicsResult = vkAllocateCommandBuffers(ctx.device, &allocInfo, graphicsCommandBuffers.data());
         VkResult computeResult = vkAllocateCommandBuffers(ctx.device, &allocInfo, computeCommandBuffers.data());
@@ -651,13 +651,13 @@ private:
         std::cout << "..initDescriptorPool" << std::endl;
         VkDescriptorPoolSize poolSize;
         poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+        poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAME_STEPS);
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
         poolInfo.poolSizeCount = 1;
         poolInfo.pPoolSizes = &poolSize;
-        poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+        poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAME_STEPS);
 
         if (vkCreateDescriptorPool(ctx.device, &poolInfo, nullptr, &ctx.descriptorPool) != VK_SUCCESS) {
             throw std::runtime_error("failed to create descriptor pool!");
@@ -879,11 +879,12 @@ private:
 
     void initSync() {
         std::cout << "..initSync" << std::endl;
-        imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-        renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-        computeFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-        inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-        computeInFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+        imageAvailableSemaphores.resize(MAX_FRAME_STEPS);
+        renderFinishedSemaphores.resize(MAX_FRAME_STEPS);
+        computeFinishedSemaphores.resize(MAX_FRAME_STEPS);
+        inFlightFences.resize(MAX_FRAME_STEPS);
+        computeInFlightFences.resize(MAX_FRAME_STEPS);
+        uxnEvaluationFences.resize(MAX_FRAME_STEPS);
 
         VkSemaphoreCreateInfo semaphoreInfo{};
         semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -892,16 +893,13 @@ private:
         fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
         fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-        if (vkCreateFence(ctx.device, &fenceInfo, nullptr, &uxnEvaluationFence) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create synchronization objects!");
-        }
-
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        for (size_t i = 0; i < MAX_FRAME_STEPS; i++) {
             if (vkCreateSemaphore(ctx.device, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS ||
                 vkCreateSemaphore(ctx.device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS ||
                 vkCreateSemaphore(ctx.device, &semaphoreInfo, nullptr, &computeFinishedSemaphores[i]) != VK_SUCCESS ||
                 vkCreateFence(ctx.device, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS ||
-                vkCreateFence(ctx.device, &fenceInfo, nullptr, &computeInFlightFences[i]) != VK_SUCCESS) {
+                vkCreateFence(ctx.device, &fenceInfo, nullptr, &computeInFlightFences[i]) != VK_SUCCESS ||
+                vkCreateFence(ctx.device, &fenceInfo, nullptr, &uxnEvaluationFences[i]) != VK_SUCCESS) {
 
                 throw std::runtime_error("failed to create synchronization objects!");
                 }
@@ -967,7 +965,7 @@ private:
             vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
 
             VkDeviceSize offsets[] = {0};
-            // vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &verticesStorage[currentFrame].buffer, offsets);
+            // vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &verticesStorage[frameStep].buffer, offsets);
 
             // vkCmdDraw(cmdBuffer, VERTEX_COUNT, 1, 0, 0);
         }
@@ -980,76 +978,77 @@ private:
 
     void uxnStep() {
         // Compute submission
-        vkResetFences(ctx.device, 1, &uxnEvaluationFence);
-        vkResetCommandBuffer(computeCommandBuffers[currentFrame], 0);
+        vkResetFences(ctx.device, 1, &uxnEvaluationFences[frameStep]);
+        vkResetCommandBuffer(computeCommandBuffers[frameStep], 0);
 
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-        if (vkBeginCommandBuffer(computeCommandBuffers[currentFrame], &beginInfo) != VK_SUCCESS) {
+        if (vkBeginCommandBuffer(computeCommandBuffers[frameStep], &beginInfo) != VK_SUCCESS) {
             throw std::runtime_error("failed to begin recording command buffer!");
         }
 
-        vkCmdBindPipeline(computeCommandBuffers[currentFrame], VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
-        vkCmdBindDescriptorSets(computeCommandBuffers[currentFrame], VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout,
+        vkCmdBindPipeline(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
+        vkCmdBindDescriptorSets(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout,
             0,1, &uxnResource.descriptorSet, 0, nullptr);
 
+        // TODO does the memory barrier do anything?
         VkMemoryBarrier memoryBarrier{};
         memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
         memoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
         memoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-        vkCmdPipelineBarrier(computeCommandBuffers[currentFrame], VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+        vkCmdPipelineBarrier(computeCommandBuffers[frameStep], VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
             0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
 
-        vkCmdDispatch(computeCommandBuffers[currentFrame], 1, 1, 1);
+        vkCmdDispatch(computeCommandBuffers[frameStep], 1, 1, 1);
 
-        if (vkEndCommandBuffer(computeCommandBuffers[currentFrame]) != VK_SUCCESS) {
+        if (vkEndCommandBuffer(computeCommandBuffers[frameStep]) != VK_SUCCESS) {
             throw std::runtime_error("failed to record command buffer!");
         }
 
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &computeCommandBuffers[currentFrame];
+        submitInfo.pCommandBuffers = &computeCommandBuffers[frameStep];
         // submitInfo.signalSemaphoreCount = 1;
-        // submitInfo.pSignalSemaphores = &computeFinishedSemaphores[currentFrame];
-        if (vkQueueSubmit(ctx.computeQueue, 1, &submitInfo, uxnEvaluationFence) != VK_SUCCESS) {
+        // submitInfo.pSignalSemaphores = &computeFinishedSemaphores[frameStep];
+        if (vkQueueSubmit(ctx.computeQueue, 1, &submitInfo, uxnEvaluationFences[frameStep]) != VK_SUCCESS) {
             throw std::runtime_error("failed to submit compute command buffer!");
         }
         // wait for uxn step to be done
-        vkWaitForFences(ctx.device, 1, &uxnEvaluationFence, VK_TRUE, UINT64_MAX);
+        vkWaitForFences(ctx.device, 1, &uxnEvaluationFences[frameStep], VK_TRUE, UINT64_MAX);
     }
 
     void drawFrame() {
         // Graphics submission
         // Wait for previous frame to finish drawing
-        // vkWaitForFences(ctx.device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
-        // vkResetFences(ctx.device, 1, &inFlightFences[currentFrame]);
+        // vkWaitForFences(ctx.device, 1, &inFlightFences[frameStep], VK_TRUE, UINT64_MAX);
+        // vkResetFences(ctx.device, 1, &inFlightFences[frameStep]);
 
         // get the next image:
         // uint32_t imageIndex;
-        // vkAcquireNextImageKHR(ctx.device, ctx.swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame],
+        // vkAcquireNextImageKHR(ctx.device, ctx.swapChain, UINT64_MAX, imageAvailableSemaphores[frameStep],
         //                       VK_NULL_HANDLE, &imageIndex);
 
         // record commands in the current command buffer:
-        // vkResetCommandBuffer(graphicsCommandBuffers[currentFrame], 0);
-        // recordGraphicsCommandBuffer(graphicsCommandBuffers[currentFrame], imageIndex);
+        // vkResetCommandBuffer(graphicsCommandBuffers[frameStep], 0);
+        // recordGraphicsCommandBuffer(graphicsCommandBuffers[frameStep], imageIndex);
 
         // submit info that accompanies the commands:
         // submitInfo = {};
         // submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        // VkSemaphore waitSemaphores[] = {computeFinishedSemaphores[currentFrame], imageAvailableSemaphores[currentFrame]};
+        // VkSemaphore waitSemaphores[] = {computeFinishedSemaphores[frameStep], imageAvailableSemaphores[frameStep]};
         // submitInfo.waitSemaphoreCount = 2;
         // submitInfo.pWaitSemaphores = waitSemaphores;
         // VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
         // submitInfo.pWaitDstStageMask = waitStages;
         // submitInfo.commandBufferCount = 1;
-        // submitInfo.pCommandBuffers = &graphicsCommandBuffers[currentFrame];
+        // submitInfo.pCommandBuffers = &graphicsCommandBuffers[frameStep];
         // submitInfo.signalSemaphoreCount = 1;
-        // submitInfo.pSignalSemaphores = &renderFinishedSemaphores[currentFrame];
+        // submitInfo.pSignalSemaphores = &renderFinishedSemaphores[frameStep];
         //
         // // Graphic Commands get submitted:
-        // if (vkQueueSubmit(ctx.graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS) {
+        // if (vkQueueSubmit(ctx.graphicsQueue, 1, &submitInfo, inFlightFences[frameStep]) != VK_SUCCESS) {
         //     throw std::runtime_error("failed to submit draw command buffer!");
         // }
 
@@ -1057,7 +1056,7 @@ private:
         // VkPresentInfoKHR presentInfo{};
         // presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
         // presentInfo.waitSemaphoreCount = 1;
-        // presentInfo.pWaitSemaphores = &renderFinishedSemaphores[currentFrame];
+        // presentInfo.pWaitSemaphores = &renderFinishedSemaphores[frameStep];
         // VkSwapchainKHR swapChains[] = {ctx.swapChain};
         // presentInfo.swapchainCount = 1;
         // presentInfo.pSwapchains = swapChains;
@@ -1068,7 +1067,7 @@ private:
         // vkQueuePresentKHR(ctx.presentQueue, &presentInfo);
     }
 
-    void copyDeviceUxnMemory(UxnMemory* target) {
+    void copyDeviceUxnMemory(UxnMemory* target, uint32_t frameIndex) {
         // copy from ssbo buffer to host staging buffer
         copyBuffer(ctx, uxnResource.buffer, hostStagingBuffer, sizeof(UxnMemory));
 
@@ -1096,9 +1095,10 @@ private:
             uxnStep();
             drawFrame();
 
-            // Iterate frame counters:
-            currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-            step++;
+            // Handle IO
+            copyDeviceUxnMemory(uxn->memory, frameStep);
+            uxn->handleUxnIO();
+            uxn->outputToFile("output.txt");
 
             // Print elapsed time:
             std::chrono::steady_clock::time_point now_time = std::chrono::steady_clock::now();
@@ -1106,9 +1106,9 @@ private:
             last_time = now_time;
             std::cout << "Frame " << step << ", time: " << static_cast<double>(elapsed)/1000000.0 << "[s]\n";
 
-            copyDeviceUxnMemory(uxn->memory);
-            uxn->handleUxnIO();
-            uxn->outputToFile("output.txt");
+            // Iterate frame counters:
+            frameStep = (frameStep + 1) % MAX_FRAME_STEPS;
+            step++;
         }
     }
 
@@ -1116,14 +1116,14 @@ private:
         delete uxn;
         vkDestroyBuffer(ctx.device, hostStagingBuffer, nullptr);
         vkFreeMemory(ctx.device, hostStagingMemory, nullptr);
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        for (size_t i = 0; i < MAX_FRAME_STEPS; i++) {
             vkDestroySemaphore(ctx.device, renderFinishedSemaphores[i], nullptr);
             vkDestroySemaphore(ctx.device, imageAvailableSemaphores[i], nullptr);
             vkDestroySemaphore(ctx.device, computeFinishedSemaphores[i], nullptr);
             vkDestroyFence(ctx.device, inFlightFences[i], nullptr);
             vkDestroyFence(ctx.device, computeInFlightFences[i], nullptr);
+            vkDestroyFence(ctx.device, uxnEvaluationFences[i], nullptr);
         }
-        vkDestroyFence(ctx.device, uxnEvaluationFence, nullptr);
         uxnResource.destroy();
         vkDestroyCommandPool(ctx.device, ctx.commandPool, nullptr);
         for (auto framebuffer : ctx.swapChainFramebuffers) {
