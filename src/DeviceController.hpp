@@ -1,6 +1,7 @@
 #ifndef MAIN_H
 #define MAIN_H
 #include <vector>
+#include "Resource.hpp"
 
 typedef struct context {
     GLFWwindow* window;
