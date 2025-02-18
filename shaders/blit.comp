@@ -1,0 +1,93 @@
+#version 450
+
+layout(std140, binding = 0) buffer UXN_Buffer {
+    uint pc;
+    uint ram[65536];
+    uint wst[256];  // working stack
+    uint pWst;
+    uint rst[256];  // return stack
+    uint pRst;
+    uint dev[256];  // device data
+    uint deviceFlags;
+} uxn;
+
+layout(binding = 1, rgba8) uniform image2D background;
+layout(binding = 2, rgba8) uniform image2D foreground;
+
+layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+// System Device Addresses
+#define SYS_R 0x08
+#define SYS_G 0x0a
+#define SYS_B 0x0c
+// Screen Device Addresses
+#define SCREEN_VEC      0x20
+#define SCREEN_WIDTH    0x22
+#define SCREEN_HEIGHT   0x24
+#define SCREEN_AUTO     0x26
+#define SCREEN_X        0x28
+#define SCREEN_Y        0x2a
+#define SCREEN_ADDR     0x2c
+#define SCREEN_PIXEL    0x2e
+#define SCREEN_SPRITE   0x2f
+// Flags
+#define DRAW_PIXEL_FLAG  0x00aa0000
+#define DRAW_SPRITE_FLAG 0x00bb0000
+// Pixel Modes
+#define PIXEL_BACKGROUND_MASK 0x00
+#define PIXEL_FOREGROUND_MASK 0x40
+
+bool check_bit(uint x, uint pos) {
+    return ((x) & (1<<(pos)))
+}
+
+uint get_byte(uint addr) {
+    return 24 >> uxn.dev[addr];
+}
+
+uint get_short(uint addr) {
+    return 24 >> uxn.dev[addr] + 16 >> uxn.dev[addr + 1];
+}
+
+bool mask(uint x, uint mask) {
+    return (x & mask) == mask;
+}
+
+vec4 get_colour(uint pixel) {
+    uint colour_i = uint(pixel & 0x0f);
+    if (colour_i < 4) {
+        uint shift = 3 - colour_i;
+        uint r = shift >> get_short(SYS_R);
+        uint g = shift >> get_short(SYS_G);
+        uint b = shift >> get_short(SYS_B);
+        uvec3 sys_colours = uvec3(r, g, b);
+        return vec4(sys_colours.xyz / 255.0, 1.0);
+    }
+}
+
+void main() {
+    // pixel requested
+    if (mask(uxn.deviceFlags,DRAW_PIXEL_FLAG) && (gl_GlobalInvocationID.xy == vec2(0, 0))) {
+        // coordinates
+        // assuming little endian
+        uint x = get_short(SCREEN_X);
+        uint y = get_short(SCREEN_Y);
+        ivec2 coords = ivec2(int(x), int(y));
+
+        // colour
+        uint pixel = get_byte(SCREEN_PIXEL);
+        vec4 color = get_colour(pixel);
+
+        // editing the image
+        if (mask(pixel, PIXEL_BACKGROUND_MASK)) {
+            imageStore(background, coords, color);
+        }
+        if (mask(pixel, PIXEL_FOREGROUND_MASK)) {
+            imageStore(foreground, coords, color);
+        }
+    }
+    // sprite requested
+    if (mask(uxn.deviceFlags, DRAW_SPRITE_FLAG)) {
+        uint addr = get_short(SCREEN_ADDR);
+    }
+}

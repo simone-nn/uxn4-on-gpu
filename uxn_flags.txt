@@ -1,0 +1,31 @@
+
+Flags will be represented by uint 32: 0x[00][00][00][00]
+ - first bite:  CPU synchronization bits (console, keyboard, mouse)
+ - second bite: graphics
+    - 0xaa: draw pixel
+    - 0xbb: draw sprite
+
+
+   0    0    0    0
+0000 0000 0000 0000
+
+a = xxxx xxxx 1011 1011 (xxbb)
+
+a & 0000 0000 1111 1111
+
+desired flag: xxxx xxxx 1010 1010
+              0000 0000 1010 1010
+           &  =         1010 1010
+           ==
+
+to test for flag: bitwise and with the mask then do equal
+
+C example:
+bool check_flag(uint32 x, uint32 cond) {
+    return (x & cond) == cond;
+}
+
+x --> y
+0 1 2 3 --> 3 2 1 0
+
+y = 3 - x
