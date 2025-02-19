@@ -38,7 +38,7 @@ layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 #define PIXEL_FOREGROUND_MASK 0x40
 
 bool check_bit(uint x, uint pos) {
-    return ((x) & (1<<(pos)))
+    return ((x) & (1<<(pos))) != 0;
 }
 
 uint get_byte(uint addr) {

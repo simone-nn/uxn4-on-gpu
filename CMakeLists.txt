@@ -10,6 +10,7 @@ add_custom_command(
         OUTPUT ${CMAKE_BINARY_DIR}/shaders/uxn_emu.spv
         COMMAND ${CMAKE_SOURCE_DIR}/compile_shaders.sh
         DEPENDS ${CMAKE_SOURCE_DIR}/shaders/uxn_emu.comp
+        DEPENDS ${CMAKE_SOURCE_DIR}/shaders/blit.comp
         COMMENT "Compiling shaders..."
 )
 # Define a target for shader compilation
