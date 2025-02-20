@@ -10,11 +10,10 @@
 #include "DeviceController.hpp"
 #include "Uxn.hpp"
 
-#define VERT_SHADER_PATH  "shaders/vert.spv"
-#define FRAG_SHADER_PATH  "shaders/frag.spv"
-#define COMP_SHADER_PATH  "shaders/comp.spv"
 #define UXN_EMULATOR_PATH "shaders/uxn_emu.spv"
-#define BLIT_PATH "shaders/blit.spv"
+#define BLIT_SHADER_PATH  "shaders/blit.spv"
+#define VERT_SHADER_PATH  "shaders/vertex.spv"
+#define FRAG_SHADER_PATH  "shaders/fragment.spv"
 
 typedef struct vertex {
     glm::vec2 position;
@@ -317,7 +316,8 @@ private:
 
     DescriptorSet descriptorSet;
     Resource uxnResource;
-    Resource imageResource;
+    Resource backgroundImageResource;
+    Resource foregroundImageResource;
 
     VkBuffer hostStagingBuffer;
     VkDeviceMemory hostStagingMemory;
@@ -872,7 +872,7 @@ private:
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipelineLayoutInfo.setLayoutCount = 1;
-        pipelineLayoutInfo.pSetLayouts = &ctx.descriptorSetLayout;
+        pipelineLayoutInfo.pSetLayouts = &descriptorSet.layout;
 
         if (vkCreatePipelineLayout(ctx.device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
             throw std::runtime_error("failed to create compute pipeline layout!");
@@ -893,40 +893,15 @@ private:
     void initResources() {
         std::cout << "..initResources" << std::endl;
 
-        // descriptor set layout creation
-        VkDescriptorSetLayoutBinding uxnLayoutBinding{};
-        uxnLayoutBinding.binding = 0;
-        uxnLayoutBinding.descriptorCount = 1;
-        uxnLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        uxnLayoutBinding.pImmutableSamplers = nullptr;
-        uxnLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-        VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-        samplerLayoutBinding.binding = 1;
-        samplerLayoutBinding.descriptorCount = 1;
-        //todo change this to image2d equivalent type
-        samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        samplerLayoutBinding.pImmutableSamplers = nullptr;
-        samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
-
-        VkDescriptorSetLayoutCreateInfo layoutInfo{};
-        layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        std::array bindings = {uxnLayoutBinding, samplerLayoutBinding};
-        layoutInfo.bindingCount = bindings.size();
-        layoutInfo.pBindings = bindings.data();
-        if (vkCreateDescriptorSetLayout(ctx.device, &layoutInfo, nullptr, &ctx.descriptorSetLayout) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create descriptor set layout!");
-        }
-
-        descriptorSet = DescriptorSet(ctx);
+        descriptorSet = DescriptorSet();
 
         // resource creation
         uxnResource = Resource(ctx, 0, &descriptorSet, sizeof(UxnMemory), uxn->memory,
             false, true);
+        backgroundImageResource = Resource(ctx, 1, 3, &descriptorSet);
+        foregroundImageResource = Resource(ctx, 2, 4, &descriptorSet);
 
-        imageResource = Resource(ctx, 1, &descriptorSet);
-
-        descriptorSet.updateDescriptorSet(ctx);
+        descriptorSet.initialise(ctx);
 
         // host staging buffer
         createBuffer(ctx, sizeof(UxnMemory),
@@ -981,7 +956,7 @@ private:
         initDescriptorPool();
         initResources();
         initComputePipeline(UXN_EMULATOR_PATH, uxnEvaluatePipeline, uxnEvaluatePipelineLayout);
-        initComputePipeline(BLIT_PATH, blitPipeline, blitPipelineLayout);
+        initComputePipeline(BLIT_SHADER_PATH, blitPipeline, blitPipelineLayout);
         initFrameBuffers();
         initGraphicsPipeline();
         initSync();
@@ -1109,6 +1084,40 @@ private:
     }
 
     void drawFrame() {
+        // change the image layout
+        // todo: maybe use transitionImageLayout(ctx, backgroundImageResource.data.image.image, ...)
+        {
+            VkCommandBuffer commandBuffer = beginSingleTimeCommands(ctx);
+            VkImageMemoryBarrier barrier{};
+            barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+            barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+            barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.image = backgroundImageResource.data.image.image;
+            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            barrier.subresourceRange.baseMipLevel = 0;
+            barrier.subresourceRange.levelCount = 1;
+            barrier.subresourceRange.baseArrayLayer = 0;
+            barrier.subresourceRange.layerCount = 1;
+            barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;  // Compute shader writes
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;   // Fragment shader reads
+            vkCmdPipelineBarrier(
+                commandBuffer,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                0, 0, nullptr, 0, nullptr, 1, &barrier
+            );
+            VkImageMemoryBarrier barrier2 = barrier;
+            barrier2.image = foregroundImageResource.data.image.image;
+            vkCmdPipelineBarrier(
+                commandBuffer,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                0, 0, nullptr, 0, nullptr, 1, &barrier
+            );
+            endSingleTimeCommands(ctx, commandBuffer);
+        }
+
+
         // Graphics submission
         // Wait for previous frame to finish drawing
         // vkWaitForFences(ctx.device, 1, &inFlightFences[frameStep], VK_TRUE, UINT64_MAX);
@@ -1203,6 +1212,7 @@ private:
 
     void cleanup() {
         delete uxn;
+        descriptorSet.destroy(ctx);
         vkDestroyBuffer(ctx.device, hostStagingBuffer, nullptr);
         vkFreeMemory(ctx.device, hostStagingMemory, nullptr);
         for (size_t i = 0; i < MAX_FRAME_STEPS; i++) {
@@ -1227,7 +1237,6 @@ private:
         for (auto imageView : ctx.swapChainImageViews) {
             vkDestroyImageView(ctx.device, imageView, nullptr);
         }
-        vkDestroyDescriptorSetLayout(ctx.device, ctx.descriptorSetLayout, nullptr);
         vkDestroyDescriptorPool(ctx.device, ctx.descriptorPool, nullptr);
         vkDestroySwapchainKHR(ctx.device, ctx.swapChain, nullptr); // before device
         vkDestroyDevice(ctx.device, nullptr);

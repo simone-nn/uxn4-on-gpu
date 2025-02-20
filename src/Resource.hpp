@@ -27,7 +27,7 @@ void copyBuffer(
     VkDeviceSize size
 );
 
-void transitionImageLayout(const Context &ctx, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+void transitionImageLayout(const Context &ctx, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout);
 
 void copyBufferToImage(const Context &ctx, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
@@ -35,18 +35,27 @@ void copyBufferToImage(const Context &ctx, VkBuffer buffer, VkImage image, uint3
 class DescriptorSet {
 public:
     VkDescriptorSet set;
+    VkDescriptorSetLayout layout;
 
-    DescriptorSet() : set(nullptr) {};
+    DescriptorSet() : set(nullptr), layout(nullptr) {};
 
-    explicit DescriptorSet(const Context &ctx);
+    void initialise(const Context &ctx);
+
+    void addBinding(const VkDescriptorSetLayoutBinding &bindingLayout) {
+        auto b = new VkDescriptorSetLayoutBinding(bindingLayout);
+        bindings.emplace_back(b);
+    }
 
     void addSSBOWrite(VkBuffer buffer, VkDeviceSize bufferRange, uint32_t binding);
 
-    void addImageSamplerWrite(VkImageView imageView, VkSampler sampler, uint32_t binding);
+    void addImageWrite(VkImageView imageView, uint32_t binding);
 
-    void updateDescriptorSet(const Context &ctx);
+    void addSamplerWrite(VkImageView imageView, VkSampler sampler, uint32_t binding);
+
+    void destroy(const Context &ctx);
 
 private:
+    std::vector<VkDescriptorSetLayoutBinding*> bindings;
     std::vector<VkWriteDescriptorSet*> writeSets;
 };
 
@@ -70,6 +79,7 @@ public:
             VkDeviceMemory memory;
             VkImageView view;
             VkSampler sampler;
+            uint32_t samplerBinding;
         } image;
     } data;
 
@@ -90,7 +100,8 @@ public:
 
     Resource(
         Context &ctx,
-        uint32_t binding,
+        uint32_t imageBinding,
+        uint32_t samplerBinding,
         DescriptorSet *descriptorSet
     );
 

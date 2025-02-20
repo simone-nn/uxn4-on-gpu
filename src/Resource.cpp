@@ -66,7 +66,7 @@ void copyBuffer(
     endSingleTimeCommands(ctx, commandBuffer);
 }
 
-void transitionImageLayout(const Context &ctx, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
+void transitionImageLayout(const Context &ctx, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout) {
     VkCommandBuffer commandBuffer = beginSingleTimeCommands(ctx);
 
     VkImageMemoryBarrier barrier{};
@@ -75,7 +75,6 @@ void transitionImageLayout(const Context &ctx, VkImage image, VkFormat format, V
     barrier.newLayout = newLayout;
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-
     barrier.image = image;
     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseMipLevel = 0;
@@ -143,16 +142,43 @@ void copyBufferToImage(const Context &ctx, VkBuffer buffer, VkImage image, uint3
 
 
 // -- Descriptor Set Wrapper --
-DescriptorSet::DescriptorSet(const Context &ctx) {
+void DescriptorSet::initialise(const Context &ctx) {
+    // Descriptor Layout
+    std::vector<VkDescriptorSetLayoutBinding> b;
+    for (int i = 0; i < bindings.size(); ++i) {
+        b.emplace_back(*bindings[i]);
+    }
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo{};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = b.size();
+    layoutInfo.pBindings = b.data();
+    if (vkCreateDescriptorSetLayout(ctx.device, &layoutInfo, nullptr, &layout) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create descriptor set layout!");
+    }
+
+    // Descriptor Set
     VkDescriptorSetAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     allocInfo.descriptorPool = ctx.descriptorPool;
     allocInfo.descriptorSetCount = 1;
-    allocInfo.pSetLayouts = &ctx.descriptorSetLayout;
+    allocInfo.pSetLayouts = &layout;
 
     if (vkAllocateDescriptorSets(ctx.device, &allocInfo, &set) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate descriptor set!");
     }
+
+    // Descriptor Writes
+    std::vector<VkWriteDescriptorSet> writes;
+    for (int i = 0; i < writeSets.size(); ++i) {
+        writes.emplace_back(*writeSets[i]);
+    }
+    vkUpdateDescriptorSets(
+        ctx.device,
+        writes.size(),
+        writes.data(),
+        0,
+        nullptr);
 }
 
 void DescriptorSet::addSSBOWrite(VkBuffer buffer, VkDeviceSize bufferRange, uint32_t binding) {
@@ -174,7 +200,25 @@ void DescriptorSet::addSSBOWrite(VkBuffer buffer, VkDeviceSize bufferRange, uint
     writeSets.emplace_back(descriptorWrite);
 }
 
-void DescriptorSet::addImageSamplerWrite(VkImageView imageView, VkSampler sampler, uint32_t binding) {
+void DescriptorSet::addImageWrite(VkImageView imageView, uint32_t binding) {
+    auto* imageInfo = new VkDescriptorImageInfo;
+    imageInfo->imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    imageInfo->imageView = imageView;
+
+    auto* descriptorWrite = new VkWriteDescriptorSet;
+    descriptorWrite->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite->dstSet = set;
+    descriptorWrite->dstBinding = binding;
+    descriptorWrite->dstArrayElement = 0;
+    descriptorWrite->descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    descriptorWrite->descriptorCount = 1;
+    descriptorWrite->pImageInfo = imageInfo;
+    descriptorWrite->pNext = nullptr;
+
+    writeSets.emplace_back(descriptorWrite);
+}
+
+void DescriptorSet::addSamplerWrite(VkImageView imageView, VkSampler sampler, uint32_t binding) {
     auto* imageInfo = new VkDescriptorImageInfo;
     imageInfo->imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     imageInfo->imageView = imageView;
@@ -193,20 +237,8 @@ void DescriptorSet::addImageSamplerWrite(VkImageView imageView, VkSampler sample
     writeSets.emplace_back(descriptorWrite);
 }
 
-void DescriptorSet::updateDescriptorSet(const Context &ctx) {
-    if (set == VK_NULL_HANDLE) {
-        throw std::runtime_error("DescriptorSet::updateDescriptorSet() called with an uninitialized VkDescriptorSet");
-    }
-    std::vector<VkWriteDescriptorSet> writes;
-    for (int i = 0; i < writeSets.size(); ++i) {
-        writes.emplace_back(*writeSets[i]);
-    }
-    vkUpdateDescriptorSets(
-        ctx.device,
-        writes.size(),
-        writes.data(),
-        0,
-        nullptr);
+void DescriptorSet::destroy(const Context &ctx) {
+    vkDestroyDescriptorSetLayout(ctx.device, layout, nullptr);
 }
 
 
@@ -262,11 +294,13 @@ Resource::Resource(
 
 Resource::Resource(
     Context &ctx,
-    uint32_t binding,
+    uint32_t imageBinding,
+    uint32_t samplerBinding,
     DescriptorSet *descriptorSet
 ) {
     this->type = Image;
-    this->binding = binding;
+    this->binding = imageBinding;
+    this->data.image.samplerBinding = samplerBinding;
     this->ctx = &ctx;
     this->descriptorSet = descriptorSet;
     int textureWidth, textureHeight, textureChannels;
@@ -301,7 +335,7 @@ Resource::Resource(
     imageInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
     imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    imageInfo.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageInfo.flags = 0; // Optional
@@ -322,9 +356,9 @@ Resource::Resource(
     vkBindImageMemory(ctx.device, this->data.image.image, this->data.image.memory, 0);
 
     // preparing the image to be copied into, and then copying the pixel date from the staging buffer into it
-    transitionImageLayout(ctx, this->data.image.image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    transitionImageLayout(ctx, this->data.image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     copyBufferToImage(ctx, stagingBuffer, this->data.image.image, static_cast<uint32_t>(textureWidth), static_cast<uint32_t>(textureHeight));
-    transitionImageLayout(ctx, this->data.image.image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    transitionImageLayout(ctx, this->data.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     // creating the image view object
     VkImageViewCreateInfo viewInfo{};
@@ -381,12 +415,33 @@ void Resource::updateDescriptorSet() const {
     }
 
     switch (this->type) {
-        case SSBO:
-            descriptorSet->addSSBOWrite(this->data.buffer.buffer, this->data.buffer.size, binding);
+        case SSBO: {
+            VkDescriptorSetLayoutBinding b{};
+            b.binding = binding;
+            b.descriptorCount = 1;
+            b.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            b.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+            descriptorSet->addBinding(b);
+            descriptorSet->addSSBOWrite(data.buffer.buffer, data.buffer.size, binding);
             break;
-        case Image:
-            descriptorSet->addImageSamplerWrite(this->data.image.view, this->data.image.sampler, binding);
+        }
+        case Image: {
+            VkDescriptorSetLayoutBinding imageBinding{};
+            imageBinding.binding = binding;
+            imageBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+            imageBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+            imageBinding.descriptorCount = 1;
+            descriptorSet->addBinding(imageBinding);
+            VkDescriptorSetLayoutBinding samplerBinding{};
+            samplerBinding.binding = data.image.samplerBinding;
+            samplerBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            samplerBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+            samplerBinding.descriptorCount = 1;
+            descriptorSet->addBinding(samplerBinding);
+            descriptorSet->addImageWrite(data.image.view, binding);
+            descriptorSet->addSamplerWrite(data.image.view, data.image.sampler, data.image.samplerBinding);
             break;
+        }
     }
 }
 
