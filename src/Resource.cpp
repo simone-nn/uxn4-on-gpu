@@ -171,6 +171,9 @@ void DescriptorSet::initialise(const Context &ctx) {
     // Descriptor Writes
     std::vector<VkWriteDescriptorSet> writes;
     for (int i = 0; i < writeSets.size(); ++i) {
+        // Before updating the descriptor set, we need to update the write sets to reference the new descriptor set
+        writeSets[i]->dstSet = set;
+        // Deref the write sets
         writes.emplace_back(*writeSets[i]);
     }
     vkUpdateDescriptorSets(
@@ -189,7 +192,7 @@ void DescriptorSet::addSSBOWrite(VkBuffer buffer, VkDeviceSize bufferRange, uint
 
     auto* descriptorWrite = new VkWriteDescriptorSet;
     descriptorWrite->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrite->dstSet = set;
+    descriptorWrite->dstSet = VK_NULL_HANDLE; // this will be updated once the set is initialised
     descriptorWrite->dstBinding = binding;
     descriptorWrite->dstArrayElement = 0;
     descriptorWrite->descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -207,7 +210,7 @@ void DescriptorSet::addImageWrite(VkImageView imageView, uint32_t binding) {
 
     auto* descriptorWrite = new VkWriteDescriptorSet;
     descriptorWrite->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrite->dstSet = set;
+    descriptorWrite->dstSet = VK_NULL_HANDLE; // this will be updated once the set is initialised
     descriptorWrite->dstBinding = binding;
     descriptorWrite->dstArrayElement = 0;
     descriptorWrite->descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
@@ -226,7 +229,7 @@ void DescriptorSet::addSamplerWrite(VkImageView imageView, VkSampler sampler, ui
 
     auto* descriptorWrite = new VkWriteDescriptorSet;
     descriptorWrite->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrite->dstSet = set;
+    descriptorWrite->dstSet = VK_NULL_HANDLE; // this will be updated once the set is initialised
     descriptorWrite->dstBinding = binding;
     descriptorWrite->dstArrayElement = 0;
     descriptorWrite->descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -332,7 +335,7 @@ Resource::Resource(
     imageInfo.extent.depth = 1;
     imageInfo.mipLevels = 1;
     imageInfo.arrayLayers = 1;
-    imageInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+    imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM; //VK_FORMAT_R8G8B8A8_SRGB;
     imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     imageInfo.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
@@ -365,7 +368,7 @@ Resource::Resource(
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     viewInfo.image = this->data.image.image;
     viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    viewInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+    viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM; //VK_FORMAT_R8G8B8A8_SRGB;
     viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     viewInfo.subresourceRange.baseMipLevel = 0;
     viewInfo.subresourceRange.levelCount = 1;

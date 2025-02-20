@@ -12,8 +12,8 @@
 
 #define UXN_EMULATOR_PATH "shaders/uxn_emu.spv"
 #define BLIT_SHADER_PATH  "shaders/blit.spv"
-#define VERT_SHADER_PATH  "shaders/vertex.spv"
-#define FRAG_SHADER_PATH  "shaders/fragment.spv"
+#define VERT_SHADER_PATH  "shaders/shader.vert.spv"
+#define FRAG_SHADER_PATH  "shaders/shader.frag.spv"
 
 typedef struct vertex {
     glm::vec2 position;
@@ -692,11 +692,13 @@ private:
     void initDescriptorPool() {
         std::cout << "..initDescriptorPool" << std::endl;
 
-        std::array<VkDescriptorPoolSize, 2> poolSizes{};
+        std::array<VkDescriptorPoolSize, 3> poolSizes{};
         poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAME_STEPS);
         poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAME_STEPS);
+        poolSizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        poolSizes[2].descriptorCount = static_cast<uint32_t>(MAX_FRAME_STEPS);
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
