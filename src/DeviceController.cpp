@@ -17,11 +17,11 @@
 
 typedef struct vertex {
     glm::vec2 position;
-    glm::vec2 padding;
+    glm::vec2 uv;
 
-    vertex(float x, float y) {
+    vertex(float x, float y, float u, float v) {
         position = glm::vec2(x, y);
-        padding = glm::vec2(0, 0);
+        uv = glm::vec2(u, v);
     }
 
     static VkVertexInputBindingDescription getBindingDescription() {
@@ -37,8 +37,8 @@ typedef struct vertex {
 
         attributeDescriptions[0].binding = 0;
         attributeDescriptions[0].location = 0;
-        attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
-        attributeDescriptions[0].offset = offsetof(vertex, position);
+        attributeDescriptions[0].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+        attributeDescriptions[0].offset = 0;
 
         return attributeDescriptions;
     }
@@ -285,6 +285,14 @@ public:
     int WIDTH = 800;
     int HEIGHT = 600;
     bool enableValidationLayers;
+    std::vector<Vertex> vertices = {
+        vertex(0.0, 0.0, 0.0, 0.0), // first triangle
+        vertex(1.0, 0.0, 1.0, 0.0),
+        vertex(1.0, 1.0, 1.0, 1.0),
+        vertex(1.0, 1.0, 1.0, 1.0), // second triangle
+        vertex(0.0, 1.0, 0.0, 1.0),
+        vertex(0.0, 0.0, 0.0, 0.0)
+    };
     std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
     std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, "VK_KHR_portability_subset" };
 
@@ -750,7 +758,6 @@ private:
         inputAssembly.primitiveRestartEnable = VK_FALSE;
 
         // TODO figure out how many of these things are actually optional, and trim the rest
-        // ? is this necessary
         std::vector dynamicStates = {
                 VK_DYNAMIC_STATE_VIEWPORT,
                 VK_DYNAMIC_STATE_SCISSOR
@@ -825,8 +832,8 @@ private:
 
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipelineLayoutInfo.setLayoutCount = 0; // Optional
-        pipelineLayoutInfo.pSetLayouts = nullptr; // Optional
+        pipelineLayoutInfo.setLayoutCount = 1;
+        pipelineLayoutInfo.pSetLayouts = &descriptorSet.layout;
         pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
         pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
 
@@ -1047,11 +1054,11 @@ private:
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &computeCommandBuffers[frameStep];
-        if (vkQueueSubmit(ctx.computeQueue, 1, &submitInfo, blitFence) != VK_SUCCESS) {
+        if (vkQueueSubmit(ctx.computeQueue, 1, &submitInfo, uxnEvaluationFence) != VK_SUCCESS) {
             throw std::runtime_error("failed to submit compute command buffer!");
         }
         // wait for uxn step to be done
-        vkWaitForFences(ctx.device, 1, &blitFence, VK_TRUE, UINT64_MAX);
+        vkWaitForFences(ctx.device, 1, &uxnEvaluationFence, VK_TRUE, UINT64_MAX);
 
         // --- Blit submission ---
         vkResetFences(ctx.device, 1, &blitFence);
