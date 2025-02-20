@@ -14,6 +14,7 @@
 #define FRAG_SHADER_PATH  "shaders/frag.spv"
 #define COMP_SHADER_PATH  "shaders/comp.spv"
 #define UXN_EMULATOR_PATH "shaders/uxn_emu.spv"
+#define BLIT_PATH "shaders/blit.spv"
 
 typedef struct vertex {
     glm::vec2 position;
@@ -308,8 +309,10 @@ private:
     VkPipeline graphicsPipeline;
     std::vector<VkCommandBuffer> graphicsCommandBuffers;
 
-    VkPipelineLayout computePipelineLayout;
-    VkPipeline computePipeline;
+    VkPipelineLayout uxnEvaluatePipelineLayout;
+    VkPipeline uxnEvaluatePipeline;
+    VkPipelineLayout blitPipelineLayout;
+    VkPipeline blitPipeline;
     std::vector<VkCommandBuffer> computeCommandBuffers;
 
     DescriptorSet descriptorSet;
@@ -324,7 +327,8 @@ private:
     std::vector<VkSemaphore> computeFinishedSemaphores;
     std::vector<VkFence> inFlightFences;
     std::vector<VkFence> computeInFlightFences;
-    std::vector<VkFence> uxnEvaluationFences;
+    VkFence uxnEvaluationFence;
+    VkFence blitFence;
 
     const int MAX_FRAME_STEPS = 2;
     uint32_t frameStep = 0;
@@ -855,9 +859,9 @@ private:
         vkDestroyShaderModule(ctx.device, vertShaderModule, nullptr);
     }
 
-    void initComputePipeline() {
-        std::cout << "..initComputePipeline" << std::endl;
-        auto compShaderCode = readFile(UXN_EMULATOR_PATH);
+    void initComputePipeline(const char* shaderPath, VkPipeline &pipeline, VkPipelineLayout &pipelineLayout) {
+        std::cout << "..initPipeline: " << shaderPath << std::endl;
+        auto compShaderCode = readFile(shaderPath);
         VkShaderModule compShaderModule = createShaderModule(compShaderCode, ctx.device);
         VkPipelineShaderStageCreateInfo compShaderStageInfo{};
         compShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -870,16 +874,16 @@ private:
         pipelineLayoutInfo.setLayoutCount = 1;
         pipelineLayoutInfo.pSetLayouts = &ctx.descriptorSetLayout;
 
-        if (vkCreatePipelineLayout(ctx.device, &pipelineLayoutInfo, nullptr, &computePipelineLayout) != VK_SUCCESS) {
+        if (vkCreatePipelineLayout(ctx.device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
             throw std::runtime_error("failed to create compute pipeline layout!");
         }
 
         VkComputePipelineCreateInfo pipelineInfo{};
         pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-        pipelineInfo.layout = computePipelineLayout;
+        pipelineInfo.layout = pipelineLayout;
         pipelineInfo.stage = compShaderStageInfo;
 
-        if (vkCreateComputePipelines(ctx.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &computePipeline) != VK_SUCCESS) {
+        if (vkCreateComputePipelines(ctx.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline) != VK_SUCCESS) {
             throw std::runtime_error("failed to create compute pipeline!");
         }
 
@@ -900,6 +904,7 @@ private:
         VkDescriptorSetLayoutBinding samplerLayoutBinding{};
         samplerLayoutBinding.binding = 1;
         samplerLayoutBinding.descriptorCount = 1;
+        //todo change this to image2d equivalent type
         samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         samplerLayoutBinding.pImmutableSamplers = nullptr;
         samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
@@ -910,18 +915,16 @@ private:
         layoutInfo.bindingCount = bindings.size();
         layoutInfo.pBindings = bindings.data();
         if (vkCreateDescriptorSetLayout(ctx.device, &layoutInfo, nullptr, &ctx.descriptorSetLayout) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create compute descriptor set layout!");
+            throw std::runtime_error("failed to create descriptor set layout!");
         }
 
-        descriptorSet = DescriptorSet(ctx, 2);
+        descriptorSet = DescriptorSet(ctx);
 
         // resource creation
         uxnResource = Resource(ctx, 0, &descriptorSet, sizeof(UxnMemory), uxn->memory,
-            false, false, true);
-        uxnResource.updateDescriptorSet();
+            false, true);
 
         imageResource = Resource(ctx, 1, &descriptorSet);
-        imageResource.updateDescriptorSet();
 
         descriptorSet.updateDescriptorSet(ctx);
 
@@ -939,7 +942,6 @@ private:
         computeFinishedSemaphores.resize(MAX_FRAME_STEPS);
         inFlightFences.resize(MAX_FRAME_STEPS);
         computeInFlightFences.resize(MAX_FRAME_STEPS);
-        uxnEvaluationFences.resize(MAX_FRAME_STEPS);
 
         VkSemaphoreCreateInfo semaphoreInfo{};
         semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -948,14 +950,17 @@ private:
         fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
         fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
+        if (vkCreateFence(ctx.device, &fenceInfo, nullptr, &uxnEvaluationFence) != VK_SUCCESS ||
+            vkCreateFence(ctx.device, &fenceInfo, nullptr, &blitFence) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create synchronization objects!");
+        }
+
         for (size_t i = 0; i < MAX_FRAME_STEPS; i++) {
             if (vkCreateSemaphore(ctx.device, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS ||
                 vkCreateSemaphore(ctx.device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS ||
                 vkCreateSemaphore(ctx.device, &semaphoreInfo, nullptr, &computeFinishedSemaphores[i]) != VK_SUCCESS ||
                 vkCreateFence(ctx.device, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS ||
-                vkCreateFence(ctx.device, &fenceInfo, nullptr, &computeInFlightFences[i]) != VK_SUCCESS ||
-                vkCreateFence(ctx.device, &fenceInfo, nullptr, &uxnEvaluationFences[i]) != VK_SUCCESS) {
-
+                vkCreateFence(ctx.device, &fenceInfo, nullptr, &computeInFlightFences[i]) != VK_SUCCESS) {
                 throw std::runtime_error("failed to create synchronization objects!");
                 }
         }
@@ -975,7 +980,8 @@ private:
         initRenderPass();
         initDescriptorPool();
         initResources();
-        initComputePipeline();
+        initComputePipeline(UXN_EMULATOR_PATH, uxnEvaluatePipeline, uxnEvaluatePipelineLayout);
+        initComputePipeline(BLIT_PATH, blitPipeline, blitPipelineLayout);
         initFrameBuffers();
         initGraphicsPipeline();
         initSync();
@@ -1031,9 +1037,9 @@ private:
         }
     }
 
-    void uxnStep() {
-        // Compute submission
-        vkResetFences(ctx.device, 1, &uxnEvaluationFences[frameStep]);
+    void computeStep() {
+        // --- UXN evaluation submission ---
+        vkResetFences(ctx.device, 1, &uxnEvaluationFence);
         vkResetCommandBuffer(computeCommandBuffers[frameStep], 0);
 
         VkCommandBufferBeginInfo beginInfo{};
@@ -1043,11 +1049,10 @@ private:
             throw std::runtime_error("failed to begin recording command buffer!");
         }
 
-        vkCmdBindPipeline(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
-        vkCmdBindDescriptorSets(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout,
+        vkCmdBindPipeline(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, uxnEvaluatePipeline);
+        vkCmdBindDescriptorSets(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, uxnEvaluatePipelineLayout,
             0,1, &descriptorSet.set, 0, nullptr);
 
-        // TODO does the memory barrier do anything?
         VkMemoryBarrier memoryBarrier{};
         memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
         memoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
@@ -1065,13 +1070,42 @@ private:
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &computeCommandBuffers[frameStep];
-        // submitInfo.signalSemaphoreCount = 1;
-        // submitInfo.pSignalSemaphores = &computeFinishedSemaphores[frameStep];
-        if (vkQueueSubmit(ctx.computeQueue, 1, &submitInfo, uxnEvaluationFences[frameStep]) != VK_SUCCESS) {
+        if (vkQueueSubmit(ctx.computeQueue, 1, &submitInfo, blitFence) != VK_SUCCESS) {
             throw std::runtime_error("failed to submit compute command buffer!");
         }
         // wait for uxn step to be done
-        vkWaitForFences(ctx.device, 1, &uxnEvaluationFences[frameStep], VK_TRUE, UINT64_MAX);
+        vkWaitForFences(ctx.device, 1, &blitFence, VK_TRUE, UINT64_MAX);
+
+        // --- Blit submission ---
+        vkResetFences(ctx.device, 1, &blitFence);
+        vkResetCommandBuffer(computeCommandBuffers[frameStep], 0);
+
+        if (vkBeginCommandBuffer(computeCommandBuffers[frameStep], &beginInfo) != VK_SUCCESS) {
+            throw std::runtime_error("failed to begin recording command buffer!");
+        }
+
+        vkCmdBindPipeline(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, blitPipeline);
+        vkCmdBindDescriptorSets(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, blitPipelineLayout,
+            0,1, &descriptorSet.set, 0, nullptr);
+
+        // VkMemoryBarrier memoryBarrier{};
+        // memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+        // memoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+        // memoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        vkCmdPipelineBarrier(computeCommandBuffers[frameStep], VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
+
+        vkCmdDispatch(computeCommandBuffers[frameStep], 8, 8, 1);
+
+        if (vkEndCommandBuffer(computeCommandBuffers[frameStep]) != VK_SUCCESS) {
+            throw std::runtime_error("failed to record command buffer!");
+        }
+
+        if (vkQueueSubmit(ctx.computeQueue, 1, &submitInfo, blitFence) != VK_SUCCESS) {
+            throw std::runtime_error("failed to submit compute command buffer!");
+        }
+        // wait for blit step to be done
+        vkWaitForFences(ctx.device, 1, &blitFence, VK_TRUE, UINT64_MAX);
     }
 
     void drawFrame() {
@@ -1147,7 +1181,7 @@ private:
 
             // Main Loop:
             glfwPollEvents();
-            uxnStep();
+            computeStep();
             drawFrame();
 
             // Handle IO
@@ -1177,17 +1211,18 @@ private:
             vkDestroySemaphore(ctx.device, computeFinishedSemaphores[i], nullptr);
             vkDestroyFence(ctx.device, inFlightFences[i], nullptr);
             vkDestroyFence(ctx.device, computeInFlightFences[i], nullptr);
-            vkDestroyFence(ctx.device, uxnEvaluationFences[i], nullptr);
         }
+        vkDestroyFence(ctx.device, uxnEvaluationFence, nullptr);
+        vkDestroyFence(ctx.device, blitFence, nullptr);
         uxnResource.destroy();
         vkDestroyCommandPool(ctx.device, ctx.commandPool, nullptr);
         for (auto framebuffer : ctx.swapChainFramebuffers) {
             vkDestroyFramebuffer(ctx.device, framebuffer, nullptr);
         }
         vkDestroyPipeline(ctx.device, graphicsPipeline, nullptr);
-        vkDestroyPipeline(ctx.device, computePipeline, nullptr);
+        vkDestroyPipeline(ctx.device, uxnEvaluatePipeline, nullptr);
         vkDestroyPipelineLayout(ctx.device, graphicsPipelineLayout, nullptr);
-        vkDestroyPipelineLayout(ctx.device, computePipelineLayout, nullptr);
+        vkDestroyPipelineLayout(ctx.device, uxnEvaluatePipelineLayout, nullptr);
         vkDestroyRenderPass(ctx.device, renderPass, nullptr);
         for (auto imageView : ctx.swapChainImageViews) {
             vkDestroyImageView(ctx.device, imageView, nullptr);

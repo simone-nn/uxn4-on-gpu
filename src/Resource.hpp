@@ -38,16 +38,16 @@ public:
 
     DescriptorSet() : set(nullptr) {};
 
-    DescriptorSet(const Context &ctx, uint32_t descriptorSetCount);
+    explicit DescriptorSet(const Context &ctx);
 
     void addSSBOWrite(VkBuffer buffer, VkDeviceSize bufferRange, uint32_t binding);
 
-    void addImageWrite(VkImageView imageView, VkSampler sampler, uint32_t binding);
+    void addImageSamplerWrite(VkImageView imageView, VkSampler sampler, uint32_t binding);
 
     void updateDescriptorSet(const Context &ctx);
 
 private:
-    std::vector<VkWriteDescriptorSet> writeSets;
+    std::vector<VkWriteDescriptorSet*> writeSets;
 };
 
 class Resource {
@@ -79,25 +79,25 @@ public:
                  binding(0), data() {};
 
     Resource(
-        const Context &ctx,
+        Context &ctx,
         uint32_t binding,
         DescriptorSet *descriptorSet,
         int bufferSize,
         const void* bufferData,
         bool isVertexShaderAccessible,
-        bool memoryIsHostVisible,
         bool isTransferSource
     );
 
     Resource(
-        const Context &ctx,
+        Context &ctx,
         uint32_t binding,
         DescriptorSet *descriptorSet
     );
 
-    void updateDescriptorSet();
-
     void destroy() const;
+
+private:
+    void updateDescriptorSet() const;
 };
 
 #endif //RESOURCE_H

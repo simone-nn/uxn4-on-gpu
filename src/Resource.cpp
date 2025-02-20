@@ -143,11 +143,11 @@ void copyBufferToImage(const Context &ctx, VkBuffer buffer, VkImage image, uint3
 
 
 // -- Descriptor Set Wrapper --
-DescriptorSet::DescriptorSet(const Context &ctx, uint32_t descriptorSetCount) {
+DescriptorSet::DescriptorSet(const Context &ctx) {
     VkDescriptorSetAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     allocInfo.descriptorPool = ctx.descriptorPool;
-    allocInfo.descriptorSetCount = descriptorSetCount;
+    allocInfo.descriptorSetCount = 1;
     allocInfo.pSetLayouts = &ctx.descriptorSetLayout;
 
     if (vkAllocateDescriptorSets(ctx.device, &allocInfo, &set) != VK_SUCCESS) {
@@ -156,60 +156,73 @@ DescriptorSet::DescriptorSet(const Context &ctx, uint32_t descriptorSetCount) {
 }
 
 void DescriptorSet::addSSBOWrite(VkBuffer buffer, VkDeviceSize bufferRange, uint32_t binding) {
-    VkDescriptorBufferInfo storageBufferInfoLast{};
-    storageBufferInfoLast.buffer = buffer;
-    storageBufferInfoLast.offset = 0;
-    storageBufferInfoLast.range = bufferRange;
+    auto* storageBufferInfo = new VkDescriptorBufferInfo;
+    storageBufferInfo->buffer = buffer;
+    storageBufferInfo->offset = 0;
+    storageBufferInfo->range = bufferRange;
 
-    VkWriteDescriptorSet descriptorWrite;
-    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrite.dstSet = set;
-    descriptorWrite.dstBinding = binding;
-    descriptorWrite.dstArrayElement = 0;
-    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    descriptorWrite.descriptorCount = 1;
-    descriptorWrite.pBufferInfo = &storageBufferInfoLast;
+    auto* descriptorWrite = new VkWriteDescriptorSet;
+    descriptorWrite->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite->dstSet = set;
+    descriptorWrite->dstBinding = binding;
+    descriptorWrite->dstArrayElement = 0;
+    descriptorWrite->descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    descriptorWrite->descriptorCount = 1;
+    descriptorWrite->pBufferInfo = storageBufferInfo;
+    descriptorWrite->pNext = nullptr;
 
     writeSets.emplace_back(descriptorWrite);
 }
 
-void DescriptorSet::addImageWrite(VkImageView imageView, VkSampler sampler, uint32_t binding) {
-    VkDescriptorImageInfo imageInfo{};
-    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    imageInfo.imageView = imageView;
-    imageInfo.sampler = sampler;
+void DescriptorSet::addImageSamplerWrite(VkImageView imageView, VkSampler sampler, uint32_t binding) {
+    auto* imageInfo = new VkDescriptorImageInfo;
+    imageInfo->imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageInfo->imageView = imageView;
+    imageInfo->sampler = sampler;
 
-    VkWriteDescriptorSet descriptorWrite;
-    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrite.dstSet = set;
-    descriptorWrite.dstBinding = binding;
-    descriptorWrite.dstArrayElement = 0;
-    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    descriptorWrite.descriptorCount = 1;
-    descriptorWrite.pImageInfo = &imageInfo;
+    auto* descriptorWrite = new VkWriteDescriptorSet;
+    descriptorWrite->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite->dstSet = set;
+    descriptorWrite->dstBinding = binding;
+    descriptorWrite->dstArrayElement = 0;
+    descriptorWrite->descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrite->descriptorCount = 1;
+    descriptorWrite->pImageInfo = imageInfo;
+    descriptorWrite->pNext = nullptr;
 
     writeSets.emplace_back(descriptorWrite);
 }
 
 void DescriptorSet::updateDescriptorSet(const Context &ctx) {
-    vkUpdateDescriptorSets(ctx.device, writeSets.size(), writeSets.data(), 0, nullptr);
+    if (set == VK_NULL_HANDLE) {
+        throw std::runtime_error("DescriptorSet::updateDescriptorSet() called with an uninitialized VkDescriptorSet");
+    }
+    std::vector<VkWriteDescriptorSet> writes;
+    for (int i = 0; i < writeSets.size(); ++i) {
+        writes.emplace_back(*writeSets[i]);
+    }
+    vkUpdateDescriptorSets(
+        ctx.device,
+        writes.size(),
+        writes.data(),
+        0,
+        nullptr);
 }
 
 
 // -- Resource --
 Resource::Resource(
-    const Context &ctx,
+    Context &ctx,
     uint32_t binding,
     DescriptorSet *descriptorSet,
     int bufferSize,
     const void* bufferData,
     bool isVertexShaderAccessible,
-    bool memoryIsHostVisible,
     bool isTransferSource
 ) {
     this->type = SSBO;
     this->binding = binding;
-    this->ctx = const_cast<Context *>(&ctx);
+    this->ctx = &ctx;
     this->descriptorSet = descriptorSet;
     this->data.buffer.size = bufferSize;
 
@@ -233,10 +246,6 @@ Resource::Resource(
         // used as a vertex buffer for vert shader
         usage = usage | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
     }
-    if (memoryIsHostVisible) {
-        // memory is visible by the host (CPU)
-        properties = properties | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-    }
     if (isTransferSource) {
         usage = usage | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     }
@@ -247,16 +256,18 @@ Resource::Resource(
 
     vkDestroyBuffer(ctx.device, stagingBuffer, nullptr);
     vkFreeMemory(ctx.device, stagingBufferMemory, nullptr);
+
+    updateDescriptorSet();
 }
 
 Resource::Resource(
-    const Context &ctx,
+    Context &ctx,
     uint32_t binding,
     DescriptorSet *descriptorSet
 ) {
     this->type = Image;
     this->binding = binding;
-    this->ctx = const_cast<Context *>(&ctx);
+    this->ctx = &ctx;
     this->descriptorSet = descriptorSet;
     int textureWidth, textureHeight, textureChannels;
 
@@ -359,16 +370,22 @@ Resource::Resource(
     stbi_image_free(pixels);
     vkDestroyBuffer(ctx.device, stagingBuffer, nullptr);
     vkFreeMemory(ctx.device, stagingBufferMemory, nullptr);
+
+    updateDescriptorSet();
 }
 
 
-void Resource::updateDescriptorSet() {
+void Resource::updateDescriptorSet() const {
+    if (!descriptorSet) {
+        throw std::runtime_error("DescriptorSet is null in Resource::updateDescriptorSet()");
+    }
+
     switch (this->type) {
         case SSBO:
             descriptorSet->addSSBOWrite(this->data.buffer.buffer, this->data.buffer.size, binding);
             break;
         case Image:
-            descriptorSet->addImageWrite(this->data.image.view, this->data.image.sampler, binding);
+            descriptorSet->addImageSamplerWrite(this->data.image.view, this->data.image.sampler, binding);
             break;
     }
 }
