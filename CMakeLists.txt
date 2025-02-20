@@ -11,6 +11,8 @@ add_custom_command(
         COMMAND ${CMAKE_SOURCE_DIR}/compile_shaders.sh
         DEPENDS ${CMAKE_SOURCE_DIR}/shaders/uxn_emu.comp
         DEPENDS ${CMAKE_SOURCE_DIR}/shaders/blit.comp
+        DEPENDS ${CMAKE_SOURCE_DIR}/shaders/shader.vert.glsl
+        DEPENDS ${CMAKE_SOURCE_DIR}/shaders/shader.frag.glsl
         COMMENT "Compiling shaders..."
 )
 # Define a target for shader compilation

@@ -63,6 +63,7 @@ vec4 get_colour(uint pixel) {
         uvec3 sys_colours = uvec3(r, g, b);
         return vec4(sys_colours.xyz / 255.0, 1.0);
     }
+    return vec4(1.0, 0.0, 0.0, 1.0);
 }
 
 void main() {
@@ -87,7 +88,7 @@ void main() {
         }
     }
     // sprite requested
-    if (mask(uxn.deviceFlags, DRAW_SPRITE_FLAG)) {
-        uint addr = get_short(SCREEN_ADDR);
-    }
+    //if (mask(uxn.deviceFlags, DRAW_SPRITE_FLAG)) {
+    //    uint addr = get_short(SCREEN_ADDR);
+    //}
 }
