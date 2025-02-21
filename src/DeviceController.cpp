@@ -1203,14 +1203,18 @@ private:
         vkDestroyFence(ctx.device, uxnEvaluationFence, nullptr);
         vkDestroyFence(ctx.device, blitFence, nullptr);
         uxnResource.destroy();
+        backgroundImageResource.destroy();
+        foregroundImageResource.destroy();
         vkDestroyCommandPool(ctx.device, ctx.commandPool, nullptr);
         for (auto framebuffer : ctx.swapChainFramebuffers) {
             vkDestroyFramebuffer(ctx.device, framebuffer, nullptr);
         }
         vkDestroyPipeline(ctx.device, graphicsPipeline, nullptr);
         vkDestroyPipeline(ctx.device, uxnEvaluatePipeline, nullptr);
+        vkDestroyPipeline(ctx.device, blitPipeline, nullptr);
         vkDestroyPipelineLayout(ctx.device, graphicsPipelineLayout, nullptr);
         vkDestroyPipelineLayout(ctx.device, uxnEvaluatePipelineLayout, nullptr);
+        vkDestroyPipelineLayout(ctx.device, blitPipelineLayout, nullptr);
         vkDestroyRenderPass(ctx.device, renderPass, nullptr);
         for (auto imageView : ctx.swapChainImageViews) {
             vkDestroyImageView(ctx.device, imageView, nullptr);

@@ -106,6 +106,12 @@ void transitionImageLayout(
             sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
             destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 
+        } else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_GENERAL) {
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+            sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            destinationStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+
         } else if (oldLayout == VK_IMAGE_LAYOUT_GENERAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
             barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;  // Compute shader writes
             barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;   // Fragment shader reads
@@ -385,7 +391,7 @@ Resource::Resource(
     // preparing the image to be copied into, and then copying the pixel date from the staging buffer into it
     transitionImageLayout(ctx, 1, &this->data.image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, nullptr);
     copyBufferToImage(ctx, stagingBuffer, this->data.image.image, static_cast<uint32_t>(textureWidth), static_cast<uint32_t>(textureHeight));
-    transitionImageLayout(ctx, 1, &this->data.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, nullptr);
+    transitionImageLayout(ctx, 1, &this->data.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, nullptr);
 
     // creating the image view object
     VkImageViewCreateInfo viewInfo{};
