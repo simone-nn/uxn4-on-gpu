@@ -1025,6 +1025,7 @@ private:
         // --- UXN evaluation submission ---
         vkResetFences(ctx.device, 1, &uxnEvaluationFence);
         vkResetCommandBuffer(computeCommandBuffers[frameStep], 0);
+        std::array images = {backgroundImageResource.data.image.image, foregroundImageResource.data.image.image};
 
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1032,17 +1033,14 @@ private:
         if (vkBeginCommandBuffer(computeCommandBuffers[frameStep], &beginInfo) != VK_SUCCESS) {
             throw std::runtime_error("failed to begin recording command buffer!");
         }
+        transitionImageLayout(ctx, 2, images.data(),
+                              VK_IMAGE_LAYOUT_GENERAL,
+                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                              computeCommandBuffers[frameStep]);
 
         vkCmdBindPipeline(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, uxnEvaluatePipeline);
         vkCmdBindDescriptorSets(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, uxnEvaluatePipelineLayout,
             0,1, &descriptorSet.set, 0, nullptr);
-
-        VkMemoryBarrier memoryBarrier{};
-        memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-        memoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-        memoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-        vkCmdPipelineBarrier(computeCommandBuffers[frameStep], VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-            0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
 
         vkCmdDispatch(computeCommandBuffers[frameStep], 1, 1, 1);
 
@@ -1067,17 +1065,17 @@ private:
         if (vkBeginCommandBuffer(computeCommandBuffers[frameStep], &beginInfo) != VK_SUCCESS) {
             throw std::runtime_error("failed to begin recording command buffer!");
         }
+        transitionImageLayout(ctx, 2, images.data(),
+                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                              VK_IMAGE_LAYOUT_GENERAL,
+                              computeCommandBuffers[frameStep]);
 
         vkCmdBindPipeline(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, blitPipeline);
         vkCmdBindDescriptorSets(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, blitPipelineLayout,
             0,1, &descriptorSet.set, 0, nullptr);
 
-        // VkMemoryBarrier memoryBarrier{};
-        // memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-        // memoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-        // memoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-        vkCmdPipelineBarrier(computeCommandBuffers[frameStep], VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-            0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
+        // vkCmdPipelineBarrier(computeCommandBuffers[frameStep], VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+        //     0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
 
         vkCmdDispatch(computeCommandBuffers[frameStep], 8, 8, 1);
 
@@ -1094,38 +1092,9 @@ private:
 
     void drawFrame() {
         // change the image layout
-        // todo: maybe use transitionImageLayout(ctx, backgroundImageResource.data.image.image, ...)
-        {
-            VkCommandBuffer commandBuffer = beginSingleTimeCommands(ctx);
-            VkImageMemoryBarrier barrier{};
-            barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-            barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
-            barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            barrier.image = backgroundImageResource.data.image.image;
-            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            barrier.subresourceRange.baseMipLevel = 0;
-            barrier.subresourceRange.levelCount = 1;
-            barrier.subresourceRange.baseArrayLayer = 0;
-            barrier.subresourceRange.layerCount = 1;
-            barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;  // Compute shader writes
-            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;   // Fragment shader reads
-            vkCmdPipelineBarrier(
-                commandBuffer,
-                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                0, 0, nullptr, 0, nullptr, 1, &barrier
-            );
-            VkImageMemoryBarrier barrier2 = barrier;
-            barrier2.image = foregroundImageResource.data.image.image;
-            vkCmdPipelineBarrier(
-                commandBuffer,
-                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                0, 0, nullptr, 0, nullptr, 1, &barrier
-            );
-            endSingleTimeCommands(ctx, commandBuffer);
-        }
-
+        // transitionImageLayout(ctx, backgroundImageResource.data.image.image,
+        //     VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        // do foreground too
 
         // Graphics submission
         // Wait for previous frame to finish drawing

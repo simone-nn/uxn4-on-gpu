@@ -27,7 +27,7 @@ void copyBuffer(
     VkDeviceSize size
 );
 
-void transitionImageLayout(const Context &ctx, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout);
+void transitionImageLayout(const Context &ctx, int imageCount, const VkImage *image, VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandBuffer cmdBuffer);
 
 void copyBufferToImage(const Context &ctx, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
@@ -52,7 +52,7 @@ public:
 
     void addSamplerWrite(VkImageView imageView, VkSampler sampler, uint32_t binding);
 
-    void destroy(const Context &ctx);
+    void destroy(const Context &ctx) const;
 
 private:
     std::vector<VkDescriptorSetLayoutBinding*> bindings;

@@ -66,52 +66,75 @@ void copyBuffer(
     endSingleTimeCommands(ctx, commandBuffer);
 }
 
-void transitionImageLayout(const Context &ctx, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout) {
-    VkCommandBuffer commandBuffer = beginSingleTimeCommands(ctx);
-
-    VkImageMemoryBarrier barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.oldLayout = oldLayout;
-    barrier.newLayout = newLayout;
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image = image;
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = 1;
-    barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
-
-    VkPipelineStageFlags sourceStage;
-    VkPipelineStageFlags destinationStage;
-
-    if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-
-        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-    } else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    } else {
-        throw std::invalid_argument("unsupported layout transition!");
+void transitionImageLayout(
+    const Context &ctx,
+    int imageCount, const VkImage* image,
+    VkImageLayout oldLayout, VkImageLayout newLayout,
+    VkCommandBuffer cmdBuffer
+) {
+    bool singleTimeBuffer = cmdBuffer == VK_NULL_HANDLE;
+    if (singleTimeBuffer) {
+        cmdBuffer = beginSingleTimeCommands(ctx);
     }
 
-    vkCmdPipelineBarrier(
-        commandBuffer,
-        sourceStage, destinationStage,
-        0,
-        0, nullptr,
-        0, nullptr,
-        1, &barrier
-    );
+    for (int i = 0; i < imageCount; ++i) {
+        VkImageMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.oldLayout = oldLayout;
+        barrier.newLayout = newLayout;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = image[i];
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = 1;
 
+        VkPipelineStageFlags sourceStage;
+        VkPipelineStageFlags destinationStage;
 
-    endSingleTimeCommands(ctx, commandBuffer);
+        if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+            barrier.srcAccessMask = 0;
+            barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+            destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+
+        } else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+
+        } else if (oldLayout == VK_IMAGE_LAYOUT_GENERAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+            barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;  // Compute shader writes
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;   // Fragment shader reads
+            sourceStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+
+        } else if (oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_GENERAL) {
+            barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+            sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            destinationStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+
+        } else {
+            throw std::invalid_argument("unsupported layout transition!");
+        }
+
+        vkCmdPipelineBarrier(
+            cmdBuffer,
+            sourceStage, destinationStage,
+            0,
+            0, nullptr,
+            0, nullptr,
+            1, &barrier
+        );
+    }
+
+    if (singleTimeBuffer) {
+        endSingleTimeCommands(ctx, cmdBuffer);
+    }
 }
 
 void copyBufferToImage(const Context &ctx, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {
@@ -145,8 +168,9 @@ void copyBufferToImage(const Context &ctx, VkBuffer buffer, VkImage image, uint3
 void DescriptorSet::initialise(const Context &ctx) {
     // Descriptor Layout
     std::vector<VkDescriptorSetLayoutBinding> b;
-    for (int i = 0; i < bindings.size(); ++i) {
-        b.emplace_back(*bindings[i]);
+    b.reserve(bindings.size());
+    for (auto & binding : bindings) {
+        b.emplace_back(*binding);
     }
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
@@ -170,11 +194,11 @@ void DescriptorSet::initialise(const Context &ctx) {
 
     // Descriptor Writes
     std::vector<VkWriteDescriptorSet> writes;
-    for (int i = 0; i < writeSets.size(); ++i) {
+    for (auto & writeSet : writeSets) {
         // Before updating the descriptor set, we need to update the write sets to reference the new descriptor set
-        writeSets[i]->dstSet = set;
+        writeSet->dstSet = set;
         // Deref the write sets
-        writes.emplace_back(*writeSets[i]);
+        writes.emplace_back(*writeSet);
     }
     vkUpdateDescriptorSets(
         ctx.device,
@@ -240,7 +264,7 @@ void DescriptorSet::addSamplerWrite(VkImageView imageView, VkSampler sampler, ui
     writeSets.emplace_back(descriptorWrite);
 }
 
-void DescriptorSet::destroy(const Context &ctx) {
+void DescriptorSet::destroy(const Context &ctx) const {
     vkDestroyDescriptorSetLayout(ctx.device, layout, nullptr);
 }
 
@@ -359,9 +383,9 @@ Resource::Resource(
     vkBindImageMemory(ctx.device, this->data.image.image, this->data.image.memory, 0);
 
     // preparing the image to be copied into, and then copying the pixel date from the staging buffer into it
-    transitionImageLayout(ctx, this->data.image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    transitionImageLayout(ctx, 1, &this->data.image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, nullptr);
     copyBufferToImage(ctx, stagingBuffer, this->data.image.image, static_cast<uint32_t>(textureWidth), static_cast<uint32_t>(textureHeight));
-    transitionImageLayout(ctx, this->data.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    transitionImageLayout(ctx, 1, &this->data.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, nullptr);
 
     // creating the image view object
     VkImageViewCreateInfo viewInfo{};
