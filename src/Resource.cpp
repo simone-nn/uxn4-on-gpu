@@ -259,7 +259,10 @@ void DescriptorSet::addSSBOWrite(VkBuffer buffer, VkDeviceSize bufferRange, uint
 
 void DescriptorSet::addImageWrite(VkImageView imageView, uint32_t binding) {
     auto* imageInfo = new VkDescriptorImageInfo;
-    imageInfo->imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    //VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL or VK_IMAGE_LAYOUT_GENERAL
+    //todo should be VK_IMAGE_LAYOUT_GENERAL, but this one works better;
+    // figure out why
+    imageInfo->imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     imageInfo->imageView = imageView;
 
     auto* descriptorWrite = new VkWriteDescriptorSet;
@@ -419,7 +422,7 @@ Resource::Resource(
     // preparing the image to be copied into, and then copying the pixel date from the staging buffer into it
     transitionImageLayout(ctx, 1, &this->data.image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, nullptr);
     copyBufferToImage(ctx, stagingBuffer, this->data.image.image, static_cast<uint32_t>(textureWidth), static_cast<uint32_t>(textureHeight));
-    transitionImageLayout(ctx, 1, &this->data.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, nullptr);
+    transitionImageLayout(ctx, 1, &this->data.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, nullptr);
 
     // creating the image view object
     VkImageViewCreateInfo viewInfo{};
@@ -467,6 +470,7 @@ Resource::Resource(
     vkFreeMemory(ctx.device, stagingBufferMemory, nullptr);
 
     updateDescriptorSet();
+
 }
 
 

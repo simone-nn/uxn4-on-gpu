@@ -1043,10 +1043,6 @@ private:
         if (vkBeginCommandBuffer(computeCommandBuffers[frameStep], &beginInfo) != VK_SUCCESS) {
             throw std::runtime_error("failed to begin recording command buffer!");
         }
-        // transitionImageLayout(ctx, 2, images.data(),
-        //                       VK_IMAGE_LAYOUT_GENERAL,
-        //                       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        //                       computeCommandBuffers[frameStep]);
 
         vkCmdBindPipeline(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, uxnEvaluatePipeline);
         vkCmdBindDescriptorSets(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, uxnEvaluatePipelineLayout,
@@ -1075,17 +1071,22 @@ private:
         if (vkBeginCommandBuffer(computeCommandBuffers[frameStep], &beginInfo) != VK_SUCCESS) {
             throw std::runtime_error("failed to begin recording command buffer!");
         }
-        // transitionImageLayout(ctx, 2, images.data(),
-        //                       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        //                       VK_IMAGE_LAYOUT_GENERAL,
-        //                       computeCommandBuffers[frameStep]);
+
+        // transition image format to edit mode
+        transitionImageLayout(ctx, 2, images.data(),
+                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                              VK_IMAGE_LAYOUT_GENERAL,
+                              computeCommandBuffers[frameStep]);
 
         vkCmdBindPipeline(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, blitPipeline);
         vkCmdBindDescriptorSets(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, blitPipelineLayout,
             0,1, &descriptorSet.set, 0, nullptr);
 
-        // vkCmdPipelineBarrier(computeCommandBuffers[frameStep], VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-        //     0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
+        // transition image format to read only
+        transitionImageLayout(ctx, 2, images.data(),
+                              VK_IMAGE_LAYOUT_GENERAL,
+                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                              computeCommandBuffers[frameStep]);
 
         vkCmdDispatch(computeCommandBuffers[frameStep], 8, 8, 1);
 
@@ -1163,6 +1164,7 @@ private:
         //                       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         //                       VK_IMAGE_LAYOUT_GENERAL,
         //                       graphicsCommandBuffers[frameStep]);
+        vkWaitForFences(ctx.device, 1, &inFlightFences[frameStep], VK_TRUE, UINT64_MAX);
     }
 
     void copyDeviceUxnMemory(UxnMemory* target) {
