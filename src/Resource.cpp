@@ -282,10 +282,11 @@ Resource::Resource(
     DescriptorSet *descriptorSet,
     int bufferSize,
     const void* bufferData,
+    bool isSSBO,
     bool isVertexShaderAccessible,
     bool isTransferSource
 ) {
-    this->type = SSBO;
+    this->type = Buffer;
     this->binding = binding;
     this->ctx = &ctx;
     this->descriptorSet = descriptorSet;
@@ -303,10 +304,13 @@ Resource::Resource(
     memcpy(p, bufferData, bufferSize);
     vkUnmapMemory(ctx.device, stagingBufferMemory);
 
-    VkBufferUsageFlags usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT // used as a storage buffer for compute shader
-                             | VK_BUFFER_USAGE_TRANSFER_DST_BIT;  // transfer data from host to GPU
+    VkBufferUsageFlags usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;  // transfer data from host to GPU
     VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
+    if (isSSBO) {
+        // used as a storage buffer for compute shader
+        usage = usage | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    }
     if (isVertexShaderAccessible) {
         // used as a vertex buffer for vert shader
         usage = usage | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
@@ -448,7 +452,7 @@ void Resource::updateDescriptorSet() const {
     }
 
     switch (this->type) {
-        case SSBO: {
+        case Buffer: {
             VkDescriptorSetLayoutBinding b{};
             b.binding = binding;
             b.descriptorCount = 1;
@@ -480,7 +484,7 @@ void Resource::updateDescriptorSet() const {
 
 void Resource::destroy() const {
     switch (this->type) {
-        case SSBO:
+        case Buffer:
             vkDestroyBuffer(ctx->device, this->data.buffer.buffer, nullptr);
             vkFreeMemory(ctx->device, this->data.buffer.memory, nullptr);
         break;

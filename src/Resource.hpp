@@ -62,7 +62,7 @@ private:
 class Resource {
 public:
     enum {
-        SSBO,
+        Buffer,
         Image
     } type;
     DescriptorSet* descriptorSet;
@@ -94,6 +94,7 @@ public:
         DescriptorSet *descriptorSet,
         int bufferSize,
         const void* bufferData,
+        bool isSSBO,
         bool isVertexShaderAccessible,
         bool isTransferSource
     );
