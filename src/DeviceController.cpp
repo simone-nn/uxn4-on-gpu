@@ -1143,7 +1143,7 @@ private:
         // vkQueuePresentKHR(ctx.presentQueue, &presentInfo);
     }
 
-    void copyDeviceUxnMemory(UxnMemory* target, uint32_t frameIndex) {
+    void copyDeviceUxnMemory(UxnMemory* target) {
         // copy from ssbo buffer to host staging buffer
         copyBuffer(ctx, uxnResource.data.buffer.buffer, hostStagingBuffer, sizeof(UxnMemory));
 
@@ -1172,7 +1172,7 @@ private:
             drawFrame();
 
             // Handle IO
-            copyDeviceUxnMemory(uxn->memory, frameStep);
+            copyDeviceUxnMemory(uxn->memory);
             uxn->handleUxnIO();
             uxn->outputToFile("output.txt");
 
