@@ -214,6 +214,30 @@ void DescriptorSet::initialise(const Context &ctx) {
         nullptr);
 }
 
+void DescriptorSet::addBinding(const VkDescriptorSetLayoutBinding &bindingLayout) {
+    auto b = new VkDescriptorSetLayoutBinding(bindingLayout);
+    bindings.emplace_back(b);
+}
+
+void DescriptorSet::addVertexBufferWrite(VkBuffer buffer, VkDeviceSize bufferRange, uint32_t binding) {
+    auto* bufferInfo = new VkDescriptorBufferInfo;
+    bufferInfo->buffer = buffer;
+    bufferInfo->offset = 0;
+    bufferInfo->range = bufferRange;
+
+    auto* descriptorWrite = new VkWriteDescriptorSet;
+    descriptorWrite->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite->dstSet = VK_NULL_HANDLE; // this will be updated once the set is initialised
+    descriptorWrite->dstBinding = binding;
+    descriptorWrite->dstArrayElement = 0;
+    descriptorWrite->descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorWrite->descriptorCount = 1;
+    descriptorWrite->pBufferInfo = bufferInfo;
+    descriptorWrite->pNext = nullptr;
+
+    writeSets.emplace_back(descriptorWrite);
+}
+
 void DescriptorSet::addSSBOWrite(VkBuffer buffer, VkDeviceSize bufferRange, uint32_t binding) {
     auto* storageBufferInfo = new VkDescriptorBufferInfo;
     storageBufferInfo->buffer = buffer;
@@ -286,7 +310,7 @@ Resource::Resource(
     bool isVertexShaderAccessible,
     bool isTransferSource
 ) {
-    this->type = Buffer;
+    this->type = isSSBO ? SSBO : Buffer;
     this->binding = binding;
     this->ctx = &ctx;
     this->descriptorSet = descriptorSet;
@@ -395,7 +419,7 @@ Resource::Resource(
     // preparing the image to be copied into, and then copying the pixel date from the staging buffer into it
     transitionImageLayout(ctx, 1, &this->data.image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, nullptr);
     copyBufferToImage(ctx, stagingBuffer, this->data.image.image, static_cast<uint32_t>(textureWidth), static_cast<uint32_t>(textureHeight));
-    transitionImageLayout(ctx, 1, &this->data.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, nullptr);
+    transitionImageLayout(ctx, 1, &this->data.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, nullptr);
 
     // creating the image view object
     VkImageViewCreateInfo viewInfo{};
@@ -456,6 +480,16 @@ void Resource::updateDescriptorSet() const {
             VkDescriptorSetLayoutBinding b{};
             b.binding = binding;
             b.descriptorCount = 1;
+            b.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            b.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+            descriptorSet->addBinding(b);
+            // descriptorSet->addVertexBufferWrite(data.buffer.buffer, data.buffer.size, binding);
+            break;
+        }
+        case SSBO: {
+            VkDescriptorSetLayoutBinding b{};
+            b.binding = binding;
+            b.descriptorCount = 1;
             b.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
             b.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
             descriptorSet->addBinding(b);
@@ -485,6 +519,7 @@ void Resource::updateDescriptorSet() const {
 void Resource::destroy() const {
     switch (this->type) {
         case Buffer:
+        case SSBO:
             vkDestroyBuffer(ctx->device, this->data.buffer.buffer, nullptr);
             vkFreeMemory(ctx->device, this->data.buffer.memory, nullptr);
         break;

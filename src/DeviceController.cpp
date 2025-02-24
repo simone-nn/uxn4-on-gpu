@@ -15,6 +15,8 @@
 #define VERT_SHADER_PATH  "shaders/shader.vert.spv"
 #define FRAG_SHADER_PATH  "shaders/shader.frag.spv"
 
+#define VERTEX_BINDING 0
+#define VERTEX_LOCATION 5
 typedef struct vertex {
     glm::vec2 position;
     glm::vec2 uv;
@@ -26,7 +28,7 @@ typedef struct vertex {
 
     static VkVertexInputBindingDescription getBindingDescription() {
         VkVertexInputBindingDescription bindingDescription{};
-        bindingDescription.binding = 0;
+        bindingDescription.binding = VERTEX_BINDING;
         bindingDescription.stride = sizeof(vertex);
         bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
         return bindingDescription;
@@ -35,8 +37,8 @@ typedef struct vertex {
     static std::array<VkVertexInputAttributeDescription, 1> getAttributeDescriptions() {
         std::array<VkVertexInputAttributeDescription, 1> attributeDescriptions{};
 
-        attributeDescriptions[0].binding = 0;
-        attributeDescriptions[0].location = 0;
+        attributeDescriptions[0].binding = VERTEX_BINDING;
+        attributeDescriptions[0].location = VERTEX_LOCATION;
         attributeDescriptions[0].format = VK_FORMAT_R32G32B32A32_SFLOAT;
         attributeDescriptions[0].offset = 0;
 
@@ -286,13 +288,14 @@ public:
     int HEIGHT = 600;
     bool enableValidationLayers;
     std::vector<Vertex> vertices = {
-        vertex(0.0, 0.0, 0.0, 0.0), // first triangle
-        vertex(1.0, 0.0, 1.0, 0.0),
+        vertex(-1.0, -1.0, 0.0, 0.0), // first triangle
+        vertex(1.0, -1.0, 1.0, 0.0),
         vertex(1.0, 1.0, 1.0, 1.0),
         vertex(1.0, 1.0, 1.0, 1.0), // second triangle
-        vertex(0.0, 1.0, 0.0, 1.0),
-        vertex(0.0, 0.0, 0.0, 0.0)
+        vertex(-1.0, 1.0, 0.0, 1.0),
+        vertex(-1.0, -1.0, 0.0, 0.0)
     };
+    const int VERTICES_SIZE = sizeof(Vertex) * vertices.size();
     std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
     std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, "VK_KHR_portability_subset" };
 
@@ -326,13 +329,14 @@ private:
     Resource uxnResource;
     Resource backgroundImageResource;
     Resource foregroundImageResource;
+    Resource vertexResource;
 
     VkBuffer hostStagingBuffer;
     VkDeviceMemory hostStagingMemory;
 
     std::vector<VkSemaphore> imageAvailableSemaphores;
     std::vector<VkSemaphore> renderFinishedSemaphores;
-    std::vector<VkSemaphore> computeFinishedSemaphores;
+    std::vector<VkSemaphore> computeFinishedSemaphores; //todo use these
     std::vector<VkFence> inFlightFences;
     std::vector<VkFence> computeInFlightFences;
     VkFence uxnEvaluationFence;
@@ -700,13 +704,15 @@ private:
     void initDescriptorPool() {
         std::cout << "..initDescriptorPool" << std::endl;
 
-        std::array<VkDescriptorPoolSize, 3> poolSizes{};
+        std::array<VkDescriptorPoolSize, 4> poolSizes{};
         poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAME_STEPS);
         poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAME_STEPS);
         poolSizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
         poolSizes[2].descriptorCount = static_cast<uint32_t>(MAX_FRAME_STEPS);
+        poolSizes[3].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        poolSizes[3].descriptorCount = static_cast<uint32_t>(MAX_FRAME_STEPS);
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -906,9 +912,11 @@ private:
 
         // resource creation
         uxnResource = Resource(ctx, 0, &descriptorSet, sizeof(UxnMemory), uxn->memory,
-            false, true);
+            true, false, true);
         backgroundImageResource = Resource(ctx, 1, 3, &descriptorSet);
         foregroundImageResource = Resource(ctx, 2, 4, &descriptorSet);
+        vertexResource = Resource(ctx, 5, &descriptorSet, VERTICES_SIZE, vertices.data(),
+            false, true, false);
 
         descriptorSet.initialise(ctx);
 
@@ -994,6 +1002,8 @@ private:
         vkCmdBeginRenderPass(cmdBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
         { // Render Pass
             vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+            vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelineLayout,
+            0,1, &descriptorSet.set, 0, nullptr);
 
             VkViewport viewport{};
             viewport.x = 0.0f;
@@ -1010,9 +1020,9 @@ private:
             vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
 
             VkDeviceSize offsets[] = {0};
-            // vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &verticesStorage[frameStep].buffer, offsets);
+            vkCmdBindVertexBuffers(cmdBuffer, VERTEX_BINDING, 1, &vertexResource.data.buffer.buffer, offsets);
 
-            // vkCmdDraw(cmdBuffer, VERTEX_COUNT, 1, 0, 0);
+            vkCmdDraw(cmdBuffer, vertices.size(), 1, 0, 0);
         }
         vkCmdEndRenderPass(cmdBuffer);
 
@@ -1033,10 +1043,10 @@ private:
         if (vkBeginCommandBuffer(computeCommandBuffers[frameStep], &beginInfo) != VK_SUCCESS) {
             throw std::runtime_error("failed to begin recording command buffer!");
         }
-        transitionImageLayout(ctx, 2, images.data(),
-                              VK_IMAGE_LAYOUT_GENERAL,
-                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                              computeCommandBuffers[frameStep]);
+        // transitionImageLayout(ctx, 2, images.data(),
+        //                       VK_IMAGE_LAYOUT_GENERAL,
+        //                       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        //                       computeCommandBuffers[frameStep]);
 
         vkCmdBindPipeline(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, uxnEvaluatePipeline);
         vkCmdBindDescriptorSets(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, uxnEvaluatePipelineLayout,
@@ -1065,10 +1075,10 @@ private:
         if (vkBeginCommandBuffer(computeCommandBuffers[frameStep], &beginInfo) != VK_SUCCESS) {
             throw std::runtime_error("failed to begin recording command buffer!");
         }
-        transitionImageLayout(ctx, 2, images.data(),
-                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                              VK_IMAGE_LAYOUT_GENERAL,
-                              computeCommandBuffers[frameStep]);
+        // transitionImageLayout(ctx, 2, images.data(),
+        //                       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        //                       VK_IMAGE_LAYOUT_GENERAL,
+        //                       computeCommandBuffers[frameStep]);
 
         vkCmdBindPipeline(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, blitPipeline);
         vkCmdBindDescriptorSets(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, blitPipelineLayout,
@@ -1098,49 +1108,61 @@ private:
 
         // Graphics submission
         // Wait for previous frame to finish drawing
-        // vkWaitForFences(ctx.device, 1, &inFlightFences[frameStep], VK_TRUE, UINT64_MAX);
-        // vkResetFences(ctx.device, 1, &inFlightFences[frameStep]);
+        vkWaitForFences(ctx.device, 1, &inFlightFences[frameStep], VK_TRUE, UINT64_MAX);
+        vkResetFences(ctx.device, 1, &inFlightFences[frameStep]);
 
         // get the next image:
-        // uint32_t imageIndex;
-        // vkAcquireNextImageKHR(ctx.device, ctx.swapChain, UINT64_MAX, imageAvailableSemaphores[frameStep],
-        //                       VK_NULL_HANDLE, &imageIndex);
+        uint32_t imageIndex;
+        vkAcquireNextImageKHR(ctx.device, ctx.swapChain, UINT64_MAX, imageAvailableSemaphores[frameStep],
+                              VK_NULL_HANDLE, &imageIndex);
+
+        // std::array images = {backgroundImageResource.data.image.image, foregroundImageResource.data.image.image};
+        // transitionImageLayout(ctx, 2, images.data(),
+        //                       VK_IMAGE_LAYOUT_GENERAL,
+        //                       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        //                       graphicsCommandBuffers[frameStep]);
 
         // record commands in the current command buffer:
-        // vkResetCommandBuffer(graphicsCommandBuffers[frameStep], 0);
-        // recordGraphicsCommandBuffer(graphicsCommandBuffers[frameStep], imageIndex);
+        vkResetCommandBuffer(graphicsCommandBuffers[frameStep], 0);
+        recordGraphicsCommandBuffer(graphicsCommandBuffers[frameStep], imageIndex);
 
         // submit info that accompanies the commands:
-        // submitInfo = {};
-        // submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        // VkSemaphore waitSemaphores[] = {computeFinishedSemaphores[frameStep], imageAvailableSemaphores[frameStep]};
-        // submitInfo.waitSemaphoreCount = 2;
-        // submitInfo.pWaitSemaphores = waitSemaphores;
-        // VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-        // submitInfo.pWaitDstStageMask = waitStages;
-        // submitInfo.commandBufferCount = 1;
-        // submitInfo.pCommandBuffers = &graphicsCommandBuffers[frameStep];
-        // submitInfo.signalSemaphoreCount = 1;
-        // submitInfo.pSignalSemaphores = &renderFinishedSemaphores[frameStep];
-        //
-        // // Graphic Commands get submitted:
-        // if (vkQueueSubmit(ctx.graphicsQueue, 1, &submitInfo, inFlightFences[frameStep]) != VK_SUCCESS) {
-        //     throw std::runtime_error("failed to submit draw command buffer!");
-        // }
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        // std::array waitSemaphores = {computeFinishedSemaphores[frameStep], imageAvailableSemaphores[frameStep]};
+        std::array waitSemaphores = {imageAvailableSemaphores[frameStep]};
+        submitInfo.waitSemaphoreCount = waitSemaphores.size();
+        submitInfo.pWaitSemaphores = waitSemaphores.data();
+        VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+        submitInfo.pWaitDstStageMask = waitStages;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &graphicsCommandBuffers[frameStep];
+        submitInfo.signalSemaphoreCount = 1;
+        submitInfo.pSignalSemaphores = &renderFinishedSemaphores[frameStep];
+
+        // Graphic Commands get submitted:
+        if (vkQueueSubmit(ctx.graphicsQueue, 1, &submitInfo, inFlightFences[frameStep]) != VK_SUCCESS) {
+            throw std::runtime_error("failed to submit draw command buffer!");
+        }
 
         // present commands:
-        // VkPresentInfoKHR presentInfo{};
-        // presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-        // presentInfo.waitSemaphoreCount = 1;
-        // presentInfo.pWaitSemaphores = &renderFinishedSemaphores[frameStep];
-        // VkSwapchainKHR swapChains[] = {ctx.swapChain};
-        // presentInfo.swapchainCount = 1;
-        // presentInfo.pSwapchains = swapChains;
-        // presentInfo.pImageIndices = &imageIndex;
-        // presentInfo.pResults = nullptr; // Optional
+        VkPresentInfoKHR presentInfo{};
+        presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+        presentInfo.waitSemaphoreCount = 1;
+        presentInfo.pWaitSemaphores = &renderFinishedSemaphores[frameStep];
+        VkSwapchainKHR swapChains[] = {ctx.swapChain};
+        presentInfo.swapchainCount = 1;
+        presentInfo.pSwapchains = swapChains;
+        presentInfo.pImageIndices = &imageIndex;
+        presentInfo.pResults = nullptr;
+
+        // Present Commands get submitted:
+        vkQueuePresentKHR(ctx.presentQueue, &presentInfo);
         //
-        // // Present Commands get submitted:
-        // vkQueuePresentKHR(ctx.presentQueue, &presentInfo);
+        // transitionImageLayout(ctx, 2, images.data(),
+        //                       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        //                       VK_IMAGE_LAYOUT_GENERAL,
+        //                       graphicsCommandBuffers[frameStep]);
     }
 
     void copyDeviceUxnMemory(UxnMemory* target) {
@@ -1160,7 +1182,7 @@ private:
     }
 
     void mainLoop() {
-        constexpr int TOTAL_STEPS = 10;
+        constexpr int TOTAL_STEPS = INT_MAX;
 
         int step = 0;
         std::chrono::steady_clock::time_point last_time = std::chrono::steady_clock::now();
@@ -1174,7 +1196,7 @@ private:
             // Handle IO
             copyDeviceUxnMemory(uxn->memory);
             uxn->handleUxnIO();
-            uxn->outputToFile("output.txt");
+            // uxn->outputToFile("output.txt");
 
             // Print elapsed time:
             std::chrono::steady_clock::time_point now_time = std::chrono::steady_clock::now();
@@ -1205,6 +1227,7 @@ private:
         uxnResource.destroy();
         backgroundImageResource.destroy();
         foregroundImageResource.destroy();
+        vertexResource.destroy();
         vkDestroyCommandPool(ctx.device, ctx.commandPool, nullptr);
         for (auto framebuffer : ctx.swapChainFramebuffers) {
             vkDestroyFramebuffer(ctx.device, framebuffer, nullptr);

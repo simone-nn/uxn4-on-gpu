@@ -41,10 +41,9 @@ public:
 
     void initialise(const Context &ctx);
 
-    void addBinding(const VkDescriptorSetLayoutBinding &bindingLayout) {
-        auto b = new VkDescriptorSetLayoutBinding(bindingLayout);
-        bindings.emplace_back(b);
-    }
+    void addBinding(const VkDescriptorSetLayoutBinding &bindingLayout);
+
+    void addVertexBufferWrite(VkBuffer buffer, VkDeviceSize bufferRange, uint32_t binding);
 
     void addSSBOWrite(VkBuffer buffer, VkDeviceSize bufferRange, uint32_t binding);
 
@@ -63,6 +62,7 @@ class Resource {
 public:
     enum {
         Buffer,
+        SSBO,
         Image
     } type;
     DescriptorSet* descriptorSet;

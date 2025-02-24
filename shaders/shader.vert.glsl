@@ -1,5 +1,5 @@
 #version 450
-layout(location = 0) in vec4 inPosition;
+layout(location = 5) in vec4 inPosition;
 
 layout(location = 0) out vec2 fragUV;
 
