@@ -307,7 +307,7 @@ Resource::Resource(
     Context &ctx,
     uint32_t binding,
     DescriptorSet *descriptorSet,
-    int bufferSize,
+    size_t bufferSize,
     const void* bufferData,
     bool isSSBO,
     bool isVertexShaderAccessible,
@@ -360,7 +360,8 @@ Resource::Resource(
     Context &ctx,
     uint32_t imageBinding,
     uint32_t samplerBinding,
-    DescriptorSet *descriptorSet
+    DescriptorSet *descriptorSet,
+    char const* texture_file
 ) {
     this->type = Image;
     this->binding = imageBinding;
@@ -370,7 +371,7 @@ Resource::Resource(
     int textureWidth, textureHeight, textureChannels;
 
     // loading the image from files
-    stbi_uc* pixels = stbi_load("texture.jpg", &textureWidth, &textureHeight, &textureChannels, STBI_rgb_alpha);
+    stbi_uc* pixels = stbi_load(texture_file, &textureWidth, &textureHeight, &textureChannels, STBI_rgb_alpha);
     VkDeviceSize imageSize = textureWidth * textureHeight * STBI_rgb_alpha;
     if (!pixels) {
         throw std::runtime_error("failed to load texture!");

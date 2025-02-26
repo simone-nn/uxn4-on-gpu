@@ -92,7 +92,7 @@ public:
         Context &ctx,
         uint32_t binding,
         DescriptorSet *descriptorSet,
-        int bufferSize,
+        size_t bufferSize,
         const void* bufferData,
         bool isSSBO,
         bool isVertexShaderAccessible,
@@ -103,7 +103,8 @@ public:
         Context &ctx,
         uint32_t imageBinding,
         uint32_t samplerBinding,
-        DescriptorSet *descriptorSet
+        DescriptorSet *descriptorSet,
+        char const* texture_file
     );
 
     void destroy() const;

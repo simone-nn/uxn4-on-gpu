@@ -20,6 +20,10 @@ add_custom_target(compile_shaders ALL
         DEPENDS ${CMAKE_BINARY_DIR}/shaders/uxn_emu.spv
 )
 
+# Copy resources folder
+configure_file(${CMAKE_SOURCE_DIR}/resources/default_background.png ${CMAKE_BINARY_DIR}/resources/default_background.png COPYONLY)
+configure_file(${CMAKE_SOURCE_DIR}/resources/default_foreground.png ${CMAKE_BINARY_DIR}/resources/default_foreground.png COPYONLY)
+
 add_executable(uxn-on-gpu
         ${CMAKE_SOURCE_DIR}/src/Resource.hpp
         ${CMAKE_SOURCE_DIR}/src/DeviceController.hpp

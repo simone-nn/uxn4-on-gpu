@@ -295,7 +295,7 @@ public:
         vertex(-1.0, 1.0, 0.0, 1.0),
         vertex(-1.0, -1.0, 0.0, 0.0)
     };
-    const int VERTICES_SIZE = sizeof(Vertex) * vertices.size();
+    const size_t VERTICES_SIZE = sizeof(Vertex) * vertices.size();
     std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
     std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, "VK_KHR_portability_subset" };
 
@@ -913,8 +913,8 @@ private:
         // resource creation
         uxnResource = Resource(ctx, 0, &descriptorSet, sizeof(UxnMemory), uxn->memory,
             true, false, true);
-        backgroundImageResource = Resource(ctx, 1, 3, &descriptorSet);
-        foregroundImageResource = Resource(ctx, 2, 4, &descriptorSet);
+        backgroundImageResource = Resource(ctx, 1, 3, &descriptorSet, "resources/default_background.png");
+        foregroundImageResource = Resource(ctx, 2, 4, &descriptorSet, "resources/default_foreground.png");
         vertexResource = Resource(ctx, 5, &descriptorSet, VERTICES_SIZE, vertices.data(),
             false, true, false);
 
