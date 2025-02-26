@@ -54,7 +54,7 @@ void Uxn::reset() {
     memory = original_memory;
 }
 
-void Uxn::outputToFile(const char* output_file_name) const {
+void Uxn::outputToFile(const char* output_file_name, bool showRAM) const {
     #define printValue(i, arr) if (arr[i]!=0x00000000) { outFile << "[0x" << i << "]: 0x" << arr[i] << "\n"; }
 
     std::ofstream outFile(output_file_name, std::ios::out | std::ios::app);
@@ -68,9 +68,11 @@ void Uxn::outputToFile(const char* output_file_name) const {
     outFile << "---Uxn Memory:---\n";
     outFile << "Program Counter: 0x" << memory->pc << "\n";
     outFile << "Flags: 0x" << memory->deviceFlags << "\n";
-    outFile << "--RAM:--\n";
-    for (int i = 0; i < UXN_RAM_SIZE; ++i) {
-        printValue(i, memory->ram);
+    if (showRAM) {
+        outFile << "--RAM:--\n";
+        for (int i = 0; i < UXN_RAM_SIZE; ++i) {
+            printValue(i, memory->ram);
+        }
     }
     outFile << "--Working Stack:--\n";
     outFile << "wst pointer: " << memory->pWst << "\n";
@@ -86,7 +88,7 @@ void Uxn::outputToFile(const char* output_file_name) const {
     for (int i = 0; i < UXN_DEV_SIZE; ++i) {
         printValue(i, memory->dev);
     }
-    outFile << std::dec;
+    outFile << std::dec << "\n\n";
 
     outFile.close();
     std::cout << "Printed Uxn Memory to file: " << output_file_name << "\n";

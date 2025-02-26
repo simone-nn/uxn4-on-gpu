@@ -41,7 +41,7 @@ public:
 
     void reset();
 
-    void outputToFile(const char* output_file_name) const;
+    void outputToFile(const char* output_file_name, bool showRAM) const;
 
     void handleUxnIO();
 

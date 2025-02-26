@@ -981,13 +981,13 @@ private:
         initImageViews();
         initRenderPass();
         initDescriptorPool();
+        updateUxnConstants();
         initResources();
         initComputePipeline(UXN_EMULATOR_PATH, uxnEvaluatePipeline, uxnEvaluatePipelineLayout);
         initComputePipeline(BLIT_SHADER_PATH, blitPipeline, blitPipelineLayout);
         initFrameBuffers();
         initGraphicsPipeline();
         initSync();
-        updateUxnConstants();
     }
 
     // todo update recordGraphicsCommandBuffer
@@ -1195,7 +1195,7 @@ private:
     }
 
     void mainLoop() {
-        constexpr int TOTAL_STEPS = INT_MAX;
+        constexpr int TOTAL_STEPS = 50;
 
         int step = 0;
         std::chrono::steady_clock::time_point last_time = std::chrono::steady_clock::now();
@@ -1209,7 +1209,10 @@ private:
             // Handle IO
             copyDeviceUxnMemory(uxn->memory);
             uxn->handleUxnIO();
-            // uxn->outputToFile("output.txt");
+            if (step % 10 == 0) {
+                uxn->outputToFile("output.txt", false);
+            }
+
 
             // Print elapsed time:
             std::chrono::steady_clock::time_point now_time = std::chrono::steady_clock::now();
@@ -1221,6 +1224,7 @@ private:
             frameStep = (frameStep + 1) % MAX_FRAME_STEPS;
             step++;
         }
+        uxn->outputToFile("output.txt", false);
     }
 
     void cleanup() {
