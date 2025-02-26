@@ -100,7 +100,7 @@
         %uxn = OpVariable %_ptr_StorageBuffer_UXN_Buffer StorageBuffer
       %int_6 = OpConstant %int 6
 %_ptr_StorageBuffer_uint = OpTypePointer StorageBuffer %uint
-    %uint_16 = OpConstant %uint 16
+     %int_16 = OpConstant %int 16
      %uint_1 = OpConstant %uint 1
     %uint_15 = OpConstant %uint 15
      %uint_4 = OpConstant %uint 4
@@ -237,8 +237,8 @@
         %140 = OpLoad %uint %addr_0
         %141 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_6 %140
         %142 = OpLoad %uint %141
-        %143 = OpIAdd %uint %142 %uint_16
-        %144 = OpShiftRightArithmetic %int %int_24 %143
+        %143 = OpShiftRightArithmetic %int %int_24 %142
+        %144 = OpIAdd %int %143 %int_16
         %145 = OpLoad %uint %addr_0
         %146 = OpIAdd %uint %145 %uint_1
         %147 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_6 %146

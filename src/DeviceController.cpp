@@ -958,6 +958,16 @@ private:
         }
     }
 
+    void updateUxnConstants() {
+        std::cout << "..updateUxnConstants" << std::endl;
+
+        // Screen Device
+        to_uxn_mem2(WIDTH, &uxn->memory->dev[0x22]);
+        to_uxn_mem2(HEIGHT, &uxn->memory->dev[0x24]);
+
+        //todo populate all uxn constants for all devices
+    }
+
     void init() {
         std::cout << "Initialising the Device Controller:" << std::endl;
         initWindow();
@@ -977,6 +987,7 @@ private:
         initFrameBuffers();
         initGraphicsPipeline();
         initSync();
+        updateUxnConstants();
     }
 
     // todo update recordGraphicsCommandBuffer

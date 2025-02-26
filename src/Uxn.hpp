@@ -22,6 +22,15 @@ typedef struct uxn_memory {
 } UxnMemory;
 
 
+char8_t from_uxn_mem(const glm::uint* p);
+
+char16_t from_uxn_mem2(const glm::uint* p);
+
+void to_uxn_mem(char8_t c, glm::uint* p);
+
+void to_uxn_mem2(char16_t c, glm::uint* p);
+
+
 class Uxn {
 public:
     UxnMemory* memory;

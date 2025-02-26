@@ -46,7 +46,7 @@ uint get_byte(uint addr) {
 }
 
 uint get_short(uint addr) {
-    return 24 >> uxn.dev[addr] + 16 >> uxn.dev[addr + 1];
+    return (24 >> uxn.dev[addr]) + 16 >> (uxn.dev[addr + 1]);
 }
 
 bool mask(uint x, uint mask) {

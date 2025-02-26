@@ -3,6 +3,22 @@
 #include "Uxn.hpp"
 #include "DeviceController.hpp"
 
+char8_t from_uxn_mem(const glm::uint* p) {
+    return static_cast<char8_t>(*p >> 24);
+}
+
+char16_t from_uxn_mem2(const glm::uint* p) {
+    return static_cast<char16_t>((*p >> 16) + (p[1] >> 24));
+}
+
+void to_uxn_mem(char8_t c, glm::uint* p) {
+    *p = static_cast<glm::uint>(c << 24);
+}
+
+void to_uxn_mem2(char16_t c, glm::uint* p) {
+    *p = static_cast<glm::uint>((c << 16) + (c << 24));
+}
+
 uxn_memory::uxn_memory() = default;
 
 Uxn::Uxn(const char *program_path) {
@@ -16,7 +32,7 @@ Uxn::Uxn(const char *program_path) {
     // Padding the opcodes from 8-bit to 32-bit
     auto paddedProgram = std::vector<glm::uint>(program_rom.size());
     for (size_t i = 0; i < program_rom.size(); i++) {
-        paddedProgram[i] = static_cast<glm::uint>(program_rom[i] << 24);
+        to_uxn_mem(program_rom[i], &paddedProgram[i]);
     }
 
     this->memory = new UxnMemory();
@@ -78,7 +94,7 @@ void Uxn::outputToFile(const char* output_file_name) const {
 
 void Uxn::handleUxnIO() {
     if (memory->deviceFlags) {
-        char c = static_cast<char>(memory->dev[0x18] >> 24);
+        char8_t c = from_uxn_mem(&memory->dev[0x18]);
         console_buffer.push_back(c);
         if (c == 0x0a) {
             std::cout << "[CONSOLE] " << console_buffer;
