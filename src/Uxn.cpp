@@ -19,6 +19,10 @@ void to_uxn_mem2(char16_t c, glm::uint* p) {
     *p = static_cast<glm::uint>((c << 16) + (c << 24));
 }
 
+bool mask(glm::uint x, glm::uint mask) {
+    return (x & mask) == mask;
+}
+
 uxn_memory::uxn_memory() = default;
 
 Uxn::Uxn(const char *program_path) {
@@ -95,11 +99,12 @@ void Uxn::outputToFile(const char* output_file_name, bool showRAM) const {
 }
 
 void Uxn::handleUxnIO() {
-    if (memory->deviceFlags) {
+    if (mask(memory->deviceFlags, UXN_DEO_FLAG)) {
         char8_t c = from_uxn_mem(&memory->dev[0x18]);
         console_buffer.push_back(c);
         if (c == 0x0a) {
             std::cout << "[CONSOLE] " << console_buffer;
+            std::cout << "[CONSOLE-SIZE]" << console_buffer.size() << "\n";
             console_buffer.clear();
         }
     }

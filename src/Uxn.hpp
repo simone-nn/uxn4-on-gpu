@@ -4,9 +4,15 @@
 
 #include "Resource.hpp"
 
+// Uxn sizes
 #define UXN_RAM_SIZE 65536
 #define UXN_STACK_SIZE 256
 #define UXN_DEV_SIZE 256
+// Uxn deviceFlags
+#define UXN_DEO_FLAG         0x00000001
+#define UXN_DRAW_PIXEL_FLAG  0x00aa0000
+#define UXN_DRAW_SPRITE_FLAG 0x00bb0000
+#define UXN_DEO2_FLAG        0x00001000
 
 typedef struct uxn_memory {
     glm::uint pc;
@@ -30,6 +36,7 @@ void to_uxn_mem(char8_t c, glm::uint* p);
 
 void to_uxn_mem2(char16_t c, glm::uint* p);
 
+bool mask(glm::uint x, glm::uint mask);
 
 class Uxn {
 public:

@@ -95,12 +95,12 @@ uvec2 PEK(uint i, uvec2 o, uint m, int _r, int _2) {
     return o;
 }
 
-uvec2 GET(uvec2 prev, int _r, int _2) {
+void GET(inout uvec2 v, int _r, int _2) {
     if(_2 != 0) {
-        uint t = PO1(_r);
-        return uvec2(PO1(_r), t);
+        v.y = PO1(_r);
+        v.x = PO1(_r);
     } else {
-        return uvec2(PO1(_r), prev.y);
+        v.x = PO1(_r);
     }
 }
 
@@ -126,7 +126,7 @@ uint POx(int _r, int _2) {
     }
 }
 
-State PUx(State s, uint i, int _r, int _2) {
+void PUx(inout State s, uint i, int _r, int _2) {
     if (_2 != 0) {
         s.c = i;
         PU1(s.c >> 8, _r);
@@ -134,7 +134,6 @@ State PUx(State s, uint i, int _r, int _2) {
     } else {
         PU1(i, _r);
     }
-    return s;
 }
 
 /* Devices */
@@ -148,20 +147,34 @@ uvec2 DEI(uint addr, uvec2 o, int _r, int _2) {
     return o;
 }
 
+// Flags
+#define DEO_FLAG         0x00000001
+#define DRAW_PIXEL_FLAG  0x00aa0000
+#define DRAW_SPRITE_FLAG 0x00bb0000
+#define DEO2_FLAG        0x00001000
+
 // output to device
 void DEO(uint addr, uvec2 v, int _2) {
-    uxn.deviceFlags = 1;
-    uxn.dev[24 >> addr] = v.x;
+
+    uxn.deviceFlags = DEO_FLAG;
+    if (addr == 0x2e) uxn.deviceFlags |= DRAW_PIXEL_FLAG;
+    if (addr == 0x2f) uxn.deviceFlags |= DRAW_SPRITE_FLAG;
+
     if (_2 != 0) {
-        uxn.deviceFlags += 2;
-        // uxn.dev[24 >> (addr + 1)] = v.y;
+        uxn.dev[24 >> addr] = v.x;
+        uxn.deviceFlags |= DEO2_FLAG;
+        uxn.ram[0x0] = addr;
+        uxn.ram[0x1] = v.y;
+    } else {
+        uxn.dev[24 >> addr] = v.x;
     }
 }
 
 int uxn_eval(State state) {
-	if((uxn.pc == 0) || (uxn.dev[0x0f] != 0)) return 0;
+    uxn.pc = uxn.pc % 65536;
+	if((uxn.pc == 0) || (uxn.dev[0x0f] != 0)) return 1;
 	switch(uxn.ram[uxn.pc++]) {
-    /* BRK */ case 0x00000000: return 1;
+    /* BRK */ case 0x00000000: return 0;
     /* JCI */ case 0x20000000:
                 if(pop_wst() != 0) { state = JMI(state); }
                 else { uxn.pc += 2; }
@@ -176,27 +189,27 @@ int uxn_eval(State state) {
     /* LIT */ case 0x80000000: push_wst(uxn.ram[uxn.pc++]); break;
     /* L2r */ case 0xe0000000: push_rst(uxn.ram[uxn.pc++]); /* fall-through */
     /* LIr */ case 0xc0000000: push_rst(uxn.ram[uxn.pc++]); break;
-    /* INC */ OPC(0x01000000, state.a = POx(_r, _2);, state = PUx(state, state.a + 1, _r, _2);)
+    /* INC */ OPC(0x01000000, state.a = POx(_r, _2);, PUx(state, state.a + 1, _r, _2);)
     /* POP */ OPC(0x02000000, REM(_r, _2);, {})
     /* NIP */ OPC(0x03000000,
-                  state.x = GET(state.x, _r, _2); REM(_r, _2); ,
+                  GET(state.x, _r, _2); REM(_r, _2); ,
                   PUT(state.x, _r, _2); )
     /* SWP */ OPC(0x04000000,
-                  state.x = GET(state.x, _r, _2); state.y = GET(state.y, _r, _2); ,
+                  GET(state.x, _r, _2); GET(state.y, _r, _2); ,
                   PUT(state.x, _r, _2); PUT(state.y, _r, _2); )
     /* ROT */ OPC(0x05000000,
-                  state.x = GET(state.x,_r,_2);
-                  state.y = GET(state.y,_r,_2);
-                  state.z = GET(state.z,_r,_2); ,
+                  GET(state.x,_r,_2);
+                  GET(state.y,_r,_2);
+                  GET(state.z,_r,_2); ,
                   PUT(state.y,_r,_2);
                   PUT(state.x,_r,_2);
                   PUT(state.z,_r,_2); )
     /* DUP */ OPC(0x06000000,
-                  state.x = GET(state.x,_r,_2); ,
+                  GET(state.x,_r,_2); ,
                   PUT(state.x,_r,_2);
                   PUT(state.x,_r,_2); )
     /* OVR */ OPC(0x07000000,
-                  state.x = GET(state.x,_r,_2); state.y = GET(state.y,_r,_2); ,
+                  GET(state.x,_r,_2); GET(state.y,_r,_2); ,
                   PUT(state.y,_r,_2); PUT(state.x,_r,_2); PUT(state.y,_r,_2); )
     /* EQU */ OPC(0x08000000,
                   state.a = POx(_r,_2); state.b = POx(_r,_2); ,
@@ -224,68 +237,95 @@ int uxn_eval(State state) {
                   state.a = POx(_r,_2); ,
                   RP1(uxn.pc >> 8,_r); RP1(uxn.pc,_r); JMP(state.a, _2); )
     /* STH */ OPC(0x0f000000,
-                  state.x = GET(state.x,_r,_2); ,
+                  GET(state.x,_r,_2); ,
                   RP1(state.x.x,_r);
                   if(_2 != 0) { RP1(state.x.y,_r); })
     /* LDZ */ OPC(0x10000000,
                   state.a = PO1(_r); ,
                   state.x = PEK(state.a, state.x, 0xff000000, _r, _2); )
     /* STZ */ OPC(0x11000000,
-                  state.a = PO1(_r); state.y = GET(state.y,_r,_2); ,
+                  state.a = PO1(_r); GET(state.y,_r,_2); ,
                   POK(state.a, state.y, 0xff000000, _r, _2); )
     /* LDR */ OPC(0x12000000,
                   state.a = PO1(_r); ,
                   state.x = PEK(uxn.pc + state.a, state.x, 0xffff0000, _r,_2); )
     /* STR */ OPC(0x13000000,
-                  state.a = PO1(_r); state.y = GET(state.y,_r,_2); ,
+                  state.a = PO1(_r); GET(state.y,_r,_2); ,
                   POK(uxn.pc + state.a, state.y, 0xffff0000, _r,_2); )
     /* LDA */ OPC(0x14000000,
                   state.a = PO2(_r); ,
                   state.x = PEK(state.a, state.x, 0xffff, _r,_2); )
     /* STA */ OPC(0x15000000,
-                  state.a = PO2(_r); state.y = GET(state.y,_r,_2); ,
+                  state.a = PO2(_r); GET(state.y,_r,_2); ,
                   POK(state.a, state.y, 0xffff0000, _r,_2); )
     /* DEI */ OPC(0x16000000,
                   state.a = PO1(_r); ,
                   state.x = DEI(state.a, state.x, _r,_2); )
     /* DEO */ OPC(0x17000000,
-                  state.a = PO1(_r); state.y = GET(state.y,_r,_2); ,
-                  DEO(state.a, state.y, _2); )
+                  state.a = PO1(_r); GET(state.y,_r,_2); ,
+                  DEO(state.a, state.y, _2);
+                  return 2;)
     /* ADD */ OPC(0x18000000,
                   state.a = POx(_r,_2); state.b = POx(_r,_2); ,
-                  state = PUx(state, state.b + state.a, _r,_2); )
+                  PUx(state, state.b + state.a, _r,_2); )
     /* SUB */ OPC(0x19000000,
                   state.a = POx(_r,_2); state.b = POx(_r,_2); ,
-                  state = PUx(state, state.b - state.a, _r,_2); )
+                  PUx(state, state.b - state.a, _r,_2); )
     /* MUL */ OPC(0x1a000000,
                   state.a = POx(_r,_2); state.b = POx(_r,_2); ,
-                  state = PUx(state, state.b * state.a, _r,_2); )
+                  PUx(state, state.b * state.a, _r,_2); )
     /* DIV */ OPC(0x1b000000,
                   state.a = POx(_r,_2); state.b = POx(_r,_2); ,
-                  state = PUx(state, (state.a!=0) ? state.b / state.a : 0, _r,_2); )
+                  PUx(state, (state.a!=0) ? state.b / state.a : 0, _r,_2); )
     /* AND */ OPC(0x1c000000,
                   state.a = POx(_r,_2); state.b = POx(_r,_2); ,
-                  state = PUx(state, state.a & state.b, _r,_2); )
+                  PUx(state, state.a & state.b, _r,_2); )
     /* ORA */ OPC(0x1d000000,
                   state.a = POx(_r,_2); state.b = POx(_r,_2); ,
-                  state = PUx(state, state.a | state.b, _r,_2); )
+                  PUx(state, state.a | state.b, _r,_2); )
     /* EOR */ OPC(0x1e000000,
                   state.a = POx(_r,_2); state.b = POx(_r,_2); ,
-                  state = PUx(state, state.a ^ state.b, _r,_2); )
+                  PUx(state, state.a ^ state.b, _r,_2); )
     /* SFT */ OPC(0x1f000000,
                   state.a = PO1(_r); state.b = POx(_r,_2); ,
-                  state = PUx(state, state.b >> (state.a & 0xf000000) << (state.a >> 4), _r,_2); )
+                  PUx(state, state.b >> (state.a & 0xf000000) << (state.a >> 4), _r,_2); )
               default: break;
 	}
-	return 2;
+	return 0;
+}
+
+bool mask(uint x, uint mask) {
+    return (x & mask) == mask;
 }
 
 void main() {
+    // handling the situation where we have to output one more byte
+    if (mask(uxn.deviceFlags, DEO2_FLAG)) {
+        // second DEO call
+        //TODO uxn.ram[0],[1] might be in use
+        // there should be enough space in deviceFlags instead
+        uint addr = uxn.ram[0x0];
+        uxn.dev[24 >> addr] = uxn.ram[0x1];
+        uxn.ram[0x0] = 0;
+        uxn.ram[0x1] = 0;
+        uxn.deviceFlags = DEO_FLAG;
+        if (addr == 0x2e) uxn.deviceFlags |= DRAW_PIXEL_FLAG;
+        if (addr == 0x2f) uxn.deviceFlags |= DRAW_SPRITE_FLAG;
+        return;
+    }
+
     State state = {0, 0, 0, uvec2(0,0), uvec2(0,0), uvec2(0,0)};
     uxn.deviceFlags = 0;
 
     // Run the next Uxn instruction
-    uxn_eval(state);
+    // possible halt codes:
+    // 0 - halt not needed; continue evaluation
+    // 1 - device halt (pc==0 or uxn.dev[0x0f] is set to true)
+    // 2 - DEO halt
+    int halt = 0;
+    while (halt == 0) {
+        halt = uxn_eval(state);
+    }
 
     // Test memory offsets and strides with this:
     // uxn.ram[0] = 1;
