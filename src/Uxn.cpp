@@ -95,33 +95,17 @@ void Uxn::outputToFile(const char* output_file_name, bool showRAM) const {
     outFile << std::dec << "\n\n";
 
     outFile.close();
-    std::cout << "Printed Uxn Memory to file: " << output_file_name << "\n";
+    std::cout << "[Log] Memory to file: " << output_file_name << "\n";
 }
 
 void Uxn::handleUxnIO() {
     if (mask(memory->deviceFlags, UXN_DEO_FLAG)) {
         char8_t c = from_uxn_mem(&memory->dev[0x18]);
-        console_buffer.push_back(c);
+        console_buffer.push_back(static_cast<char>(c));
         if (c == 0x0a) {
             std::cout << "[CONSOLE] " << console_buffer;
-            std::cout << "[CONSOLE-SIZE]" << console_buffer.size() << "\n";
             console_buffer.clear();
         }
     }
 }
 
-void Uxn::printConsoleBuffer(bool inHex) {
-    std::cout << "[CONSOLE] ";
-    if (inHex) {
-        std::cout << std::hex;
-        for (char c : console_buffer) {
-            std::cout << "0x" << static_cast<int>(c) << " ";
-        }
-        std::cout << std::dec;
-    } else {
-        std::cout << console_buffer;
-    }
-    std::cout << "\n";
-
-    console_buffer.clear();
-}

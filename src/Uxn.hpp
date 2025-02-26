@@ -51,8 +51,6 @@ public:
     void outputToFile(const char* output_file_name, bool showRAM) const;
 
     void handleUxnIO();
-
-    void printConsoleBuffer(bool inHex);
 private:
     UxnMemory* original_memory;
     std::string program_path;

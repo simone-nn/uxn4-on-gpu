@@ -1214,7 +1214,10 @@ private:
             std::chrono::steady_clock::time_point now_time = std::chrono::steady_clock::now();
             auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(now_time - last_time).count();
             last_time = now_time;
-            std::cout << "Frame " << step << ", time: " << static_cast<double>(elapsed)/1000000.0 << "[s]\n";
+            int ret = static_cast<int>(uxn->memory->dev[0]);
+            std::cout << "[Frame " << step
+                << "] VM return: " << ret
+                << ", time: " << static_cast<double>(elapsed)/1000000.0 << "[s]\n";
 
             // Iterate frame counters:
             frameStep = (frameStep + 1) % MAX_FRAME_STEPS;

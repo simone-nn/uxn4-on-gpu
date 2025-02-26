@@ -25,14 +25,14 @@ struct State {
 
 /* Unroll */
 #define OPC(opc, init, body) \
-	case 0x00|opc: {const int _2=0,_r=0;init body;} break;\
-	case 0x20|opc: {const int _2=1,_r=0;init body;} break;\
-	case 0x40|opc: {const int _2=0,_r=1;init body;} break;\
-	case 0x60|opc: {const int _2=1,_r=1;init body;} break;\
-	case 0x80|opc: {const int _2=0,_r=0;uint k=uxn.pWst;init uxn.pWst=k;body;} break;\
-	case 0xa0|opc: {const int _2=1,_r=0;uint k=uxn.pWst;init uxn.pWst=k;body;} break;\
-	case 0xc0|opc: {const int _2=0,_r=1;uint k=uxn.pRst;init uxn.pRst=k;body;} break;\
-	case 0xe0|opc: {const int _2=1,_r=1;uint k=uxn.pRst;init uxn.pRst=k;body;} break;\
+	case 0x00000000|opc: {const int _2=0,_r=0;init body;} break;\
+	case 0x20000000|opc: {const int _2=1,_r=0;init body;} break;\
+	case 0x40000000|opc: {const int _2=0,_r=1;init body;} break;\
+	case 0x60000000|opc: {const int _2=1,_r=1;init body;} break;\
+	case 0x80000000|opc: {const int _2=0,_r=0;uint k=uxn.pWst;init uxn.pWst=k;body;} break;\
+	case 0xa0000000|opc: {const int _2=1,_r=0;uint k=uxn.pWst;init uxn.pWst=k;body;} break;\
+	case 0xc0000000|opc: {const int _2=0,_r=1;uint k=uxn.pRst;init uxn.pRst=k;body;} break;\
+	case 0xe0000000|opc: {const int _2=1,_r=1;uint k=uxn.pRst;init uxn.pRst=k;body;} break;\
 
 /* Microcode */
 void push_wst(uint i) { uxn.wst[uxn.pWst] = i; uxn.pWst++; }
@@ -170,7 +170,7 @@ void DEO(uint addr, uvec2 v, int _2) {
     }
 }
 
-int uxn_eval(State state) {
+uint uxn_eval(inout State state) {
     uxn.pc = uxn.pc % 65536;
 	if((uxn.pc == 0) || (uxn.dev[0x0f] != 0)) return 1;
 	switch(uxn.ram[uxn.pc++]) {
@@ -264,7 +264,7 @@ int uxn_eval(State state) {
     /* DEO */ OPC(0x17000000,
                   state.a = PO1(_r); GET(state.y,_r,_2); ,
                   DEO(state.a, state.y, _2);
-                  return 2;)
+                  return 2 + _2;)
     /* ADD */ OPC(0x18000000,
                   state.a = POx(_r,_2); state.b = POx(_r,_2); ,
                   PUx(state, state.b + state.a, _r,_2); )
@@ -322,10 +322,12 @@ void main() {
     // 0 - halt not needed; continue evaluation
     // 1 - device halt (pc==0 or uxn.dev[0x0f] is set to true)
     // 2 - DEO halt
-    int halt = 0;
+    // 3 - DEO2 halt
+    uint halt = 0;
     while (halt == 0) {
         halt = uxn_eval(state);
     }
+    uxn.dev[0] = halt;
 
     // Test memory offsets and strides with this:
     // uxn.ram[0] = 1;
