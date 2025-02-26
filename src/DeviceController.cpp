@@ -990,7 +990,6 @@ private:
         initSync();
     }
 
-    // todo update recordGraphicsCommandBuffer
     void recordGraphicsCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageIndex) {
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1195,7 +1194,7 @@ private:
     }
 
     void mainLoop() {
-        constexpr int TOTAL_STEPS = 50;
+        constexpr int TOTAL_STEPS = 12;
 
         int step = 0;
         std::chrono::steady_clock::time_point last_time = std::chrono::steady_clock::now();
@@ -1209,10 +1208,7 @@ private:
             // Handle IO
             copyDeviceUxnMemory(uxn->memory);
             uxn->handleUxnIO();
-            if (step % 10 == 0) {
-                uxn->outputToFile("output.txt", false);
-            }
-
+            uxn->outputToFile("output.txt", false);
 
             // Print elapsed time:
             std::chrono::steady_clock::time_point now_time = std::chrono::steady_clock::now();
@@ -1224,7 +1220,7 @@ private:
             frameStep = (frameStep + 1) % MAX_FRAME_STEPS;
             step++;
         }
-        uxn->outputToFile("output.txt", false);
+        // uxn->outputToFile("output.txt", false);
     }
 
     void cleanup() {

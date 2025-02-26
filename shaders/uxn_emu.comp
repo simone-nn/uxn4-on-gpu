@@ -35,25 +35,13 @@ struct State {
 	case 0xe0|opc: {const int _2=1,_r=1;uint k=uxn.pRst;init uxn.pRst=k;body;} break;\
 
 /* Microcode */
-void push_wst(uint i) {
-    uxn.wst[uxn.pWst] = i;
-    uxn.pWst++;
-}
+void push_wst(uint i) { uxn.wst[uxn.pWst] = i; uxn.pWst++; }
 
-void push_rst(uint i) {
-    uxn.rst[uxn.pRst] = i;
-    uxn.pRst++;
-}
+void push_rst(uint i) { uxn.rst[uxn.pRst] = i; uxn.pRst++; }
 
-uint pop_wst() {
-    uxn.pWst--;
-    return uxn.wst[uxn.pWst];
-}
+uint pop_wst() { uxn.pWst--; return uxn.wst[uxn.pWst]; }
 
-uint pop_rst() {
-    uxn.pRst--;
-    return uxn.rst[uxn.pRst];
-}
+uint pop_rst() { uxn.pRst--; return uxn.rst[uxn.pRst]; }
 
 void RP1(uint i, int _r) {
     if(_r != 0) {
@@ -165,7 +153,8 @@ void DEO(uint addr, uvec2 v, int _2) {
     uxn.deviceFlags = 1;
     uxn.dev[24 >> addr] = v.x;
     if (_2 != 0) {
-        uxn.dev[24 >> (addr + 1)] = v.y;
+        uxn.deviceFlags += 2;
+        // uxn.dev[24 >> (addr + 1)] = v.y;
     }
 }
 
