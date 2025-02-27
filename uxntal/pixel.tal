@@ -1,0 +1,32 @@
+( pixel.tal )
+
+( devices )
+|00 @System &vector $2 &pad $6 &r $2 &g $2 &b $2
+|20 @Screen &vector $2 &width $2 &height $2 &auto $1 &pad $1 &x $2 &y $2 &addr $2 &pixel $1 &sprite $1
+
+( main program )
+|0100
+    ( set system colors )
+    #2ce9 .System/r DEO2
+    #01c0 .System/g DEO2
+    #2ce5 .System/b DEO2
+
+    #0008 .Screen/x DEO2
+    #0008 .Screen/y DEO2
+
+    #0008 .Screen/x DEO2
+    #0008 .Screen/y DEO2
+    #41 .Screen/pixel DEO
+
+    #0016 .Screen/x DEO2
+    #0016 .Screen/y DEO2
+    #41 .Screen/pixel DEO
+
+    #0032 .Screen/x DEO2
+    #0032 .Screen/y DEO2
+    #41 .Screen/pixel DEO
+
+    #0064 .Screen/x DEO2
+    #0064 .Screen/y DEO2
+    #41 .Screen/pixel DEO
+BRK

@@ -150,7 +150,6 @@ uvec2 DEI(uint addr, uvec2 o, int _r, int _2) {
 #define DEO_FLAG         0x00000001
 #define DRAW_PIXEL_FLAG  0x00aa0000
 #define DRAW_SPRITE_FLAG 0x00bb0000
-#define DEO2_FLAG        0x00001000
 
 // output to device
 void DEO(uint addr, uvec2 v, int _2) {
@@ -159,18 +158,13 @@ void DEO(uint addr, uvec2 v, int _2) {
     if (addr == 0x2e) uxn.deviceFlags |= DRAW_PIXEL_FLAG;
     if (addr == 0x2f) uxn.deviceFlags |= DRAW_SPRITE_FLAG;
 
+    uxn.dev[addr] = v.x;
     if (_2 != 0) {
-        uxn.dev[addr] = v.x;
-        uxn.deviceFlags |= DEO2_FLAG;
-        uxn.ram[0x0] = addr;
-        uxn.ram[0x1] = v.y;
-    } else {
-        uxn.dev[addr] = v.x;
+        uxn.dev[addr + 1] = v.y;
     }
 }
 
 uint uxn_eval(inout State state) {
-    uxn.pc = uxn.pc % 65536;
 	if((uxn.pc == 0) || (uxn.dev[0x0f] != 0)) return 1;
 	switch(uxn.ram[uxn.pc++]) {
     /* BRK */ case 0x00: return 0;
@@ -298,21 +292,6 @@ bool mask(uint x, uint mask) {
 }
 
 void main() {
-    // handling the situation where we have to output one more byte
-    if (mask(uxn.deviceFlags, DEO2_FLAG)) {
-        // second DEO call
-        //TODO uxn.ram[0],[1] might be in use
-        // there should be enough space in deviceFlags instead
-        uint addr = uxn.ram[0x0];
-        uxn.dev[addr] = uxn.ram[0x1];
-        uxn.ram[0x0] = 0;
-        uxn.ram[0x1] = 0;
-        uxn.deviceFlags = DEO_FLAG;
-        if (addr == 0x2e) uxn.deviceFlags |= DRAW_PIXEL_FLAG;
-        if (addr == 0x2f) uxn.deviceFlags |= DRAW_SPRITE_FLAG;
-        return;
-    }
-
     State state = {0, 0, 0, uvec2(0,0), uvec2(0,0), uvec2(0,0)};
     uxn.deviceFlags = 0;
 

@@ -42,11 +42,11 @@ bool check_bit(uint x, uint pos) {
 }
 
 uint get_byte(uint addr) {
-    return 24 >> uxn.dev[addr];
+    return uxn.dev[addr];
 }
 
 uint get_short(uint addr) {
-    return (24 >> uxn.dev[addr]) + 16 >> (uxn.dev[addr + 1]);
+    return (uxn.dev[addr]) + (uxn.dev[addr + 1]) << 8;
 }
 
 bool mask(uint x, uint mask) {
@@ -70,7 +70,6 @@ void main() {
     // pixel requested
     if (mask(uxn.deviceFlags,DRAW_PIXEL_FLAG) && (gl_GlobalInvocationID.xy == vec2(0, 0))) {
         // coordinates
-        // assuming little endian
         uint x = get_short(SCREEN_X);
         uint y = get_short(SCREEN_Y);
         ivec2 coords = ivec2(int(x), int(y));

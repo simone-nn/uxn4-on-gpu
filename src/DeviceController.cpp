@@ -1208,7 +1208,8 @@ private:
             // Handle IO
             copyDeviceUxnMemory(uxn->memory);
             uxn->handleUxnIO();
-            uxn->outputToFile("output.txt", false);
+            if (halt_code != 1)
+                uxn->outputToFile("output.txt", false);
 
             // Print elapsed time:
             std::chrono::steady_clock::time_point now_time = std::chrono::steady_clock::now();

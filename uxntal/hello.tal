@@ -6,11 +6,14 @@
 (main program)
 |0100
     ( hi with DEO2 )
-    #6869 .Console/write DEO2
+    #68 .Console/write DEO
+    #69 .Console/write DEO
     #0a .Console/write DEO
 
-    ( ih with ADD, SWP )
-    LIT "h DUP #01 ADD SWP .Console/write DEO2
+    ( hi with ADD, SWP )
+    LIT "h DUP #01 ADD SWP
+    .Console/write DEO
+    .Console/write DEO
     #0a .Console/write DEO
 
     ( terminate )
