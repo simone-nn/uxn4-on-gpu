@@ -13,9 +13,6 @@
 
     #0008 .Screen/x DEO2
     #0008 .Screen/y DEO2
-
-    #0008 .Screen/x DEO2
-    #0008 .Screen/y DEO2
     #41 .Screen/pixel DEO
 
     #0016 .Screen/x DEO2

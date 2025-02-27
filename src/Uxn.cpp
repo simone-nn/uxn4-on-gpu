@@ -16,7 +16,9 @@ void to_uxn_mem(char8_t c, glm::uint* p) {
 }
 
 void to_uxn_mem2(char16_t c, glm::uint* p) {
-    *p = static_cast<glm::uint>(c);
+    // big endian
+    p[0] = static_cast<glm::uint>((c >> 8) & 0xff);
+    p[1] = static_cast<glm::uint>(c & 0xff);
 }
 
 bool mask(glm::uint x, glm::uint mask) {

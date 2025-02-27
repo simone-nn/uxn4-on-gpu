@@ -37,16 +37,12 @@ layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 #define PIXEL_BACKGROUND_MASK 0x00
 #define PIXEL_FOREGROUND_MASK 0x40
 
-bool check_bit(uint x, uint pos) {
-    return ((x) & (1<<(pos))) != 0;
-}
-
 uint get_byte(uint addr) {
     return uxn.dev[addr];
 }
 
 uint get_short(uint addr) {
-    return (uxn.dev[addr]) + (uxn.dev[addr + 1]) << 8;
+    return (uxn.dev[addr]) << 8 + (uxn.dev[addr + 1]);
 }
 
 bool mask(uint x, uint mask) {
