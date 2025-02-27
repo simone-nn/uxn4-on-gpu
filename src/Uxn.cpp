@@ -4,19 +4,19 @@
 #include "DeviceController.hpp"
 
 char8_t from_uxn_mem(const glm::uint* p) {
-    return static_cast<char8_t>(*p >> 24);
+    return static_cast<char8_t>(*p);
 }
 
 char16_t from_uxn_mem2(const glm::uint* p) {
-    return static_cast<char16_t>((*p >> 16) + (p[1] >> 24));
+    return static_cast<char16_t>((*p << 8) + p[1]);
 }
 
 void to_uxn_mem(char8_t c, glm::uint* p) {
-    *p = static_cast<glm::uint>(c << 24);
+    *p = static_cast<glm::uint>(c);
 }
 
 void to_uxn_mem2(char16_t c, glm::uint* p) {
-    *p = static_cast<glm::uint>((c << 16) + (c << 24));
+    *p = static_cast<glm::uint>(c);
 }
 
 bool mask(glm::uint x, glm::uint mask) {
@@ -114,7 +114,5 @@ void Uxn::handleUxnIO() {
 }
 
 bool Uxn::programTerminated() const {
-    // Todo Uxn::programTerminated: make this work!
-    // std::cout << "!!! " << static_cast<int8_t>(from_uxn_mem(&memory->dev[0x0f])) << "\n";
     return static_cast<int8_t>(from_uxn_mem(&memory->dev[0x0f])) != 0;
 }

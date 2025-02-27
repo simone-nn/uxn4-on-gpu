@@ -1225,7 +1225,7 @@ private:
         }
         // uxn->outputToFile("output.txt", false);
         if (uxn->programTerminated() || halt_code == 1) {
-            std::cout << "Uxn Program Terminated with exit code: " << static_cast<int>(from_uxn_mem(&uxn->memory->dev[0x0f]));
+            std::cout << "Uxn Program Terminated with exit code: 0x" << std::hex << static_cast<int>(from_uxn_mem(&uxn->memory->dev[0x0f])) << std::dec;
         }
     }
 

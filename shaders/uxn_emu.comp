@@ -25,14 +25,14 @@ struct State {
 
 /* Unroll */
 #define OPC(opc, init, body) \
-	case 0x00000000|opc: {const int _2=0,_r=0;init body;} break;\
-	case 0x20000000|opc: {const int _2=1,_r=0;init body;} break;\
-	case 0x40000000|opc: {const int _2=0,_r=1;init body;} break;\
-	case 0x60000000|opc: {const int _2=1,_r=1;init body;} break;\
-	case 0x80000000|opc: {const int _2=0,_r=0;uint k=uxn.pWst;init uxn.pWst=k;body;} break;\
-	case 0xa0000000|opc: {const int _2=1,_r=0;uint k=uxn.pWst;init uxn.pWst=k;body;} break;\
-	case 0xc0000000|opc: {const int _2=0,_r=1;uint k=uxn.pRst;init uxn.pRst=k;body;} break;\
-	case 0xe0000000|opc: {const int _2=1,_r=1;uint k=uxn.pRst;init uxn.pRst=k;body;} break;\
+	case 0x00|opc: {const int _2=0,_r=0;init body;} break;\
+	case 0x20|opc: {const int _2=1,_r=0;init body;} break;\
+	case 0x40|opc: {const int _2=0,_r=1;init body;} break;\
+	case 0x60|opc: {const int _2=1,_r=1;init body;} break;\
+	case 0x80|opc: {const int _2=0,_r=0;uint k=uxn.pWst;init uxn.pWst=k;body;} break;\
+	case 0xa0|opc: {const int _2=1,_r=0;uint k=uxn.pWst;init uxn.pWst=k;body;} break;\
+	case 0xc0|opc: {const int _2=0,_r=1;uint k=uxn.pRst;init uxn.pRst=k;body;} break;\
+	case 0xe0|opc: {const int _2=1,_r=1;uint k=uxn.pRst;init uxn.pRst=k;body;} break;\
 
 /* Microcode */
 void push_wst(uint i) { uxn.wst[uxn.pWst] = i; uxn.pWst++; }
@@ -86,7 +86,6 @@ void POK(uint i, uvec2 j, uint m, int _r, int _2) {
 }
 
 uvec2 PEK(uint i, uvec2 o, uint m, int _r, int _2) {
-    // #define PEK(i,o,m) o[0] = uxn.ram[i]; if(_2 != 0) o[1] = uxn.ram[(i + 1) & m]; PUT(o)
     o.x = uxn.ram[i];
     if (_2 != 0) {
         o.y = uxn.ram[(i + 1) & m];
@@ -139,9 +138,9 @@ void PUx(inout State s, uint i, int _r, int _2) {
 /* Devices */
 // input from device
 uvec2 DEI(uint addr, uvec2 o, int _r, int _2) {
-    o.x = uxn.dev[24 >> addr];
+    o.x = uxn.dev[addr];
     if (_2 != 0) {
-        o.y = uxn.dev[24 >> (addr + 1)];
+        o.y = uxn.dev[addr + 1];
     }
     PUT(o,_r,_2);
     return o;
@@ -161,12 +160,12 @@ void DEO(uint addr, uvec2 v, int _2) {
     if (addr == 0x2f) uxn.deviceFlags |= DRAW_SPRITE_FLAG;
 
     if (_2 != 0) {
-        uxn.dev[24 >> addr] = v.x;
+        uxn.dev[addr] = v.x;
         uxn.deviceFlags |= DEO2_FLAG;
         uxn.ram[0x0] = addr;
         uxn.ram[0x1] = v.y;
     } else {
-        uxn.dev[24 >> addr] = v.x;
+        uxn.dev[addr] = v.x;
     }
 }
 
@@ -174,121 +173,121 @@ uint uxn_eval(inout State state) {
     uxn.pc = uxn.pc % 65536;
 	if((uxn.pc == 0) || (uxn.dev[0x0f] != 0)) return 1;
 	switch(uxn.ram[uxn.pc++]) {
-    /* BRK */ case 0x00000000: return 0;
-    /* JCI */ case 0x20000000:
+    /* BRK */ case 0x00: return 0;
+    /* JCI */ case 0x20:
                 if(pop_wst() != 0) { state = JMI(state); }
                 else { uxn.pc += 2; }
                 break;
-    /* JMI */ case 0x40000000: state = JMI(state); break;
-    /* JSI */ case 0x60000000:
+    /* JMI */ case 0x40: state = JMI(state); break;
+    /* JSI */ case 0x60:
                 state.c = uxn.pc + 2;
                 push_rst(state.c >> 8);
                 push_rst(state.c);
                 state = JMI(state); break;
-    /* LI2 */ case 0xa0000000: push_wst(uxn.ram[uxn.pc++]); /* fall-through */
-    /* LIT */ case 0x80000000: push_wst(uxn.ram[uxn.pc++]); break;
-    /* L2r */ case 0xe0000000: push_rst(uxn.ram[uxn.pc++]); /* fall-through */
-    /* LIr */ case 0xc0000000: push_rst(uxn.ram[uxn.pc++]); break;
-    /* INC */ OPC(0x01000000, state.a = POx(_r, _2);, PUx(state, state.a + 1, _r, _2);)
-    /* POP */ OPC(0x02000000, REM(_r, _2);, {})
-    /* NIP */ OPC(0x03000000,
+    /* LI2 */ case 0xa0: push_wst(uxn.ram[uxn.pc++]); /* fall-through */
+    /* LIT */ case 0x80: push_wst(uxn.ram[uxn.pc++]); break;
+    /* L2r */ case 0xe0: push_rst(uxn.ram[uxn.pc++]); /* fall-through */
+    /* LIr */ case 0xc0: push_rst(uxn.ram[uxn.pc++]); break;
+    /* INC */ OPC(0x01, state.a = POx(_r, _2);, PUx(state, state.a + 1, _r, _2);)
+    /* POP */ OPC(0x02, REM(_r, _2);, {})
+    /* NIP */ OPC(0x03,
                   GET(state.x, _r, _2); REM(_r, _2); ,
                   PUT(state.x, _r, _2); )
-    /* SWP */ OPC(0x04000000,
+    /* SWP */ OPC(0x04,
                   GET(state.x, _r, _2); GET(state.y, _r, _2); ,
                   PUT(state.x, _r, _2); PUT(state.y, _r, _2); )
-    /* ROT */ OPC(0x05000000,
+    /* ROT */ OPC(0x05,
                   GET(state.x,_r,_2);
                   GET(state.y,_r,_2);
                   GET(state.z,_r,_2); ,
                   PUT(state.y,_r,_2);
                   PUT(state.x,_r,_2);
                   PUT(state.z,_r,_2); )
-    /* DUP */ OPC(0x06000000,
+    /* DUP */ OPC(0x06,
                   GET(state.x,_r,_2); ,
                   PUT(state.x,_r,_2);
                   PUT(state.x,_r,_2); )
-    /* OVR */ OPC(0x07000000,
+    /* OVR */ OPC(0x07,
                   GET(state.x,_r,_2); GET(state.y,_r,_2); ,
                   PUT(state.y,_r,_2); PUT(state.x,_r,_2); PUT(state.y,_r,_2); )
-    /* EQU */ OPC(0x08000000,
+    /* EQU */ OPC(0x08,
                   state.a = POx(_r,_2); state.b = POx(_r,_2); ,
                   if (state.b == state.a) { PU1(1,_r); }
                   else { PU1(0,_r); })
-    /* NEQ */ OPC(0x09000000,
+    /* NEQ */ OPC(0x09,
                   state.a = POx(_r,_2); state.b = POx(_r,_2); ,
                   if (state.b != state.a) { PU1(1,_r); }
                   else { PU1(0,_r); })
-    /* GTH */ OPC(0x0a000000,
+    /* GTH */ OPC(0x0a,
                   state.a = POx(_r,_2); state.b = POx(_r,_2); ,
                   if (state.b > state.a) { PU1(1,_r); }
                   else { PU1(0,_r); })
-    /* LTH */ OPC(0x0b000000,
+    /* LTH */ OPC(0x0b,
                   state.a = POx(_r,_2); state.b = POx(_r,_2); ,
                   if (state.b < state.a) { PU1(1,_r); }
                   else { PU1(0,_r); })
-    /* JMP */ OPC(0x0c000000,
+    /* JMP */ OPC(0x0c,
                   state.a = POx(_r,_2); ,
                   JMP(state.a, _2); )
-    /* JCN */ OPC(0x0d000000,
+    /* JCN */ OPC(0x0d,
                   state.a = POx(_r,_2); state.b = PO1(_r); ,
                   if(state.b != 0) { JMP(state.a, _2); })
-    /* JSR */ OPC(0x0e000000,
+    /* JSR */ OPC(0x0e,
                   state.a = POx(_r,_2); ,
                   RP1(uxn.pc >> 8,_r); RP1(uxn.pc,_r); JMP(state.a, _2); )
-    /* STH */ OPC(0x0f000000,
+    /* STH */ OPC(0x0f,
                   GET(state.x,_r,_2); ,
                   RP1(state.x.x,_r);
                   if(_2 != 0) { RP1(state.x.y,_r); })
-    /* LDZ */ OPC(0x10000000,
+    /* LDZ */ OPC(0x10,
                   state.a = PO1(_r); ,
-                  state.x = PEK(state.a, state.x, 0xff000000, _r, _2); )
-    /* STZ */ OPC(0x11000000,
+                  state.x = PEK(state.a, state.x, 0xff, _r, _2); )
+    /* STZ */ OPC(0x11,
                   state.a = PO1(_r); GET(state.y,_r,_2); ,
-                  POK(state.a, state.y, 0xff000000, _r, _2); )
-    /* LDR */ OPC(0x12000000,
+                  POK(state.a, state.y, 0xff, _r, _2); )
+    /* LDR */ OPC(0x12,
                   state.a = PO1(_r); ,
-                  state.x = PEK(uxn.pc + state.a, state.x, 0xffff0000, _r,_2); )
-    /* STR */ OPC(0x13000000,
+                  state.x = PEK(uxn.pc + state.a, state.x, 0xffff, _r,_2); )
+    /* STR */ OPC(0x13,
                   state.a = PO1(_r); GET(state.y,_r,_2); ,
-                  POK(uxn.pc + state.a, state.y, 0xffff0000, _r,_2); )
-    /* LDA */ OPC(0x14000000,
+                  POK(uxn.pc + state.a, state.y, 0xffff, _r,_2); )
+    /* LDA */ OPC(0x14,
                   state.a = PO2(_r); ,
                   state.x = PEK(state.a, state.x, 0xffff, _r,_2); )
-    /* STA */ OPC(0x15000000,
+    /* STA */ OPC(0x15,
                   state.a = PO2(_r); GET(state.y,_r,_2); ,
-                  POK(state.a, state.y, 0xffff0000, _r,_2); )
-    /* DEI */ OPC(0x16000000,
+                  POK(state.a, state.y, 0xffff, _r,_2); )
+    /* DEI */ OPC(0x16,
                   state.a = PO1(_r); ,
                   state.x = DEI(state.a, state.x, _r,_2); )
-    /* DEO */ OPC(0x17000000,
+    /* DEO */ OPC(0x17,
                   state.a = PO1(_r); GET(state.y,_r,_2); ,
                   DEO(state.a, state.y, _2);
                   return 2 + _2;)
-    /* ADD */ OPC(0x18000000,
+    /* ADD */ OPC(0x18,
                   state.a = POx(_r,_2); state.b = POx(_r,_2); ,
                   PUx(state, state.b + state.a, _r,_2); )
-    /* SUB */ OPC(0x19000000,
+    /* SUB */ OPC(0x19,
                   state.a = POx(_r,_2); state.b = POx(_r,_2); ,
                   PUx(state, state.b - state.a, _r,_2); )
-    /* MUL */ OPC(0x1a000000,
+    /* MUL */ OPC(0x1a,
                   state.a = POx(_r,_2); state.b = POx(_r,_2); ,
                   PUx(state, state.b * state.a, _r,_2); )
-    /* DIV */ OPC(0x1b000000,
+    /* DIV */ OPC(0x1b,
                   state.a = POx(_r,_2); state.b = POx(_r,_2); ,
                   PUx(state, (state.a!=0) ? state.b / state.a : 0, _r,_2); )
-    /* AND */ OPC(0x1c000000,
+    /* AND */ OPC(0x1c,
                   state.a = POx(_r,_2); state.b = POx(_r,_2); ,
                   PUx(state, state.a & state.b, _r,_2); )
-    /* ORA */ OPC(0x1d000000,
+    /* ORA */ OPC(0x1d,
                   state.a = POx(_r,_2); state.b = POx(_r,_2); ,
                   PUx(state, state.a | state.b, _r,_2); )
-    /* EOR */ OPC(0x1e000000,
+    /* EOR */ OPC(0x1e,
                   state.a = POx(_r,_2); state.b = POx(_r,_2); ,
                   PUx(state, state.a ^ state.b, _r,_2); )
-    /* SFT */ OPC(0x1f000000,
+    /* SFT */ OPC(0x1f,
                   state.a = PO1(_r); state.b = POx(_r,_2); ,
-                  PUx(state, state.b >> (state.a & 0xf000000) << (state.a >> 4), _r,_2); )
+                  PUx(state, state.b >> (state.a & 0xf0) << (state.a >> 4), _r,_2); )
               default: break;
 	}
 	return 0;
@@ -305,7 +304,7 @@ void main() {
         //TODO uxn.ram[0],[1] might be in use
         // there should be enough space in deviceFlags instead
         uint addr = uxn.ram[0x0];
-        uxn.dev[24 >> addr] = uxn.ram[0x1];
+        uxn.dev[addr] = uxn.ram[0x1];
         uxn.ram[0x0] = 0;
         uxn.ram[0x1] = 0;
         uxn.deviceFlags = DEO_FLAG;
