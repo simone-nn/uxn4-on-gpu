@@ -1,11 +1,18 @@
 ( hello.tal )
+( devices )
+|00 @System/vector $2 &expansion $2 &wst $1 &rst $1 &metadata $2 &r $2 &g $2 &b $2 &debug $1 &state $1
+|10 @Console &vector $2 &read $1 &pad $5 &write $1 &error $1
+
+(main program)
 |0100
-    ( h )
-    #68 #18 DEO #0a #18 DEO
-    ( hi )
-    #68 #18 DEO #69 #18 DEO #0a #18 DEO
-    ( hi )
-    #6869 #18 DEO2 #0a #18 DEO
+    ( hi with DEO2 )
+    #6869 .Console/write DEO2
+    #0a .Console/write DEO
+
+    ( ih with ADD, SWP )
+    LIT "h DUP #01 ADD SWP .Console/write DEO2
+    #0a .Console/write DEO
+
     ( terminate )
-    #80 #0f DEO
+    #80 .System/state DEO
 BRK
