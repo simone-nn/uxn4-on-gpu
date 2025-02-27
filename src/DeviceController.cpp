@@ -1194,11 +1194,11 @@ private:
     }
 
     void mainLoop() {
-        constexpr int TOTAL_STEPS = 12;
+        constexpr int TOTAL_STEPS = INT_MAX;
 
-        int step = 0;
+        int halt_code = 0, step = 0;
         std::chrono::steady_clock::time_point last_time = std::chrono::steady_clock::now();
-        while (!glfwWindowShouldClose(ctx.window) && step < TOTAL_STEPS) {
+        while (!glfwWindowShouldClose(ctx.window) && step < TOTAL_STEPS && !uxn->programTerminated()) {
 
             // Main Loop:
             glfwPollEvents();
@@ -1214,9 +1214,9 @@ private:
             std::chrono::steady_clock::time_point now_time = std::chrono::steady_clock::now();
             auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(now_time - last_time).count();
             last_time = now_time;
-            int ret = static_cast<int>(uxn->memory->dev[0]);
+            halt_code = static_cast<int>(uxn->memory->dev[0]);
             std::cout << "[Frame " << step
-                << "] VM return: " << ret
+                << "] VM halt code: " << halt_code
                 << ", time: " << static_cast<double>(elapsed)/1000000.0 << "[s]\n";
 
             // Iterate frame counters:
@@ -1224,6 +1224,9 @@ private:
             step++;
         }
         // uxn->outputToFile("output.txt", false);
+        if (uxn->programTerminated() || halt_code == 1) {
+            std::cout << "Uxn Program Terminated with exit code: " << static_cast<int>(from_uxn_mem(&uxn->memory->dev[0x0f]));
+        }
     }
 
     void cleanup() {

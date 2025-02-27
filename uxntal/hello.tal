@@ -6,4 +6,6 @@
     #68 #18 DEO #69 #18 DEO #0a #18 DEO
     ( hi )
     #6869 #18 DEO2 #0a #18 DEO
+    ( terminate )
+    #80 #0f DEO
 BRK

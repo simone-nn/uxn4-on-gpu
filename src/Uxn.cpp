@@ -70,8 +70,12 @@ void Uxn::outputToFile(const char* output_file_name, bool showRAM) const {
     }
     outFile << std::hex;
     outFile << "---Uxn Memory:---\n";
-    outFile << "Program Counter: 0x" << memory->pc << "\n";
-    outFile << "Flags: 0x" << memory->deviceFlags << "\n";
+    outFile << "Program Counter: 0x" << memory->pc;
+    if (memory->pc != 0) {
+        glm::uint instr = from_uxn_mem(&memory->ram[memory->pc - 1]);
+        outFile << " prev instruction:" << instr;
+    }
+    outFile << "\nFlags: 0x" << memory->deviceFlags << "\n";
     if (showRAM) {
         outFile << "--RAM:--\n";
         for (int i = 0; i < UXN_RAM_SIZE; ++i) {
@@ -109,3 +113,8 @@ void Uxn::handleUxnIO() {
     }
 }
 
+bool Uxn::programTerminated() const {
+    // Todo Uxn::programTerminated: make this work!
+    // std::cout << "!!! " << static_cast<int8_t>(from_uxn_mem(&memory->dev[0x0f])) << "\n";
+    return static_cast<int8_t>(from_uxn_mem(&memory->dev[0x0f])) != 0;
+}
