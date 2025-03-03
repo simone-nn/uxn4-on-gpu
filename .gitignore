@@ -1,7 +1,9 @@
 # outputUxnMemory() output file
 output.txt
 
-# final frame
+# images used for debug
+initial_background.png
+initial_foreground.png
 background.png
 foreground.png
 

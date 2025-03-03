@@ -1045,6 +1045,7 @@ private:
 
     void computeStep() {
         // --- UXN evaluation submission ---
+        vkQueueWaitIdle(ctx.computeQueue);
         vkResetFences(ctx.device, 1, &uxnEvaluationFence);
         vkResetCommandBuffer(computeCommandBuffers[frameStep], 0);
         std::array images = {backgroundImageResource.data.image.image, foregroundImageResource.data.image.image};
@@ -1059,6 +1060,12 @@ private:
         vkCmdBindPipeline(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, uxnEvaluatePipeline);
         vkCmdBindDescriptorSets(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, uxnEvaluatePipelineLayout,
             0,1, &descriptorSet.set, 0, nullptr);
+
+        // transition image format to edit mode
+        transitionImageLayout(ctx, 2, images.data(),
+                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                              VK_IMAGE_LAYOUT_GENERAL,
+                              computeCommandBuffers[frameStep]);
 
         vkCmdDispatch(computeCommandBuffers[frameStep], 1, 1, 1);
 
@@ -1083,12 +1090,6 @@ private:
         if (vkBeginCommandBuffer(computeCommandBuffers[frameStep], &beginInfo) != VK_SUCCESS) {
             throw std::runtime_error("failed to begin recording command buffer!");
         }
-
-        // transition image format to edit mode
-        transitionImageLayout(ctx, 2, images.data(),
-                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                              VK_IMAGE_LAYOUT_GENERAL,
-                              computeCommandBuffers[frameStep]);
 
         vkCmdBindPipeline(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, blitPipeline);
         vkCmdBindDescriptorSets(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, blitPipelineLayout,
@@ -1203,10 +1204,28 @@ private:
                      stagingBuffer,
                      stagingBufferMemory);
 
+        // copy image to the buffer
+        VkBufferImageCopy region{};
+        region.bufferOffset = 0;
+        region.bufferRowLength = 0;
+        region.bufferImageHeight = 0;
+        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        region.imageSubresource.mipLevel = 0;
+        region.imageSubresource.baseArrayLayer = 0;
+        region.imageSubresource.layerCount = 1;
+        region.imageOffset = {0, 0, 0};
+        region.imageExtent = {static_cast<uint32_t>(WIDTH), static_cast<uint32_t>(HEIGHT), 1};
+
+        auto cmd = beginSingleTimeCommands(ctx);
+        vkCmdCopyImageToBuffer(cmd, image,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, stagingBuffer,
+            1, &region);
+        endSingleTimeCommands(ctx, cmd);
+
         // to png file
         void* data;
         vkMapMemory(ctx.device, stagingBufferMemory, 0, VK_WHOLE_SIZE, 0, &data);
-        stbi_write_png(file_name, WIDTH, HEIGHT, 4, data, WIDTH * 4);
+        stbi_write_png(file_name, WIDTH, HEIGHT, 4, data, 4);
         vkUnmapMemory(ctx.device, stagingBufferMemory);
 
         // free objects
