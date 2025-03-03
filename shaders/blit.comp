@@ -76,15 +76,20 @@ void main() {
         vec4 color = get_colour(pixel);
 
         // editing the image
-        if (mask(pixel, PIXEL_BACKGROUND_MASK)) {
+        if (pixel / 0x10 == 0x0) {
             imageStore(background, coords, color);
+            // uxn.deviceFlags |= 0x1000;
         }
-        if (mask(pixel, PIXEL_FOREGROUND_MASK)) {
+        if (pixel / 0x10 == 0x4) {
             imageStore(foreground, coords, color);
+            // uxn.deviceFlags |= 0x2000;
         }
+
+
     }
     // sprite requested
     //if (mask(uxn.deviceFlags, DRAW_SPRITE_FLAG)) {
+    //    uxn.deviceFlags |= 0x2000;
     //    uint addr = get_short(SCREEN_ADDR);
     //}
 }
