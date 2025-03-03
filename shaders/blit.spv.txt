@@ -114,7 +114,7 @@
     %float_0 = OpConstant %float 0
          %75 = OpConstantComposite %v4float %float_1 %float_0 %float_0 %float_1
       %int_7 = OpConstant %int 7
-%uint_11141120 = OpConstant %uint 11141120
+    %uint_16 = OpConstant %uint 16
 %_ptr_Input_v3uint = OpTypePointer Input %v3uint
 %gl_GlobalInvocationID = OpVariable %_ptr_Input_v3uint Input
      %v2uint = OpTypeVector %uint 2
@@ -154,7 +154,7 @@
          %94 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_7
          %95 = OpLoad %uint %94
                OpStore %param_2 %95
-               OpStore %param_3 %uint_11141120
+               OpStore %param_3 %uint_16
          %96 = OpFunctionCall %bool %mask_u1_u1_ %param_2 %param_3
                OpSelectionMerge %97 None
                OpBranchConditional %96 %98 %97

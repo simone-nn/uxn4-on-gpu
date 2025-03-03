@@ -9,10 +9,9 @@
 #define UXN_STACK_SIZE 256
 #define UXN_DEV_SIZE 256
 // Uxn deviceFlags
-#define UXN_DEO_FLAG         0x00000001
-#define UXN_DRAW_PIXEL_FLAG  0x00aa0000
-#define UXN_DRAW_SPRITE_FLAG 0x00bb0000
-#define UXN_DEO2_FLAG        0x00001000
+#define UXN_DEO_FLAG         0x001
+#define UXN_DRAW_PIXEL_FLAG  0x010
+#define UXN_DRAW_SPRITE_FLAG 0x100
 
 typedef struct uxn_memory {
     glm::uint pc;

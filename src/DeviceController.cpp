@@ -1,5 +1,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
 #include <iostream>
 #include <fstream>
 #include <set>
@@ -1120,11 +1122,6 @@ private:
     }
 
     void drawFrame() {
-        // change the image layout
-        // transitionImageLayout(ctx, backgroundImageResource.data.image.image,
-        //     VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        // do foreground too
-
         // Graphics submission
         // Wait for previous frame to finish drawing
         vkWaitForFences(ctx.device, 1, &inFlightFences[frameStep], VK_TRUE, UINT64_MAX);
@@ -1190,6 +1187,33 @@ private:
         vkUnmapMemory(ctx.device, hostStagingMemory);
     }
 
+    void copyImageToHost(const VkImage &image, const char* file_name) {
+        transitionImageLayout(ctx, 1, &image,
+                                      VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                      nullptr);
+
+        VkBuffer stagingBuffer;
+        VkDeviceMemory stagingBufferMemory;
+        VkDeviceSize imageSize = WIDTH * HEIGHT * 4;  // Assuming RGBA8 format
+
+        // Create a buffer
+        createBuffer(ctx, imageSize,
+                     VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                     stagingBuffer,
+                     stagingBufferMemory);
+
+        // to png file
+        void* data;
+        vkMapMemory(ctx.device, stagingBufferMemory, 0, VK_WHOLE_SIZE, 0, &data);
+        stbi_write_png(file_name, WIDTH, HEIGHT, 4, data, WIDTH * 4);
+        vkUnmapMemory(ctx.device, stagingBufferMemory);
+
+        // free objects
+        vkFreeMemory(ctx.device, stagingBufferMemory, nullptr);
+        vkDestroyBuffer(ctx.device, stagingBuffer, nullptr);
+    }
+
     void mainLoop() {
         constexpr int TOTAL_STEPS = INT_MAX;
 
@@ -1225,6 +1249,9 @@ private:
         if (uxn->programTerminated() || halt_code == 1) {
             std::cout << "Uxn Program Terminated with exit code: 0x" << std::hex << static_cast<int>(from_uxn_mem(&uxn->memory->dev[0x0f])) << std::dec;
         }
+        // saving final frames
+        copyImageToHost(foregroundImageResource.data.image.image, "foreground.png");
+        copyImageToHost(backgroundImageResource.data.image.image, "background.png");
     }
 
     void cleanup() {

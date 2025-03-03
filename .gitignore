@@ -1,6 +1,10 @@
 # outputUxnMemory() output file
 output.txt
 
+# final frame
+background.png
+foreground.png
+
 ### C++ template
 # Prerequisites
 *.d

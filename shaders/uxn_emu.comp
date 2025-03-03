@@ -147,9 +147,9 @@ uvec2 DEI(uint addr, uvec2 o, int _r, int _2) {
 }
 
 // Flags
-#define DEO_FLAG         0x00000001
-#define DRAW_PIXEL_FLAG  0x00aa0000
-#define DRAW_SPRITE_FLAG 0x00bb0000
+#define DEO_FLAG         0x001
+#define DRAW_PIXEL_FLAG  0x010
+#define DRAW_SPRITE_FLAG 0x100
 
 // output to device
 void DEO(uint addr, uvec2 v, int _2) {
