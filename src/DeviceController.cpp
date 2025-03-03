@@ -1242,22 +1242,28 @@ private:
 
             // Main Loop:
             glfwPollEvents();
-            computeStep();
+            if (halt_code != 1) {
+                //todo remove this block when you implement device I/O
+                computeStep();
+            } else {break;}
             drawFrame();
 
             // Handle IO
             copyDeviceUxnMemory(uxn->memory);
             uxn->handleUxnIO();
-            if (halt_code != 1)
-                uxn->outputToFile("output.txt", false);
 
             // Print elapsed time:
             std::chrono::steady_clock::time_point now_time = std::chrono::steady_clock::now();
             auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(now_time - last_time).count();
             last_time = now_time;
             halt_code = static_cast<int>(uxn->memory->dev[0]);
+
+            // Debug Printouts:
+            // if (halt_code != 1)
+            //     uxn->outputToFile("output.txt", false);
             std::cout << "[Frame " << step
                 << "] VM halt code: " << halt_code
+                << ", flags: 0x" << std::hex << uxn->memory->deviceFlags << std::dec
                 << ", time: " << static_cast<double>(elapsed)/1000000.0 << "[s]\n";
 
             // Iterate frame counters:
