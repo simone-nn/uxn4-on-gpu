@@ -1,7 +1,5 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "stb_image_write.h"
 #include <iostream>
 #include <fstream>
 #include <set>
@@ -1188,51 +1186,6 @@ private:
         vkUnmapMemory(ctx.device, hostStagingMemory);
     }
 
-    void copyImageToHost(const VkImage &image, const char* file_name) {
-        transitionImageLayout(ctx, 1, &image,
-                                      VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                                      nullptr);
-
-        VkBuffer stagingBuffer;
-        VkDeviceMemory stagingBufferMemory;
-        VkDeviceSize imageSize = WIDTH * HEIGHT * 4;  // Assuming RGBA8 format
-
-        // Create a buffer
-        createBuffer(ctx, imageSize,
-                     VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                     stagingBuffer,
-                     stagingBufferMemory);
-
-        // copy image to the buffer
-        VkBufferImageCopy region{};
-        region.bufferOffset = 0;
-        region.bufferRowLength = 0;
-        region.bufferImageHeight = 0;
-        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        region.imageSubresource.mipLevel = 0;
-        region.imageSubresource.baseArrayLayer = 0;
-        region.imageSubresource.layerCount = 1;
-        region.imageOffset = {0, 0, 0};
-        region.imageExtent = {static_cast<uint32_t>(WIDTH), static_cast<uint32_t>(HEIGHT), 1};
-
-        auto cmd = beginSingleTimeCommands(ctx);
-        vkCmdCopyImageToBuffer(cmd, image,
-            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, stagingBuffer,
-            1, &region);
-        endSingleTimeCommands(ctx, cmd);
-
-        // to png file
-        void* data;
-        vkMapMemory(ctx.device, stagingBufferMemory, 0, VK_WHOLE_SIZE, 0, &data);
-        stbi_write_png(file_name, WIDTH, HEIGHT, 4, data, 4);
-        vkUnmapMemory(ctx.device, stagingBufferMemory);
-
-        // free objects
-        vkFreeMemory(ctx.device, stagingBufferMemory, nullptr);
-        vkDestroyBuffer(ctx.device, stagingBuffer, nullptr);
-    }
-
     void mainLoop() {
         constexpr int TOTAL_STEPS = INT_MAX;
 
@@ -1245,7 +1198,7 @@ private:
             if (halt_code != 1) {
                 //todo remove this block when you implement device I/O
                 computeStep();
-            } else {break;}
+            } else { break; }
             drawFrame();
 
             // Handle IO
@@ -1274,9 +1227,6 @@ private:
         if (uxn->programTerminated() || halt_code == 1) {
             std::cout << "Uxn Program Terminated with exit code: 0x" << std::hex << static_cast<int>(from_uxn_mem(&uxn->memory->dev[0x0f])) << std::dec;
         }
-        // saving final frames
-        copyImageToHost(foregroundImageResource.data.image.image, "foreground.png");
-        copyImageToHost(backgroundImageResource.data.image.image, "background.png");
     }
 
     void cleanup() {

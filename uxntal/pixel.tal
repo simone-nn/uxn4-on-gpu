@@ -7,10 +7,26 @@
 ( main program )
 |0100
     ( set system colors )
-    #2ce9 .System/r DEO2
-    #01c0 .System/g DEO2
+    #fce9 .System/r DEO2
+    #f1c0 .System/g DEO2
     #2ce5 .System/b DEO2
 
+    ( line )
+    #0005 .Screen/x DEO2
+    #0005 .Screen/y DEO2
+    #40 .Screen/pixel DEO
+    #0006 .Screen/x DEO2
+    #40 .Screen/pixel DEO
+    #0007 .Screen/x DEO2
+    #40 .Screen/pixel DEO
+    #0008 .Screen/x DEO2
+    #40 .Screen/pixel DEO
+    #0009 .Screen/x DEO2
+    #40 .Screen/pixel DEO
+    #0010 .Screen/x DEO2
+    #40 .Screen/pixel DEO
+
+    (some points)
     #0008 .Screen/x DEO2
     #0008 .Screen/y DEO2
     #41 .Screen/pixel DEO
