@@ -317,13 +317,13 @@ private:
     VkRenderPass renderPass;
     VkPipelineLayout graphicsPipelineLayout;
     VkPipeline graphicsPipeline;
-    std::vector<VkCommandBuffer> graphicsCommandBuffers;
+    VkCommandBuffer graphicsCommandBuffer;
 
     VkPipelineLayout uxnEvaluatePipelineLayout;
     VkPipeline uxnEvaluatePipeline;
     VkPipelineLayout blitPipelineLayout;
     VkPipeline blitPipeline;
-    std::vector<VkCommandBuffer> computeCommandBuffers;
+    VkCommandBuffer computeCommandBuffer;
 
     DescriptorSet descriptorSet;
     Resource uxnResource;
@@ -334,16 +334,12 @@ private:
     VkBuffer hostStagingBuffer;
     VkDeviceMemory hostStagingMemory;
 
-    std::vector<VkSemaphore> imageAvailableSemaphores;
-    std::vector<VkSemaphore> renderFinishedSemaphores;
-    std::vector<VkSemaphore> computeFinishedSemaphores; //todo use these
-    std::vector<VkFence> inFlightFences;
-    std::vector<VkFence> computeInFlightFences;
+    VkSemaphore imageAvailableSemaphore;
+    VkSemaphore renderFinishedSemaphore;
+    VkFence graphicsFence;
+    VkFence computeInFlightFence;
     VkFence uxnEvaluationFence;
     VkFence blitFence;
-
-    const int MAX_FRAME_STEPS = 2;
-    uint32_t frameStep = 0;
 
     bool checkValidationLayerSupport() {
         uint32_t layerCount;
@@ -685,17 +681,14 @@ private:
         }
 
         // Command Buffers
-        graphicsCommandBuffers.resize(MAX_FRAME_STEPS);
-        computeCommandBuffers.resize(MAX_FRAME_STEPS);
-
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         allocInfo.commandPool = ctx.commandPool;
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocInfo.commandBufferCount = static_cast<uint32_t>(MAX_FRAME_STEPS);
+        allocInfo.commandBufferCount = 1;
 
-        VkResult graphicsResult = vkAllocateCommandBuffers(ctx.device, &allocInfo, graphicsCommandBuffers.data());
-        VkResult computeResult = vkAllocateCommandBuffers(ctx.device, &allocInfo, computeCommandBuffers.data());
+        VkResult graphicsResult = vkAllocateCommandBuffers(ctx.device, &allocInfo, &graphicsCommandBuffer);
+        VkResult computeResult = vkAllocateCommandBuffers(ctx.device, &allocInfo, &computeCommandBuffer);
 
         if (graphicsResult != VK_SUCCESS || computeResult != VK_SUCCESS)
             throw std::runtime_error("failed to allocate command buffers!");
@@ -704,21 +697,22 @@ private:
     void initDescriptorPool() {
         std::cout << "..initDescriptorPool" << std::endl;
 
+        // todo figure out what descriptorCount actually means, and why it needs to be set to 2
         std::array<VkDescriptorPoolSize, 4> poolSizes{};
         poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAME_STEPS);
+        poolSizes[0].descriptorCount = 2;
         poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAME_STEPS);
+        poolSizes[1].descriptorCount = 2;
         poolSizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-        poolSizes[2].descriptorCount = static_cast<uint32_t>(MAX_FRAME_STEPS);
+        poolSizes[2].descriptorCount = 2;
         poolSizes[3].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        poolSizes[3].descriptorCount = static_cast<uint32_t>(MAX_FRAME_STEPS);
+        poolSizes[3].descriptorCount = 2;
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
         poolInfo.poolSizeCount = poolSizes.size();
         poolInfo.pPoolSizes = poolSizes.data();
-        poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAME_STEPS);
+        poolInfo.maxSets = 1;
 
         if (vkCreateDescriptorPool(ctx.device, &poolInfo, nullptr, &ctx.descriptorPool) != VK_SUCCESS) {
             throw std::runtime_error("failed to create descriptor pool!");
@@ -929,12 +923,6 @@ private:
 
     void initSync() {
         std::cout << "..initSync" << std::endl;
-        imageAvailableSemaphores.resize(MAX_FRAME_STEPS);
-        renderFinishedSemaphores.resize(MAX_FRAME_STEPS);
-        computeFinishedSemaphores.resize(MAX_FRAME_STEPS);
-        inFlightFences.resize(MAX_FRAME_STEPS);
-        computeInFlightFences.resize(MAX_FRAME_STEPS);
-
         VkSemaphoreCreateInfo semaphoreInfo{};
         semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -947,15 +935,16 @@ private:
             throw std::runtime_error("failed to create synchronization objects!");
         }
 
-        for (size_t i = 0; i < MAX_FRAME_STEPS; i++) {
-            if (vkCreateSemaphore(ctx.device, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS ||
-                vkCreateSemaphore(ctx.device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS ||
-                vkCreateSemaphore(ctx.device, &semaphoreInfo, nullptr, &computeFinishedSemaphores[i]) != VK_SUCCESS ||
-                vkCreateFence(ctx.device, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS ||
-                vkCreateFence(ctx.device, &fenceInfo, nullptr, &computeInFlightFences[i]) != VK_SUCCESS) {
-                throw std::runtime_error("failed to create synchronization objects!");
-                }
-        }
+
+        if (vkCreateSemaphore(ctx.device, &semaphoreInfo, nullptr, &imageAvailableSemaphore) != VK_SUCCESS ||
+            vkCreateSemaphore(ctx.device, &semaphoreInfo, nullptr, &renderFinishedSemaphore) != VK_SUCCESS ||
+            vkCreateFence(ctx.device, &fenceInfo, nullptr, &graphicsFence) != VK_SUCCESS ||
+            vkCreateFence(ctx.device, &fenceInfo, nullptr, &computeInFlightFence) != VK_SUCCESS) {
+
+            throw std::runtime_error("failed to create synchronization objects!");
+
+            }
+
     }
 
     void updateUxnConstants() {
@@ -1045,36 +1034,36 @@ private:
         // --- UXN evaluation submission ---
         vkQueueWaitIdle(ctx.computeQueue);
         vkResetFences(ctx.device, 1, &uxnEvaluationFence);
-        vkResetCommandBuffer(computeCommandBuffers[frameStep], 0);
+        vkResetCommandBuffer(computeCommandBuffer, 0);
         std::array images = {backgroundImageResource.data.image.image, foregroundImageResource.data.image.image};
 
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-        if (vkBeginCommandBuffer(computeCommandBuffers[frameStep], &beginInfo) != VK_SUCCESS) {
+        if (vkBeginCommandBuffer(computeCommandBuffer, &beginInfo) != VK_SUCCESS) {
             throw std::runtime_error("failed to begin recording command buffer!");
         }
 
-        vkCmdBindPipeline(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, uxnEvaluatePipeline);
-        vkCmdBindDescriptorSets(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, uxnEvaluatePipelineLayout,
+        vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, uxnEvaluatePipeline);
+        vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, uxnEvaluatePipelineLayout,
             0,1, &descriptorSet.set, 0, nullptr);
 
         // transition image format to edit mode
         transitionImageLayout(ctx, 2, images.data(),
                               VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                               VK_IMAGE_LAYOUT_GENERAL,
-                              computeCommandBuffers[frameStep]);
+                              computeCommandBuffer);
 
-        vkCmdDispatch(computeCommandBuffers[frameStep], 1, 1, 1);
+        vkCmdDispatch(computeCommandBuffer, 1, 1, 1);
 
-        if (vkEndCommandBuffer(computeCommandBuffers[frameStep]) != VK_SUCCESS) {
+        if (vkEndCommandBuffer(computeCommandBuffer) != VK_SUCCESS) {
             throw std::runtime_error("failed to record command buffer!");
         }
 
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &computeCommandBuffers[frameStep];
+        submitInfo.pCommandBuffers = &computeCommandBuffer;
         if (vkQueueSubmit(ctx.computeQueue, 1, &submitInfo, uxnEvaluationFence) != VK_SUCCESS) {
             throw std::runtime_error("failed to submit compute command buffer!");
         }
@@ -1083,25 +1072,25 @@ private:
 
         // --- Blit submission ---
         vkResetFences(ctx.device, 1, &blitFence);
-        vkResetCommandBuffer(computeCommandBuffers[frameStep], 0);
+        vkResetCommandBuffer(computeCommandBuffer, 0);
 
-        if (vkBeginCommandBuffer(computeCommandBuffers[frameStep], &beginInfo) != VK_SUCCESS) {
+        if (vkBeginCommandBuffer(computeCommandBuffer, &beginInfo) != VK_SUCCESS) {
             throw std::runtime_error("failed to begin recording command buffer!");
         }
 
-        vkCmdBindPipeline(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, blitPipeline);
-        vkCmdBindDescriptorSets(computeCommandBuffers[frameStep], VK_PIPELINE_BIND_POINT_COMPUTE, blitPipelineLayout,
+        vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, blitPipeline);
+        vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, blitPipelineLayout,
             0,1, &descriptorSet.set, 0, nullptr);
 
         // transition image format to read only
         transitionImageLayout(ctx, 2, images.data(),
                               VK_IMAGE_LAYOUT_GENERAL,
                               VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                              computeCommandBuffers[frameStep]);
+                              computeCommandBuffer);
 
-        vkCmdDispatch(computeCommandBuffers[frameStep], 8, 8, 1);
+        vkCmdDispatch(computeCommandBuffer, 8, 8, 1);
 
-        if (vkEndCommandBuffer(computeCommandBuffers[frameStep]) != VK_SUCCESS) {
+        if (vkEndCommandBuffer(computeCommandBuffer) != VK_SUCCESS) {
             throw std::runtime_error("failed to record command buffer!");
         }
 
@@ -1122,35 +1111,35 @@ private:
 
     void drawFrame() {
         // Graphics submission
-        // Wait for previous frame to finish drawing
-        vkWaitForFences(ctx.device, 1, &inFlightFences[frameStep], VK_TRUE, UINT64_MAX);
-        vkResetFences(ctx.device, 1, &inFlightFences[frameStep]);
+        // wait for previous frame to finish
+        vkWaitForFences(ctx.device, 1, &graphicsFence, VK_TRUE, UINT64_MAX);
+        vkResetFences(ctx.device, 1, &graphicsFence);
 
         // get the next image:
         uint32_t imageIndex;
-        vkAcquireNextImageKHR(ctx.device, ctx.swapChain, UINT64_MAX, imageAvailableSemaphores[frameStep],
+        vkAcquireNextImageKHR(ctx.device, ctx.swapChain, UINT64_MAX, imageAvailableSemaphore,
                               VK_NULL_HANDLE, &imageIndex);
 
         // record commands in the current command buffer:
-        vkResetCommandBuffer(graphicsCommandBuffers[frameStep], 0);
-        recordGraphicsCommandBuffer(graphicsCommandBuffers[frameStep], imageIndex);
+        vkResetCommandBuffer(graphicsCommandBuffer, 0);
+        recordGraphicsCommandBuffer(graphicsCommandBuffer, imageIndex);
 
         // submit info that accompanies the commands:
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         // std::array waitSemaphores = {computeFinishedSemaphores[frameStep], imageAvailableSemaphores[frameStep]};
-        std::array waitSemaphores = {imageAvailableSemaphores[frameStep]};
+        std::array waitSemaphores = {imageAvailableSemaphore};
         submitInfo.waitSemaphoreCount = waitSemaphores.size();
         submitInfo.pWaitSemaphores = waitSemaphores.data();
         VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
         submitInfo.pWaitDstStageMask = waitStages;
         submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &graphicsCommandBuffers[frameStep];
+        submitInfo.pCommandBuffers = &graphicsCommandBuffer;
         submitInfo.signalSemaphoreCount = 1;
-        submitInfo.pSignalSemaphores = &renderFinishedSemaphores[frameStep];
+        submitInfo.pSignalSemaphores = &renderFinishedSemaphore;
 
         // Graphic Commands get submitted:
-        if (vkQueueSubmit(ctx.graphicsQueue, 1, &submitInfo, inFlightFences[frameStep]) != VK_SUCCESS) {
+        if (vkQueueSubmit(ctx.graphicsQueue, 1, &submitInfo, graphicsFence) != VK_SUCCESS) {
             throw std::runtime_error("failed to submit draw command buffer!");
         }
 
@@ -1158,7 +1147,7 @@ private:
         VkPresentInfoKHR presentInfo{};
         presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
         presentInfo.waitSemaphoreCount = 1;
-        presentInfo.pWaitSemaphores = &renderFinishedSemaphores[frameStep];
+        presentInfo.pWaitSemaphores = &renderFinishedSemaphore;
         VkSwapchainKHR swapChains[] = {ctx.swapChain};
         presentInfo.swapchainCount = 1;
         presentInfo.pSwapchains = swapChains;
@@ -1167,7 +1156,6 @@ private:
 
         // Present Commands get submitted:
         vkQueuePresentKHR(ctx.presentQueue, &presentInfo);
-        vkWaitForFences(ctx.device, 1, &inFlightFences[frameStep], VK_TRUE, UINT64_MAX);
     }
 
     void copyDeviceUxnMemory(UxnMemory* target) {
@@ -1219,8 +1207,6 @@ private:
                 << ", flags: 0x" << std::hex << uxn->memory->deviceFlags << std::dec
                 << ", time: " << static_cast<double>(elapsed)/1000000.0 << "[s]\n";
 
-            // Iterate frame counters:
-            frameStep = (frameStep + 1) % MAX_FRAME_STEPS;
             step++;
         }
         // uxn->outputToFile("output.txt", false);
@@ -1234,13 +1220,10 @@ private:
         descriptorSet.destroy(ctx);
         vkDestroyBuffer(ctx.device, hostStagingBuffer, nullptr);
         vkFreeMemory(ctx.device, hostStagingMemory, nullptr);
-        for (size_t i = 0; i < MAX_FRAME_STEPS; i++) {
-            vkDestroySemaphore(ctx.device, renderFinishedSemaphores[i], nullptr);
-            vkDestroySemaphore(ctx.device, imageAvailableSemaphores[i], nullptr);
-            vkDestroySemaphore(ctx.device, computeFinishedSemaphores[i], nullptr);
-            vkDestroyFence(ctx.device, inFlightFences[i], nullptr);
-            vkDestroyFence(ctx.device, computeInFlightFences[i], nullptr);
-        }
+        vkDestroySemaphore(ctx.device, renderFinishedSemaphore, nullptr);
+        vkDestroySemaphore(ctx.device, imageAvailableSemaphore, nullptr);
+        vkDestroyFence(ctx.device, graphicsFence, nullptr);
+        vkDestroyFence(ctx.device, computeInFlightFence, nullptr);
         vkDestroyFence(ctx.device, uxnEvaluationFence, nullptr);
         vkDestroyFence(ctx.device, blitFence, nullptr);
         uxnResource.destroy();
