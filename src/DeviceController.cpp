@@ -979,6 +979,22 @@ private:
         initSync();
     }
 
+    void copyDeviceUxnMemory(UxnMemory* target) {
+        // copy from ssbo buffer to host staging buffer
+        copyBuffer(ctx, uxnResource.data.buffer.buffer, hostStagingBuffer, sizeof(UxnMemory));
+
+        void* data;
+        if (vkMapMemory(ctx.device, hostStagingMemory, 0, sizeof(UxnMemory), 0, &data) != VK_SUCCESS) {
+            std::cerr << "Failed to map memory!" << std::endl;
+            return;
+        }
+
+        auto* mappedMemory = static_cast<UxnMemory*>(data);
+        memset(target, 0, sizeof(UxnMemory));
+        memcpy(target, mappedMemory, sizeof(UxnMemory));
+        vkUnmapMemory(ctx.device, hostStagingMemory);
+    }
+
     void recordGraphicsCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageIndex) {
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1030,7 +1046,7 @@ private:
         }
     }
 
-    void computeStep() {
+    void uxnEvalShader(bool transitionToImageEditFormat) {
         // --- UXN evaluation submission ---
         vkQueueWaitIdle(ctx.computeQueue);
         vkResetFences(ctx.device, 1, &uxnEvaluationFence);
@@ -1039,7 +1055,6 @@ private:
 
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
         if (vkBeginCommandBuffer(computeCommandBuffer, &beginInfo) != VK_SUCCESS) {
             throw std::runtime_error("failed to begin recording command buffer!");
         }
@@ -1049,10 +1064,11 @@ private:
             0,1, &descriptorSet.set, 0, nullptr);
 
         // transition image format to edit mode
-        transitionImageLayout(ctx, 2, images.data(),
-                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                              VK_IMAGE_LAYOUT_GENERAL,
-                              computeCommandBuffer);
+        if (transitionToImageEditFormat)
+            transitionImageLayout(ctx, 2, images.data(),
+                                  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                  VK_IMAGE_LAYOUT_GENERAL,
+                                  computeCommandBuffer);
 
         vkCmdDispatch(computeCommandBuffer, 1, 1, 1);
 
@@ -1069,11 +1085,16 @@ private:
         }
         // wait for uxn step to be done
         vkWaitForFences(ctx.device, 1, &uxnEvaluationFence, VK_TRUE, UINT64_MAX);
+    }
 
+    void blitShader(bool wait) {
         // --- Blit submission ---
         vkResetFences(ctx.device, 1, &blitFence);
         vkResetCommandBuffer(computeCommandBuffer, 0);
+        std::array images = {backgroundImageResource.data.image.image, foregroundImageResource.data.image.image};
 
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         if (vkBeginCommandBuffer(computeCommandBuffer, &beginInfo) != VK_SUCCESS) {
             throw std::runtime_error("failed to begin recording command buffer!");
         }
@@ -1094,6 +1115,10 @@ private:
             throw std::runtime_error("failed to record command buffer!");
         }
 
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &computeCommandBuffer;
         if (vkQueueSubmit(ctx.computeQueue, 1, &submitInfo, blitFence) != VK_SUCCESS) {
             throw std::runtime_error("failed to submit compute command buffer!");
         }
@@ -1106,7 +1131,8 @@ private:
         // in layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL--instead, current layout is VK_IMAGE_LAYOUT_GENERAL.
 
         // wait for blit step to be done
-        vkWaitForFences(ctx.device, 1, &blitFence, VK_TRUE, UINT64_MAX);
+        if (wait)
+            vkWaitForFences(ctx.device, 1, &blitFence, VK_TRUE, UINT64_MAX);
     }
 
     void drawFrame() {
@@ -1158,22 +1184,6 @@ private:
         vkQueuePresentKHR(ctx.presentQueue, &presentInfo);
     }
 
-    void copyDeviceUxnMemory(UxnMemory* target) {
-        // copy from ssbo buffer to host staging buffer
-        copyBuffer(ctx, uxnResource.data.buffer.buffer, hostStagingBuffer, sizeof(UxnMemory));
-
-        void* data;
-        if (vkMapMemory(ctx.device, hostStagingMemory, 0, sizeof(UxnMemory), 0, &data) != VK_SUCCESS) {
-            std::cerr << "Failed to map memory!" << std::endl;
-            return;
-        }
-
-        auto* mappedMemory = static_cast<UxnMemory*>(data);
-        memset(target, 0, sizeof(UxnMemory));
-        memcpy(target, mappedMemory, sizeof(UxnMemory));
-        vkUnmapMemory(ctx.device, hostStagingMemory);
-    }
-
     void mainLoop() {
         constexpr int TOTAL_STEPS = INT_MAX;
 
@@ -1185,7 +1195,8 @@ private:
             glfwPollEvents();
             if (halt_code != 1) {
                 //todo remove this block when you implement device I/O
-                computeStep();
+                uxnEvalShader(true);
+                blitShader(true);
             } //else { break; }
             drawFrame();
 
