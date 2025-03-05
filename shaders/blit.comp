@@ -64,6 +64,8 @@ vec4 get_colour(uint colour_i) {
 }
 
 void main() {
+    //TODO change background to default theme background (colour 0)
+
     // pixel requested
     if (mask(uxn.deviceFlags,DRAW_PIXEL_FLAG) && (gl_GlobalInvocationID.xy == vec2(0, 0))) {
         // coordinates
