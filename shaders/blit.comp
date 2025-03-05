@@ -63,20 +63,6 @@ vec4 get_colour(uint colour_i) {
     return vec4(1.0, 0.0, 0.0, 1.0);
 }
 
-uint get_sprite_colour1(uint sprite_low) {
-    if (sprite_low == 0x0) {
-        return 10; // 'none'
-    }
-    return (sprite_low >> 2) & 0x3; // Extract bits [3:2]
-}
-
-uint get_sprite_colour0(uint sprite_low) {
-    if (sprite_low == 0x0 || sprite_low == 0x5 || sprite_low == 0xa || sprite_low == 0xf) {
-        return 10; // 'clear' or 'none'
-    }
-    return sprite_low & 0x3; // Extract bits [1:0]
-}
-
 void main() {
     // pixel requested
     if (mask(uxn.deviceFlags,DRAW_PIXEL_FLAG) && (gl_GlobalInvocationID.xy == vec2(0, 0))) {
@@ -127,23 +113,28 @@ void main() {
         } else {
             // 1bpp
             uint draw_colour = (row >> uint(gl_GlobalInvocationID.x)) & 1; // for 1 bpp
+            uint sprite_low = sprite & 0xf;
 
             // select colour
             if (draw_colour == 1) {  // colour 1
-                uint colour_1 = get_sprite_colour1(sprite & 0xf);
-                if (colour_1 == 10) { return; }
-
+                if (sprite_low == 0x0) {
+                    return; // 'none'
+                }
+                uint colour_1 = (sprite_low >> 2) & 0x3; // Extract bits [3:2]
                 vec4 v_color_1 = get_colour(colour_1);
+
                 if (layer_is_foreground == 1) {
                     imageStore(foreground, coords, v_color_1);
                 } else {
                     imageStore(background, coords, v_color_1);
                 }
             } else {  // colour 0
-                uint colour_0 = get_sprite_colour0(sprite & 0xf);
-                if (colour_0 == 10) { return; }
-
+                if (sprite_low == 0x0 || sprite_low == 0x5 || sprite_low == 0xa || sprite_low == 0xf) {
+                    return; // 'clear' or 'none'
+                }
+                uint colour_0 = sprite_low & 0x3; // Extract bits [1:0]
                 vec4 v_color_0 = get_colour(colour_0);
+
                 if (layer_is_foreground == 1) {
                     imageStore(foreground, coords, v_color_0);
                 } else {
