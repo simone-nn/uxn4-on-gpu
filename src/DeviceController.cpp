@@ -1198,7 +1198,7 @@ private:
             if (halt_code != 1) {
                 //todo remove this block when you implement device I/O
                 computeStep();
-            } else { break; }
+            } //else { break; }
             drawFrame();
 
             // Handle IO

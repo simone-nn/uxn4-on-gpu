@@ -51,8 +51,7 @@ bool mask(uint x, uint mask) {
 }
 
 //TODO decide on a spelling of color/colour and stick to it
-vec4 get_colour(uint pixel) {
-    uint colour_i = pixel & 0x0f;
+vec4 get_colour(uint colour_i) {
     if (colour_i < 4) {
         uint shift = (3 - colour_i) * 4;
         uint r = (get_short(SYS_R) >> shift) & 0xF;
@@ -62,6 +61,20 @@ vec4 get_colour(uint pixel) {
         return vec4(sys_colours.xyz / 16.0, 1.0);
     }
     return vec4(1.0, 0.0, 0.0, 1.0);
+}
+
+uint get_sprite_colour1(uint sprite_low) {
+    if (sprite_low == 0x0) {
+        return 10; // 'none'
+    }
+    return (sprite_low >> 2) & 0x3; // Extract bits [3:2]
+}
+
+uint get_sprite_colour0(uint sprite_low) {
+    if (sprite_low == 0x0 || sprite_low == 0x5 || sprite_low == 0xa || sprite_low == 0xf) {
+        return 10; // 'clear' or 'none'
+    }
+    return sprite_low & 0x3; // Extract bits [1:0]
 }
 
 void main() {
@@ -74,21 +87,69 @@ void main() {
 
         // colour
         uint pixel = get_byte(SCREEN_PIXEL);
-        vec4 color = get_colour(pixel);
+        vec4 color = get_colour(pixel & 0x0f);
 
         // editing the image
         if (pixel / 0x10 == 0x0) {
             imageStore(background, coords, color);
-            //uxn.deviceFlags |= 0x1000;
+            uxn.deviceFlags |= 0x1000;
         }
         if (pixel / 0x10 == 0x4) {
             imageStore(foreground, coords, color);
-            //uxn.deviceFlags |= 0x2000;
+            uxn.deviceFlags |= 0x2000;
         }
     }
     // sprite requested
-    //if (mask(uxn.deviceFlags, DRAW_SPRITE_FLAG)) {
-    //    uxn.deviceFlags |= 0x2000;
-    //    uint addr = get_short(SCREEN_ADDR);
-    //}
+    if (mask(uxn.deviceFlags, DRAW_SPRITE_FLAG)) {
+        // ---------------------- 1 bpp --------------------------------
+        // todo finish this
+        uint row = get_byte(get_short(SCREEN_ADDR) + gl_GlobalInvocationID.x);
+        uint sprite = get_byte(SCREEN_SPRITE);
+
+        // flipped, modes and layer
+        uint mode_is_2bpp = (sprite >> 11) & 1;
+        uint layer_is_foreground = (sprite >> 10) & 1;
+
+        // coordinates
+        uint x = get_short(SCREEN_X);
+        uint y = get_short(SCREEN_Y);
+        uint y_flipped = (sprite >> 9) & 1;
+        uint x_flipped = (sprite >> 8) & 1;
+        ivec2 coords;
+        coords.x = int(x + ((1 - x_flipped) * gl_GlobalInvocationID.x)
+                         + (x_flipped * (8 - gl_GlobalInvocationID.x)));
+        coords.y = int(y + ((1 - y_flipped) * gl_GlobalInvocationID.y)
+                         + (y_flipped * (8 - gl_GlobalInvocationID.y)));
+
+        // choosing the bpp mode
+        if (mode_is_2bpp == 1) {
+            return; //todo 2bpp sprites
+        } else {
+            // 1bpp
+            uint draw_colour = (row >> uint(gl_GlobalInvocationID.x)) & 1; // for 1 bpp
+
+            // select colour
+            if (draw_colour == 1) {  // colour 1
+                uint colour_1 = get_sprite_colour1(sprite & 0xf);
+                if (colour_1 == 10) { return; }
+
+                vec4 v_color_1 = get_colour(colour_1);
+                if (layer_is_foreground == 1) {
+                    imageStore(foreground, coords, v_color_1);
+                } else {
+                    imageStore(background, coords, v_color_1);
+                }
+            } else {  // colour 0
+                uint colour_0 = get_sprite_colour0(sprite & 0xf);
+                if (colour_0 == 10) { return; }
+
+                vec4 v_color_0 = get_colour(colour_0);
+                if (layer_is_foreground == 1) {
+                    imageStore(foreground, coords, v_color_0);
+                } else {
+                    imageStore(background, coords, v_color_0);
+                }
+            }
+        }
+    }
 }
