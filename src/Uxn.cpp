@@ -21,10 +21,6 @@ void to_uxn_mem2(char16_t c, glm::uint* p) {
     p[1] = static_cast<glm::uint>(c & 0xff);
 }
 
-bool mask(glm::uint x, glm::uint mask) {
-    return (x & mask) == mask;
-}
-
 uxn_memory::uxn_memory() = default;
 
 Uxn::Uxn(const char *program_path) {
@@ -36,14 +32,14 @@ Uxn::Uxn(const char *program_path) {
     }
 
     // Padding the opcodes from 8-bit to 32-bit
-    auto paddedProgram = std::vector<glm::uint>(program_rom.size());
+    auto program = std::vector<glm::uint>(program_rom.size());
     for (size_t i = 0; i < program_rom.size(); i++) {
-        to_uxn_mem(program_rom[i], &paddedProgram[i]);
+        to_uxn_mem(program_rom[i], &program[i]);
     }
 
     this->memory = new UxnMemory();
     // copy the program into memory
-    memcpy(memory->ram + 0x0100, paddedProgram.data(), paddedProgram.size() * sizeof(glm::uint));
+    memcpy(memory->ram + 0x0100, program.data(), program.size() * sizeof(glm::uint));
     // set the program counter to where the program starts from
     memory->pc = 0x0100;
 
@@ -105,16 +101,34 @@ void Uxn::outputToFile(const char* output_file_name, bool showRAM) const {
 }
 
 void Uxn::handleUxnIO() {
-    if (mask(memory->deviceFlags, UXN_DEO_FLAG)) {
+    if (maskFlag(DEO_CONSOLE_FLAG)) {
+        // console output
         char8_t c = from_uxn_mem(&memory->dev[0x18]);
-        console_buffer.push_back(static_cast<char>(c));
+        console_buffer.push_back(c);
         if (c == 0x0a) {
             std::cout << "[CONSOLE] " << console_buffer;
             console_buffer.clear();
         }
     }
+    if (maskFlag(DEO_CERROR_FLAG)) {
+        // console error output
+        char8_t c = from_uxn_mem(&memory->dev[0x19]);
+        cerror_buffer.push_back(c);
+        if (c == 0x0a) {
+            std::cerr << "[ERROR] " << cerror_buffer;
+            cerror_buffer.clear();
+        }
+    }
+    if (maskFlag(DEI_CONSOLE_FLAG)) {
+        // todo handle console device read
+        //https://wiki.xxiivv.com/site/varvara.html#console
+    }
 }
 
 bool Uxn::programTerminated() const {
     return static_cast<int8_t>(from_uxn_mem(&memory->dev[0x0f])) != 0;
+}
+
+bool Uxn::maskFlag(glm::uint mask) const {
+    return (memory->deviceFlags & mask) == mask;
 }

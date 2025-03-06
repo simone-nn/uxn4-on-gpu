@@ -1264,14 +1264,16 @@ private:
                 }
             }
             // Debug Printout:
+            auto t = std::chrono::duration_cast<std::chrono::milliseconds>(start_time - last_time);
             std::cout << "[Frame]"
                 << " VM halt code: " << halt_code
                 << ", flags: 0x" << std::hex << uxn->memory->deviceFlags << std::dec
-                << ", time: " << ((start_time - last_time)/1000000.0).count() << "[s]\n";
+                << ", time: " << (t/1000.0).count() << "[s]\n";
             last_time = start_time;
         }
         if (uxn->programTerminated()) {
-            std::cout << "Uxn Program Terminated with exit code: 0x" << std::hex << static_cast<int>(from_uxn_mem(&uxn->memory->dev[0x0f])) << std::dec;
+            std::cout << "Uxn Program Terminated with exit code: 0x" << std::hex
+            << static_cast<int>(from_uxn_mem(&uxn->memory->dev[0x0f])) - 0x80 << std::dec;
         }
     }
 

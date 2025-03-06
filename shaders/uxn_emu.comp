@@ -136,8 +136,17 @@ void PUx(inout State s, uint i, int _r, int _2) {
 }
 
 /* Devices */
+// Flags
+#define DEO_CONSOLE_FLAG 0x001
+#define DEO_CERROR_FLAG  0x002
+#define DEI_CONSOLE_FLAG 0x010
+#define DRAW_PIXEL_FLAG  0x100
+#define DRAW_SPRITE_FLAG 0x200
+
 // input from device
 uvec2 DEI(uint addr, uvec2 o, int _r, int _2) {
+    if (addr == 0x12) uxn.deviceFlags = DEI_CONSOLE_FLAG;
+
     o.x = uxn.dev[addr];
     if (_2 != 0) {
         o.y = uxn.dev[addr + 1];
@@ -146,17 +155,14 @@ uvec2 DEI(uint addr, uvec2 o, int _r, int _2) {
     return o;
 }
 
-// Flags
-#define DEO_FLAG         0x001
-#define DRAW_PIXEL_FLAG  0x010
-#define DRAW_SPRITE_FLAG 0x100
-
 // output to device
 void DEO(uint addr, uvec2 v, int _2) {
 
-    uxn.deviceFlags = DEO_FLAG;
+    uxn.deviceFlags = 0x0;
     if (addr == 0x2e) uxn.deviceFlags |= DRAW_PIXEL_FLAG;
     if (addr == 0x2f) uxn.deviceFlags |= DRAW_SPRITE_FLAG;
+    if (addr == 0x18) uxn.deviceFlags |= DEO_CONSOLE_FLAG;
+    if (addr == 0x19) uxn.deviceFlags |= DEO_CERROR_FLAG;
 
     uxn.dev[addr] = v.x;
     if (_2 != 0) {
