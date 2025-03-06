@@ -13,6 +13,7 @@
 #define UXN_DRAW_PIXEL_FLAG  0x010
 #define UXN_DRAW_SPRITE_FLAG 0x100
 
+//todo split into another buffer: pc, dev, flags
 typedef struct uxn_memory {
     glm::uint pc;
     glm::uint ram[UXN_RAM_SIZE];

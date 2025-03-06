@@ -281,6 +281,45 @@ void endSingleTimeCommands(const Context &ctx, VkCommandBuffer commandBuffer) {
     vkFreeCommandBuffers(ctx.device, ctx.commandPool, 1, &commandBuffer);
 }
 
+// --- --- GLFW Event Callback Functions --- ---
+enum class IOEvent {
+    keyPressed,
+    mouseButton,
+    mouseMove
+};
+std::queue<IOEvent> ioEvents;
+
+void keyboardCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    // if SHIFT + A then it captures both separately
+    // maybe mods tells if shift is being held down
+    ioEvents.push(IOEvent::keyPressed);
+    if (action == GLFW_PRESS) {
+        std::cout << "Key Pressed: " << key << std::endl;
+    }
+    else if (action == GLFW_RELEASE) {
+        std::cout << "Key Released: " << key << std::endl;
+    }
+}
+
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+    // button = 0 when left click, button = 1 when right click
+    ioEvents.push(IOEvent::mouseButton);
+    if (action == GLFW_PRESS) {
+        std::cout << "Mouse Button Pressed: " << button << std::endl;
+    }
+    else if (action == GLFW_RELEASE) {
+        std::cout << "Mouse Button Released: " << button << std::endl;
+    }
+}
+
+void cursorPositionCallback(GLFWwindow* window, double x, double y) {
+    // values are from 0 to WIDTH, HEIGHT
+    // 0,0 top left
+    ioEvents.push(IOEvent::mouseMove);
+    std::cout << "Mouse Moved to: (" << x << ", " << y << ")" << std::endl;
+}
+
+
 
 class DeviceController {
 public:
@@ -368,8 +407,14 @@ private:
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         // Tell GLFW that the window shouldn't be resizable.
         glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+
         // Creating the window
         ctx.window = glfwCreateWindow(WIDTH, HEIGHT, "UXN on GPU", nullptr, nullptr);
+
+        // setting callbacks
+        glfwSetKeyCallback(ctx.window, keyboardCallback);
+        glfwSetMouseButtonCallback(ctx.window, mouseButtonCallback);
+        glfwSetCursorPosCallback(ctx.window, cursorPositionCallback);
     }
 
     void initVkInstance() {
@@ -935,16 +980,13 @@ private:
             throw std::runtime_error("failed to create synchronization objects!");
         }
 
-
         if (vkCreateSemaphore(ctx.device, &semaphoreInfo, nullptr, &imageAvailableSemaphore) != VK_SUCCESS ||
             vkCreateSemaphore(ctx.device, &semaphoreInfo, nullptr, &renderFinishedSemaphore) != VK_SUCCESS ||
             vkCreateFence(ctx.device, &fenceInfo, nullptr, &graphicsFence) != VK_SUCCESS ||
             vkCreateFence(ctx.device, &fenceInfo, nullptr, &computeInFlightFence) != VK_SUCCESS) {
 
             throw std::runtime_error("failed to create synchronization objects!");
-
-            }
-
+        }
     }
 
     void updateUxnConstants() {
@@ -1135,7 +1177,7 @@ private:
             vkWaitForFences(ctx.device, 1, &blitFence, VK_TRUE, UINT64_MAX);
     }
 
-    void drawFrame() {
+    void graphicsStep() {
         // Graphics submission
         // wait for previous frame to finish
         vkWaitForFences(ctx.device, 1, &graphicsFence, VK_TRUE, UINT64_MAX);
@@ -1185,43 +1227,50 @@ private:
     }
 
     void mainLoop() {
-        constexpr int TOTAL_STEPS = INT_MAX;
+        constexpr int target_FPS = 60;
+        constexpr std::chrono::milliseconds frame_duration(1000 / target_FPS);
 
-        int halt_code = 0, step = 0;
-        std::chrono::steady_clock::time_point last_time = std::chrono::steady_clock::now();
-        while (!glfwWindowShouldClose(ctx.window) && step < TOTAL_STEPS && !uxn->programTerminated()) {
+        int halt_code = 0;
+        bool in_vector = true, do_graphics = false;
+        auto last_time = std::chrono::steady_clock::now();
+        auto last_frame_time = std::chrono::steady_clock::now();
 
-            // Main Loop:
+        while (!glfwWindowShouldClose(ctx.window) && !uxn->programTerminated()) {
+            auto start_time = std::chrono::steady_clock::now();
             glfwPollEvents();
-            if (halt_code != 1) {
-                //todo remove this block when you implement device I/O
+
+            // continue execution of current vector
+            if (in_vector) {
                 uxnEvalShader(true);
+                copyDeviceUxnMemory(uxn->memory);
+                uxn->handleUxnIO();
                 blitShader(true);
-            } //else { break; }
-            drawFrame();
+                halt_code = static_cast<int>(uxn->memory->dev[0]);
+                if (halt_code == 1) in_vector = false;
+            } else { // decide what else to execute
+                auto elapsed_since_frame = std::chrono::duration_cast<std::chrono::milliseconds>(last_frame_time - start_time);
+                if (!ioEvents.empty() && (elapsed_since_frame < frame_duration)) {
+                    // handle IO events -> run uxn callback if necessary
+                    // is callback is found -> in_vector = true;
+                } else {
+                    // run graphics
+                    graphicsStep();
 
-            // Handle IO
-            copyDeviceUxnMemory(uxn->memory);
-            uxn->handleUxnIO();
-
-            // Print elapsed time:
-            std::chrono::steady_clock::time_point now_time = std::chrono::steady_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(now_time - last_time).count();
-            last_time = now_time;
-            halt_code = static_cast<int>(uxn->memory->dev[0]);
-
-            // Debug Printouts:
-            // if (halt_code != 1)
-            //     uxn->outputToFile("output.txt", false);
-            std::cout << "[Frame " << step
-                << "] VM halt code: " << halt_code
+                    // update time
+                    last_frame_time = std::chrono::steady_clock::now();
+                    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(start_time - last_frame_time);
+                    // sleep to maintain 60 fps
+                    std::this_thread::sleep_for(frame_duration - elapsed);
+                }
+            }
+            // Debug Printout:
+            std::cout << "[Frame]"
+                << " VM halt code: " << halt_code
                 << ", flags: 0x" << std::hex << uxn->memory->deviceFlags << std::dec
-                << ", time: " << static_cast<double>(elapsed)/1000000.0 << "[s]\n";
-
-            step++;
+                << ", time: " << ((start_time - last_time)/1000000.0).count() << "[s]\n";
+            last_time = start_time;
         }
-        // uxn->outputToFile("output.txt", false);
-        if (uxn->programTerminated() || halt_code == 1) {
+        if (uxn->programTerminated()) {
             std::cout << "Uxn Program Terminated with exit code: 0x" << std::hex << static_cast<int>(from_uxn_mem(&uxn->memory->dev[0x0f])) << std::dec;
         }
     }
