@@ -101,6 +101,7 @@ void Uxn::outputToFile(const char* output_file_name, bool showRAM) const {
 }
 
 void Uxn::handleUxnIO() {
+    // console
     if (maskFlag(DEO_CONSOLE_FLAG)) {
         // console output
         char8_t c = from_uxn_mem(&memory->dev[0x18]);
@@ -109,6 +110,7 @@ void Uxn::handleUxnIO() {
             std::cout << "[CONSOLE] " << console_buffer;
             console_buffer.clear();
         }
+        return;
     }
     if (maskFlag(DEO_CERROR_FLAG)) {
         // console error output
@@ -118,10 +120,20 @@ void Uxn::handleUxnIO() {
             std::cerr << "[ERROR] " << cerror_buffer;
             cerror_buffer.clear();
         }
+        return;
     }
     if (maskFlag(DEI_CONSOLE_FLAG)) {
         // todo handle console device read
         //https://wiki.xxiivv.com/site/varvara.html#console
+        return;
+    }
+    // callbacks
+    if (maskFlag(DEO_FLAG)) {
+        for (UXN_DEVICE device : CALLBACK_DEVICES) {
+            if (uint16_t addr = from_uxn_mem2(&memory->dev[static_cast<glm::uint>(device)]))
+                deviceCallbackVectors.insert({device, addr});
+        }
+        return;
     }
 }
 

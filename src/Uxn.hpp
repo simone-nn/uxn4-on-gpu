@@ -8,8 +8,9 @@
 #define UXN_STACK_SIZE 256
 #define UXN_DEV_SIZE 256
 // Uxn deviceFlags
-#define DEO_CONSOLE_FLAG 0x001
-#define DEO_CERROR_FLAG  0x002
+#define DEO_FLAG         0x001
+#define DEO_CONSOLE_FLAG 0x002
+#define DEO_CERROR_FLAG  0x004
 #define DEI_CONSOLE_FLAG 0x010
 #define DRAW_PIXEL_FLAG  0x100
 #define DRAW_SPRITE_FLAG 0x200
@@ -28,7 +29,7 @@ typedef struct uxn_memory {
     uxn_memory();
 } UxnMemory;
 
-enum UXN_DEVICE {
+enum class UXN_DEVICE: glm::uint {
     System = 0x0,
     Console = 0x10,
     Screen = 0x20,
@@ -38,6 +39,7 @@ enum UXN_DEVICE {
     File = 0xA0,
     Datetime = 0xC0,
 };
+#define CALLBACK_DEVICES {UXN_DEVICE::Screen, UXN_DEVICE::Controller, UXN_DEVICE::Mouse}
 
 char8_t from_uxn_mem(const glm::uint* p);
 
@@ -52,7 +54,7 @@ bool mask(glm::uint x, glm::uint mask);
 class Uxn {
 public:
     UxnMemory* memory;
-    std::unordered_map<UXN_DEVICE,glm::uint> deviceCallbackVectors;
+    std::unordered_map<UXN_DEVICE,uint16_t> deviceCallbackVectors;
 
     explicit Uxn(const char* program_path);
 
