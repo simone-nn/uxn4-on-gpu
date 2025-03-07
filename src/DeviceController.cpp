@@ -1017,8 +1017,8 @@ private:
         std::cout << "..updateUxnConstants" << std::endl;
 
         // Screen Device
-        to_uxn_mem2(WIDTH, &uxn->memory->shared.dev[0x22]);
-        to_uxn_mem2(HEIGHT, &uxn->memory->shared.dev[0x24]);
+        to_uxn_mem2(static_cast<uint16_t>(WIDTH), &uxn->memory->shared.dev[0x22]);
+        to_uxn_mem2(static_cast<uint16_t>(HEIGHT), &uxn->memory->shared.dev[0x24]);
 
         //todo populate all uxn constants for all devices
     }
@@ -1183,7 +1183,7 @@ private:
                               VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                               computeCommandBuffer);
 
-        vkCmdDispatch(computeCommandBuffer, 8, 8, 1);
+        vkCmdDispatch(computeCommandBuffer, 1, 1, 1);
 
         if (vkEndCommandBuffer(computeCommandBuffer) != VK_SUCCESS) {
             throw std::runtime_error("failed to record command buffer!");
@@ -1264,10 +1264,11 @@ private:
         bool in_vector = true, do_graphics = false;
         auto last_time = std::chrono::steady_clock::now();
         auto last_frame_time = std::chrono::steady_clock::now();
-        uxn_device current_callback = uxn_device::System; // system is null
+
+        uxn->outputToFile("output.txt", false);
 
         while (!glfwWindowShouldClose(ctx.window) && !uxn->programTerminated()) {
-
+            auto start_time = std::chrono::steady_clock::now();
             glfwPollEvents();
 
             if (!in_vector) {
@@ -1279,8 +1280,7 @@ private:
                 if (do_graphics && uxn->deviceCallbackVectors.contains(uxn_device::Screen)) {
                     // change to @on-screen vector
                     uxn->memory->shared.pc = uxn->deviceCallbackVectors.at(uxn_device::Screen);
-                    // copyHostMemToDevice(uxn->memory);
-                    current_callback = uxn_device::Screen;
+                    copyHostMemToDevice(uxn->memory);
                     in_vector = true;
                 } else {
                     // change to an I/O callback
@@ -1303,7 +1303,7 @@ private:
             // graphics step
             // only enter if it is time
             // maybe the executed vector was the screen vector: && current_callback == uxn_device::Screen
-            if (do_graphics) {
+            if (do_graphics && halt_code == 1) {
                 graphicsStep();
                 if (!in_vector) do_graphics = false;
                 last_frame_time = std::chrono::steady_clock::now();
@@ -1321,6 +1321,7 @@ private:
             std::cout << "Uxn Program Terminated with exit code: 0x" << std::hex
             << static_cast<int>(from_uxn_mem(&uxn->memory->shared.dev[0x0f])) - 0x80 << std::dec;
         }
+        //uxn->outputToFile("output.txt", true);
     }
 
     void cleanup() {

@@ -5030,7 +5030,7 @@
        %2602 = OpLabel
                OpBranch %2601
        %2603 = OpLabel
-               OpReturnValue %uint_0
+               OpReturnValue %uint_1
        %2604 = OpLabel
        %2859 = OpFunctionCall %uint %pop_wst_
        %2860 = OpINotEqual %bool %2859 %uint_0

@@ -178,7 +178,7 @@ void DEO(uint addr, uvec2 v, int _2) {
 uint uxn_eval(inout State state) {
 	if((shared_uxn.pc == 0) || (shared_uxn.dev[0x0f] != 0)) return 1;
 	switch(uxn.ram[shared_uxn.pc++]) {
-    /* BRK */ case 0x00: return 0;
+    /* BRK */ case 0x00: return 1;
     /* JCI */ case 0x20:
                 if(pop_wst() != 0) { state = JMI(state); }
                 else { shared_uxn.pc += 2; }

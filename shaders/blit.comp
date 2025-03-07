@@ -92,8 +92,8 @@ void main() {
     // sprite requested
     if (mask(shared_uxn.flags, DRAW_SPRITE_FLAG)) {
         // ---------------------- 1 bpp --------------------------------
-        // todo finish this
-        uint row = get_byte(get_short(SCREEN_ADDR) + gl_GlobalInvocationID.x);
+        uvec2 offset = uvec2(gl_GlobalInvocationID);
+        uint row = uxn.ram[get_short(SCREEN_ADDR) + offset.y];
         uint sprite = get_byte(SCREEN_SPRITE);
 
         // flipped, modes and layer
@@ -106,44 +106,33 @@ void main() {
         uint y_flipped = (sprite >> 9) & 1;
         uint x_flipped = (sprite >> 8) & 1;
         ivec2 coords;
-        coords.x = int(x + ((1 - x_flipped) * gl_GlobalInvocationID.x)
-                         + (x_flipped * (8 - gl_GlobalInvocationID.x)));
-        coords.y = int(y + ((1 - y_flipped) * gl_GlobalInvocationID.y)
-                         + (y_flipped * (8 - gl_GlobalInvocationID.y)));
+        coords.x = int(x + ((1 - x_flipped) * offset.x)
+                         + (x_flipped * (8 - offset.x)));
+        coords.y = int(y + ((1 - y_flipped) * offset.y)
+                         + (y_flipped * (8 - offset.y)));
 
         // choosing the bpp mode
         if (mode_is_2bpp == 1) {
             return; //todo 2bpp sprites
         } else {
             // 1bpp
-            uint draw_colour = (row >> uint(gl_GlobalInvocationID.x)) & 1; // for 1 bpp
+            uint draw_colour = (row >> offset.x) & 0x1; // for 1 bpp
             uint sprite_low = sprite & 0xf;
 
             // select colour
-            if (draw_colour == 1) {  // colour 1
-                if (sprite_low == 0x0) {
-                    return; // 'none'
-                }
-                uint colour_1 = (sprite_low >> 2) & 0x3; // Extract bits [3:2]
-                vec4 v_color_1 = get_colour(colour_1);
+            if (draw_colour != 0 && sprite_low == 0x0) {
+                return; // 'none'
+            } else if (draw_colour == 0 && (sprite_low == 0x0 || sprite_low == 0x5 || sprite_low == 0xa || sprite_low == 0xf)) {
+                return; // 'clear' or 'none'
+            }
+            // Extract bits [3:2] for 1 or bits [1:0] for 0
+            uint color = (sprite_low >> (2 * draw_colour)) & 0x3;
+            vec4 v_color = get_colour(color);
 
-                if (layer_is_foreground == 1) {
-                    imageStore(foreground, coords, v_color_1);
-                } else {
-                    imageStore(background, coords, v_color_1);
-                }
-            } else {  // colour 0
-                if (sprite_low == 0x0 || sprite_low == 0x5 || sprite_low == 0xa || sprite_low == 0xf) {
-                    return; // 'clear' or 'none'
-                }
-                uint colour_0 = sprite_low & 0x3; // Extract bits [1:0]
-                vec4 v_color_0 = get_colour(colour_0);
-
-                if (layer_is_foreground == 1) {
-                    imageStore(foreground, coords, v_color_0);
-                } else {
-                    imageStore(background, coords, v_color_0);
-                }
+            if (layer_is_foreground == 1) {
+                imageStore(foreground, coords, v_color);
+            } else {
+                imageStore(background, coords, v_color);
             }
         }
     }

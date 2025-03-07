@@ -13,3 +13,6 @@ void main() {
         outColor = texture(background, fragUV);
     }
 }
+//TODO add background color from uxn
+// (have a buffer or something that stores it;
+//  blit will edit it and this will read from it)
