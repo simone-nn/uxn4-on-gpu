@@ -146,3 +146,11 @@ bool Uxn::programTerminated() const {
 bool Uxn::maskFlag(glm::uint mask) const {
     return (memory->shared.flags & mask) == mask;
 }
+
+glm::vec4 Uxn::getBackgroundColor() const {
+    constexpr int shift = 12;
+    auto r = static_cast<float>((from_uxn_mem2(&memory->shared.dev[0x08]) >> shift) & 0xf);
+    auto g = static_cast<float>((from_uxn_mem2(&memory->shared.dev[0x0a]) >> shift) & 0xf);
+    auto b = static_cast<float>((from_uxn_mem2(&memory->shared.dev[0x0c]) >> shift) & 0xf);
+    return {r / 16.0, g / 16.0, b / 16.0, 1.0f};
+}

@@ -72,7 +72,11 @@ public:
     [[nodiscard]]
     bool programTerminated() const;
 
+    [[nodiscard]]
     bool maskFlag(glm::uint mask) const;
+
+    [[nodiscard]]
+    glm::vec4 getBackgroundColor() const;
 private:
     UxnMemory* original_memory;
     std::string program_path;

@@ -1121,7 +1121,7 @@ private:
         }
     }
 
-    static void clearImage(VkCommandBuffer cmdBuffer, VkImage image) {
+    void clearImage(VkCommandBuffer cmdBuffer) {
         VkImageSubresourceRange subresourceRange{};
         subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         subresourceRange.baseMipLevel = 0;
@@ -1129,14 +1129,21 @@ private:
         subresourceRange.baseArrayLayer = 0;
         subresourceRange.layerCount = 1;
 
-        VkClearColorValue clearColor = {};
-        clearColor.float32[0] = 0.0f;
-        clearColor.float32[1] = 1.0f;
-        clearColor.float32[2] = 0.0f;
-        clearColor.float32[3] = 0.0f;
+        VkClearColorValue foregroundColor = {};
+        foregroundColor.float32[0] = 0.0f;
+        foregroundColor.float32[1] = 0.0f;
+        foregroundColor.float32[2] = 0.0f;
+        foregroundColor.float32[3] = 0.0f;
 
-        // Clear the image
-        vkCmdClearColorImage(cmdBuffer, image, VK_IMAGE_LAYOUT_GENERAL, &clearColor, 1, &subresourceRange);
+        auto back = uxn->getBackgroundColor();
+        VkClearColorValue backgroundColor = {};
+        backgroundColor.float32[0] = back.x;
+        backgroundColor.float32[1] = back.y;
+        backgroundColor.float32[2] = back.z;
+        backgroundColor.float32[3] = back.w;
+
+        vkCmdClearColorImage(cmdBuffer, backgroundImageResource.data.image.image, VK_IMAGE_LAYOUT_GENERAL, &backgroundColor, 1, &subresourceRange);
+        vkCmdClearColorImage(cmdBuffer, foregroundImageResource.data.image.image, VK_IMAGE_LAYOUT_GENERAL, &foregroundColor, 1, &subresourceRange);
     }
 
 
@@ -1162,10 +1169,8 @@ private:
                               VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                               VK_IMAGE_LAYOUT_GENERAL,
                               computeCommandBuffer);
-        if (clear_image) {
-            clearImage(computeCommandBuffer, images[0]);
-            clearImage(computeCommandBuffer, images[1]);
-        }
+        if (clear_image)
+            clearImage(computeCommandBuffer);
 
         vkCmdDispatch(computeCommandBuffer, 1, 1, 1);
 
