@@ -1292,8 +1292,6 @@ private:
         auto last_time = std::chrono::steady_clock::now();
         auto last_frame_time = std::chrono::steady_clock::now();
 
-        uxn->outputToFile("output.txt", false);
-
         while (!glfwWindowShouldClose(ctx.window) && !uxn->programTerminated()) {
             auto start_time = std::chrono::steady_clock::now();
             glfwPollEvents();
