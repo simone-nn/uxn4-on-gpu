@@ -1,18 +1,21 @@
 #version 450
 
-layout(std140, binding = 0) buffer UXN_Buffer {
+layout(std140, binding = 0) buffer Shared_UXN_Buffer {
     uint pc;
+    uint dev[256];  // device data
+    uint flags;
+} shared_uxn;
+
+layout(std140, binding = 1) buffer Private_UXN_Buffer {
     uint ram[65536];
     uint wst[256];  // working stack
     uint pWst;
     uint rst[256];  // return stack
     uint pRst;
-    uint dev[256];  // device data
-    uint deviceFlags;
 } uxn;
 
-layout(binding = 1, rgba8) uniform image2D background;
-layout(binding = 2, rgba8) uniform image2D foreground;
+layout(binding = 2, rgba8) uniform image2D background;
+layout(binding = 3, rgba8) uniform image2D foreground;
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
@@ -38,11 +41,11 @@ layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 #define PIXEL_FOREGROUND_MASK 0x40
 
 uint get_byte(uint addr) {
-    return uxn.dev[addr];
+    return shared_uxn.dev[addr];
 }
 
 uint get_short(uint addr) {
-    return (uxn.dev[addr] << 8) + uxn.dev[addr + 1];
+    return (shared_uxn.dev[addr] << 8) + shared_uxn.dev[addr + 1];
 }
 
 bool mask(uint x, uint mask) {
@@ -66,7 +69,7 @@ void main() {
     //TODO change background to default theme background (colour 0)
 
     // pixel requested
-    if (mask(uxn.deviceFlags,DRAW_PIXEL_FLAG) && (gl_GlobalInvocationID.xy == vec2(0, 0))) {
+    if (mask(shared_uxn.flags,DRAW_PIXEL_FLAG) && (gl_GlobalInvocationID.xy == vec2(0, 0))) {
         // coordinates
         uint x = get_short(SCREEN_X);
         uint y = get_short(SCREEN_Y);
@@ -79,15 +82,15 @@ void main() {
         // editing the image
         if (pixel / 0x10 == 0x0) {
             imageStore(background, coords, color);
-            uxn.deviceFlags |= 0x1000;
+            shared_uxn.flags |= 0x1000;
         }
         if (pixel / 0x10 == 0x4) {
             imageStore(foreground, coords, color);
-            uxn.deviceFlags |= 0x2000;
+            shared_uxn.flags |= 0x2000;
         }
     }
     // sprite requested
-    if (mask(uxn.deviceFlags, DRAW_SPRITE_FLAG)) {
+    if (mask(shared_uxn.flags, DRAW_SPRITE_FLAG)) {
         // ---------------------- 1 bpp --------------------------------
         // todo finish this
         uint row = get_byte(get_short(SCREEN_ADDR) + gl_GlobalInvocationID.x);

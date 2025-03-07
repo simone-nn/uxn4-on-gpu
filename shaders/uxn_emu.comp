@@ -4,15 +4,18 @@
 // Based on the UXN emulator from https://wiki.xxiivv.com/site/uxn.html
 //
 
-layout(std140, binding = 0) buffer UXN_Buffer {
+layout(std140, binding = 0) buffer Shared_UXN_Buffer {
     uint pc;
+    uint dev[256];  // device data
+    uint flags;
+} shared_uxn;
+
+layout(std140, binding = 1) buffer Private_UXN_Buffer {
     uint ram[65536];
     uint wst[256];  // working stack
     uint pWst;
     uint rst[256];  // return stack
     uint pRst;
-    uint dev[256];  // device data
-    uint deviceFlags;
 } uxn;
 
 layout (local_size_x = 1) in;
@@ -52,7 +55,7 @@ void RP1(uint i, int _r) {
 }
 
 void JMP(uint i, int _2) {
-    uxn.pc = (_2 != 0) ? i : uxn.pc + i;
+    shared_uxn.pc = (_2 != 0) ? i : shared_uxn.pc + i;
 }
 
 uint PO1(int _r) {
@@ -104,8 +107,8 @@ void GET(inout uvec2 v, int _r, int _2) {
 }
 
 State JMI(State s) {
-    s.a = uxn.ram[uxn.pc] << 8 | uxn.ram[uxn.pc + 1];
-    uxn.pc += s.a + 2;
+    s.a = uxn.ram[shared_uxn.pc] << 8 | uxn.ram[shared_uxn.pc + 1];
+    shared_uxn.pc += s.a + 2;
     return s;
 }
 
@@ -146,11 +149,12 @@ void PUx(inout State s, uint i, int _r, int _2) {
 
 // input from device
 uvec2 DEI(uint addr, uvec2 o, int _r, int _2) {
-    if (addr == 0x12) uxn.deviceFlags = DEI_CONSOLE_FLAG;
 
-    o.x = uxn.dev[addr];
+    if (addr == 0x12) shared_uxn.flags = DEI_CONSOLE_FLAG;
+
+    o.x = shared_uxn.dev[addr];
     if (_2 != 0) {
-        o.y = uxn.dev[addr + 1];
+        o.y = shared_uxn.dev[addr + 1];
     }
     PUT(o,_r,_2);
     return o;
@@ -159,36 +163,36 @@ uvec2 DEI(uint addr, uvec2 o, int _r, int _2) {
 // output to device
 void DEO(uint addr, uvec2 v, int _2) {
 
-    uxn.deviceFlags = 0x0;
-    if (addr == 0x2e) uxn.deviceFlags |= DRAW_PIXEL_FLAG;
-    if (addr == 0x2f) uxn.deviceFlags |= DRAW_SPRITE_FLAG;
-    if (addr == 0x18) uxn.deviceFlags |= DEO_CONSOLE_FLAG;
-    if (addr == 0x19) uxn.deviceFlags |= DEO_CERROR_FLAG;
+    shared_uxn.flags = 0x0;
+    if (addr == 0x2e) shared_uxn.flags |= DRAW_PIXEL_FLAG;
+    if (addr == 0x2f) shared_uxn.flags |= DRAW_SPRITE_FLAG;
+    if (addr == 0x18) shared_uxn.flags |= DEO_CONSOLE_FLAG;
+    if (addr == 0x19) shared_uxn.flags |= DEO_CERROR_FLAG;
 
-    uxn.dev[addr] = v.x;
+    shared_uxn.dev[addr] = v.x;
     if (_2 != 0) {
-        uxn.dev[addr + 1] = v.y;
+        shared_uxn.dev[addr + 1] = v.y;
     }
 }
 
 uint uxn_eval(inout State state) {
-	if((uxn.pc == 0) || (uxn.dev[0x0f] != 0)) return 1;
-	switch(uxn.ram[uxn.pc++]) {
+	if((shared_uxn.pc == 0) || (shared_uxn.dev[0x0f] != 0)) return 1;
+	switch(uxn.ram[shared_uxn.pc++]) {
     /* BRK */ case 0x00: return 0;
     /* JCI */ case 0x20:
                 if(pop_wst() != 0) { state = JMI(state); }
-                else { uxn.pc += 2; }
+                else { shared_uxn.pc += 2; }
                 break;
     /* JMI */ case 0x40: state = JMI(state); break;
     /* JSI */ case 0x60:
-                state.c = uxn.pc + 2;
+                state.c = shared_uxn.pc + 2;
                 push_rst(state.c >> 8);
                 push_rst(state.c);
                 state = JMI(state); break;
-    /* LI2 */ case 0xa0: push_wst(uxn.ram[uxn.pc++]); /* fall-through */
-    /* LIT */ case 0x80: push_wst(uxn.ram[uxn.pc++]); break;
-    /* L2r */ case 0xe0: push_rst(uxn.ram[uxn.pc++]); /* fall-through */
-    /* LIr */ case 0xc0: push_rst(uxn.ram[uxn.pc++]); break;
+    /* LI2 */ case 0xa0: push_wst(uxn.ram[shared_uxn.pc++]); /* fall-through */
+    /* LIT */ case 0x80: push_wst(uxn.ram[shared_uxn.pc++]); break;
+    /* L2r */ case 0xe0: push_rst(uxn.ram[shared_uxn.pc++]); /* fall-through */
+    /* LIr */ case 0xc0: push_rst(uxn.ram[shared_uxn.pc++]); break;
     /* INC */ OPC(0x01, state.a = POx(_r, _2);, PUx(state, state.a + 1, _r, _2);)
     /* POP */ OPC(0x02, REM(_r, _2);, {})
     /* NIP */ OPC(0x03,
@@ -235,7 +239,7 @@ uint uxn_eval(inout State state) {
                   if(state.b != 0) { JMP(state.a, _2); })
     /* JSR */ OPC(0x0e,
                   state.a = POx(_r,_2); ,
-                  RP1(uxn.pc >> 8,_r); RP1(uxn.pc,_r); JMP(state.a, _2); )
+                  RP1(shared_uxn.pc >> 8,_r); RP1(shared_uxn.pc,_r); JMP(state.a, _2); )
     /* STH */ OPC(0x0f,
                   GET(state.x,_r,_2); ,
                   RP1(state.x.x,_r);
@@ -248,10 +252,10 @@ uint uxn_eval(inout State state) {
                   POK(state.a, state.y, 0xff, _r, _2); )
     /* LDR */ OPC(0x12,
                   state.a = PO1(_r); ,
-                  state.x = PEK(uxn.pc + state.a, state.x, 0xffff, _r,_2); )
+                  state.x = PEK(shared_uxn.pc + state.a, state.x, 0xffff, _r,_2); )
     /* STR */ OPC(0x13,
                   state.a = PO1(_r); GET(state.y,_r,_2); ,
-                  POK(uxn.pc + state.a, state.y, 0xffff, _r,_2); )
+                  POK(shared_uxn.pc + state.a, state.y, 0xffff, _r,_2); )
     /* LDA */ OPC(0x14,
                   state.a = PO2(_r); ,
                   state.x = PEK(state.a, state.x, 0xffff, _r,_2); )
@@ -300,19 +304,19 @@ bool mask(uint x, uint mask) {
 
 void main() {
     State state = {0, 0, 0, uvec2(0,0), uvec2(0,0), uvec2(0,0)};
-    uxn.deviceFlags = 0;
+    shared_uxn.flags = 0;
 
     // Run the next Uxn instruction
     // possible halt codes:
     // 0 - halt not needed; continue evaluation
-    // 1 - device halt (pc==0 or uxn.dev[0x0f] is set to true)
+    // 1 - device halt (pc==0 or shared_uxn.dev[0x0f] is set to true)
     // 2 - DEO halt
     // 3 - DEO2 halt
     uint halt = 0;
     while (halt == 0) {
         halt = uxn_eval(state);
     }
-    uxn.dev[0] = halt;
+    shared_uxn.dev[0] = halt;
 
     // Test memory offsets and strides with this:
     // uxn.ram[0] = 1;
@@ -321,6 +325,6 @@ void main() {
     // uxn.wst[255] = 1;
     // uxn.rst[0] = 1;
     // uxn.rst[255] = 0xffffffff;
-    // uxn.dev[0] = 0xffffffff;
-    // uxn.dev[255] = 0xffffffff;
+    // shared_uxn.dev[0] = 0xffffffff;
+    // shared_uxn.dev[255] = 0xffffffff;
 }

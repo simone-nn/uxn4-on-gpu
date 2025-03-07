@@ -15,8 +15,16 @@
 #define VERT_SHADER_PATH  "shaders/shader.vert.spv"
 #define FRAG_SHADER_PATH  "shaders/shader.frag.spv"
 
+// -- Bindings --
+#define SHARED_UXN_BINDING          0
+#define PRIVATE_UXN_BINDING         1
+#define BACKGROUND_IMAGE_BINDING    2
+#define BACKGROUND_SAMPLER_BINDING  4
+#define FOREGROUND_IMAGE_BINDING    3
+#define FOREGROUND_SAMPLER_BINDING  5
+
 #define VERTEX_BINDING 0
-#define VERTEX_LOCATION 5
+#define VERTEX_LOCATION 6
 typedef struct vertex {
     glm::vec2 position;
     glm::vec2 uv;
@@ -365,7 +373,8 @@ private:
     VkCommandBuffer computeCommandBuffer;
 
     DescriptorSet descriptorSet;
-    Resource uxnResource;
+    Resource sharedUxnResource;
+    Resource privateUxnResource;
     Resource backgroundImageResource;
     Resource foregroundImageResource;
     Resource vertexResource;
@@ -950,11 +959,16 @@ private:
         descriptorSet = DescriptorSet();
 
         // resource creation
-        uxnResource = Resource(ctx, 0, &descriptorSet, sizeof(UxnMemory), uxn->memory,
+        sharedUxnResource = Resource(ctx, SHARED_UXN_BINDING, &descriptorSet, sizeof(UxnMemory::shared), &uxn->memory->shared,
             true, false, true);
-        backgroundImageResource = Resource(ctx, 1, 3, &descriptorSet, "resources/default_background.png");
-        foregroundImageResource = Resource(ctx, 2, 4, &descriptorSet, "resources/default_foreground.png");
-        vertexResource = Resource(ctx, 5, &descriptorSet, VERTICES_SIZE, vertices.data(),
+        privateUxnResource = Resource(ctx, PRIVATE_UXN_BINDING, &descriptorSet, sizeof(UxnMemory::_private), &uxn->memory->_private,
+            true, false, false);
+
+        backgroundImageResource = Resource(ctx, BACKGROUND_IMAGE_BINDING, BACKGROUND_SAMPLER_BINDING,
+            &descriptorSet, "resources/default_background.png");
+        foregroundImageResource = Resource(ctx, FOREGROUND_IMAGE_BINDING, FOREGROUND_SAMPLER_BINDING,
+            &descriptorSet, "resources/default_foreground.png");
+        vertexResource = Resource(ctx, VERTEX_LOCATION, &descriptorSet, VERTICES_SIZE, vertices.data(),
             false, true, false);
 
         descriptorSet.initialise(ctx);
@@ -993,8 +1007,8 @@ private:
         std::cout << "..updateUxnConstants" << std::endl;
 
         // Screen Device
-        to_uxn_mem2(WIDTH, &uxn->memory->dev[0x22]);
-        to_uxn_mem2(HEIGHT, &uxn->memory->dev[0x24]);
+        to_uxn_mem2(WIDTH, &uxn->memory->shared.dev[0x22]);
+        to_uxn_mem2(HEIGHT, &uxn->memory->shared.dev[0x24]);
 
         //todo populate all uxn constants for all devices
     }
@@ -1021,19 +1035,20 @@ private:
         initSync();
     }
 
-    void copyDeviceUxnMemory(UxnMemory* target) {
+    void copyDeviceSharedUxnMemory(UxnMemory* target) {
         // copy from ssbo buffer to host staging buffer
-        copyBuffer(ctx, uxnResource.data.buffer.buffer, hostStagingBuffer, sizeof(UxnMemory));
+        auto size = sharedUxnResource.data.buffer.size;
+        copyBuffer(ctx, sharedUxnResource.data.buffer.buffer, hostStagingBuffer, size);
 
         void* data;
-        if (vkMapMemory(ctx.device, hostStagingMemory, 0, sizeof(UxnMemory), 0, &data) != VK_SUCCESS) {
+        if (vkMapMemory(ctx.device, hostStagingMemory, 0, size, 0, &data) != VK_SUCCESS) {
             std::cerr << "Failed to map memory!" << std::endl;
             return;
         }
 
         auto* mappedMemory = static_cast<UxnMemory*>(data);
-        memset(target, 0, sizeof(UxnMemory));
-        memcpy(target, mappedMemory, sizeof(UxnMemory));
+        memset(&target->shared, 0, size);
+        memcpy(&target->shared, mappedMemory, size);
         vkUnmapMemory(ctx.device, hostStagingMemory);
     }
 
@@ -1088,7 +1103,7 @@ private:
         }
     }
 
-    void uxnEvalShader(bool transitionToImageEditFormat) {
+    void uxnEvalShader() {
         // --- UXN evaluation submission ---
         vkQueueWaitIdle(ctx.computeQueue);
         vkResetFences(ctx.device, 1, &uxnEvaluationFence);
@@ -1106,11 +1121,10 @@ private:
             0,1, &descriptorSet.set, 0, nullptr);
 
         // transition image format to edit mode
-        if (transitionToImageEditFormat)
-            transitionImageLayout(ctx, 2, images.data(),
-                                  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                  VK_IMAGE_LAYOUT_GENERAL,
-                                  computeCommandBuffer);
+        transitionImageLayout(ctx, 2, images.data(),
+                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                              VK_IMAGE_LAYOUT_GENERAL,
+                              computeCommandBuffer);
 
         vkCmdDispatch(computeCommandBuffer, 1, 1, 1);
 
@@ -1129,7 +1143,7 @@ private:
         vkWaitForFences(ctx.device, 1, &uxnEvaluationFence, VK_TRUE, UINT64_MAX);
     }
 
-    void blitShader(bool wait) {
+    void blitShader() {
         // --- Blit submission ---
         vkResetFences(ctx.device, 1, &blitFence);
         vkResetCommandBuffer(computeCommandBuffer, 0);
@@ -1173,8 +1187,7 @@ private:
         // in layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL--instead, current layout is VK_IMAGE_LAYOUT_GENERAL.
 
         // wait for blit step to be done
-        if (wait)
-            vkWaitForFences(ctx.device, 1, &blitFence, VK_TRUE, UINT64_MAX);
+        vkWaitForFences(ctx.device, 1, &blitFence, VK_TRUE, UINT64_MAX);
     }
 
     void graphicsStep() {
@@ -1241,11 +1254,11 @@ private:
 
             // continue execution of current vector
             if (in_vector) {
-                uxnEvalShader(true);
-                copyDeviceUxnMemory(uxn->memory);
+                uxnEvalShader();
+                copyDeviceSharedUxnMemory(uxn->memory);
                 uxn->handleUxnIO();
-                blitShader(true);
-                halt_code = static_cast<int>(uxn->memory->dev[0]);
+                blitShader();
+                halt_code = static_cast<int>(uxn->memory->shared.dev[0]);
                 if (halt_code == 1) in_vector = false;
             } else { // decide what else to execute
                 auto elapsed_since_frame = std::chrono::duration_cast<std::chrono::milliseconds>(last_frame_time - start_time);
@@ -1267,13 +1280,13 @@ private:
             auto t = std::chrono::duration_cast<std::chrono::milliseconds>(start_time - last_time);
             std::cout << "[Frame]"
                 << " VM halt code: " << halt_code
-                << ", flags: 0x" << std::hex << uxn->memory->deviceFlags << std::dec
+                << ", flags: 0x" << std::hex << uxn->memory->shared.flags << std::dec
                 << ", time: " << (t/1000.0).count() << "[s]\n";
             last_time = start_time;
         }
         if (uxn->programTerminated()) {
             std::cout << "Uxn Program Terminated with exit code: 0x" << std::hex
-            << static_cast<int>(from_uxn_mem(&uxn->memory->dev[0x0f])) - 0x80 << std::dec;
+            << static_cast<int>(from_uxn_mem(&uxn->memory->shared.dev[0x0f])) - 0x80 << std::dec;
         }
     }
 
@@ -1288,7 +1301,8 @@ private:
         vkDestroyFence(ctx.device, computeInFlightFence, nullptr);
         vkDestroyFence(ctx.device, uxnEvaluationFence, nullptr);
         vkDestroyFence(ctx.device, blitFence, nullptr);
-        uxnResource.destroy();
+        sharedUxnResource.destroy();
+        privateUxnResource.destroy();
         backgroundImageResource.destroy();
         foregroundImageResource.destroy();
         vertexResource.destroy();

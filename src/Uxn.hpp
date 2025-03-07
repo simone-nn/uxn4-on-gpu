@@ -17,15 +17,18 @@
 
 //todo split into another buffer: pc, dev, flags
 typedef struct uxn_memory {
-    glm::uint pc;
-    glm::uint ram[UXN_RAM_SIZE];
-    glm::uint wst[UXN_STACK_SIZE];  // working stack
-    glm::uint pWst;
-    glm::uint rst[UXN_STACK_SIZE];  // return stack
-    glm::uint pRst;
-    glm::uint dev[UXN_DEV_SIZE];
-    glm::uint deviceFlags;
-
+    struct shared {
+        glm::uint pc;
+        glm::uint dev[UXN_DEV_SIZE];
+        glm::uint flags;
+    } shared;
+    struct _private {
+        glm::uint ram[UXN_RAM_SIZE];
+        glm::uint wst[UXN_STACK_SIZE];  // working stack
+        glm::uint pWst;
+        glm::uint rst[UXN_STACK_SIZE];  // return stack
+        glm::uint pRst;
+    } _private;
     uxn_memory();
 } UxnMemory;
 

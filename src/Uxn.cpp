@@ -39,9 +39,9 @@ Uxn::Uxn(const char *program_path) {
 
     this->memory = new UxnMemory();
     // copy the program into memory
-    memcpy(memory->ram + 0x0100, program.data(), program.size() * sizeof(glm::uint));
+    memcpy(memory->_private.ram + 0x0100, program.data(), program.size() * sizeof(glm::uint));
     // set the program counter to where the program starts from
-    memory->pc = 0x0100;
+    memory->shared.pc = 0x0100;
 
     this->original_memory = new UxnMemory();
     memcpy(original_memory, memory, sizeof(UxnMemory));
@@ -68,31 +68,31 @@ void Uxn::outputToFile(const char* output_file_name, bool showRAM) const {
     }
     outFile << std::hex;
     outFile << "---Uxn Memory:---\n";
-    outFile << "Program Counter: 0x" << memory->pc;
-    if (memory->pc != 0) {
-        glm::uint instr = from_uxn_mem(&memory->ram[memory->pc - 1]);
+    outFile << "Program Counter: 0x" << memory->shared.pc;
+    if (memory->shared.pc != 0) {
+        glm::uint instr = from_uxn_mem(&memory->_private.ram[memory->shared.pc - 1]);
         outFile << " prev instruction:" << instr;
     }
-    outFile << "\nFlags: 0x" << memory->deviceFlags << "\n";
+    outFile << "\nFlags: 0x" << memory->shared.flags << "\n";
     if (showRAM) {
         outFile << "--RAM:--\n";
         for (int i = 0; i < UXN_RAM_SIZE; ++i) {
-            printValue(i, memory->ram);
+            printValue(i, memory->_private.ram);
         }
     }
     outFile << "--Working Stack:--\n";
-    outFile << "wst pointer: " << memory->pWst << "\n";
+    outFile << "wst pointer: " << memory->_private.pWst << "\n";
     for (int i = 0; i < UXN_STACK_SIZE; ++i) {
-        printValue(i, memory->wst);
+        printValue(i, memory->_private.wst);
     }
     outFile << "--Return Stack:--\n";
-    outFile << "rst pointer: " << memory->pRst << "\n";
+    outFile << "rst pointer: " << memory->_private.pRst << "\n";
     for (int i = 0; i < UXN_STACK_SIZE; ++i) {
-        printValue(i, memory->rst);
+        printValue(i, memory->_private.rst);
     }
     outFile << "--Device Data:--\n";
     for (int i = 0; i < UXN_DEV_SIZE; ++i) {
-        printValue(i, memory->dev);
+        printValue(i, memory->shared.dev);
     }
     outFile << std::dec << "\n\n";
 
@@ -104,7 +104,7 @@ void Uxn::handleUxnIO() {
     // console
     if (maskFlag(DEO_CONSOLE_FLAG)) {
         // console output
-        char8_t c = from_uxn_mem(&memory->dev[0x18]);
+        char8_t c = from_uxn_mem(&memory->shared.dev[0x18]);
         console_buffer.push_back(c);
         if (c == 0x0a) {
             std::cout << "[CONSOLE] " << console_buffer;
@@ -114,7 +114,7 @@ void Uxn::handleUxnIO() {
     }
     if (maskFlag(DEO_CERROR_FLAG)) {
         // console error output
-        char8_t c = from_uxn_mem(&memory->dev[0x19]);
+        char8_t c = from_uxn_mem(&memory->shared.dev[0x19]);
         cerror_buffer.push_back(c);
         if (c == 0x0a) {
             std::cerr << "[ERROR] " << cerror_buffer;
@@ -130,7 +130,7 @@ void Uxn::handleUxnIO() {
     // callbacks
     if (maskFlag(DEO_FLAG)) {
         for (UXN_DEVICE device : CALLBACK_DEVICES) {
-            if (uint16_t addr = from_uxn_mem2(&memory->dev[static_cast<glm::uint>(device)]))
+            if (uint16_t addr = from_uxn_mem2(&memory->shared.dev[static_cast<glm::uint>(device)]))
                 deviceCallbackVectors.insert({device, addr});
         }
         return;
@@ -138,9 +138,9 @@ void Uxn::handleUxnIO() {
 }
 
 bool Uxn::programTerminated() const {
-    return static_cast<int8_t>(from_uxn_mem(&memory->dev[0x0f])) != 0;
+    return static_cast<int8_t>(from_uxn_mem(&memory->shared.dev[0x0f])) != 0;
 }
 
 bool Uxn::maskFlag(glm::uint mask) const {
-    return (memory->deviceFlags & mask) == mask;
+    return (memory->shared.flags & mask) == mask;
 }
