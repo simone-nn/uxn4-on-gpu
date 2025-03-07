@@ -126,7 +126,7 @@ void main() {
                 return; // 'clear' or 'none'
             }
             // Extract bits [3:2] for 1 or bits [1:0] for 0
-            uint color = (sprite_low >> (2 * draw_colour)) & 0x3;
+            uint color = (sprite_low >> (2 * (1 - draw_colour))) & 0x3;
             vec4 v_color = get_colour(color);
 
             if (layer_is_foreground == 1) {

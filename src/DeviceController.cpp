@@ -1305,6 +1305,9 @@ private:
             // maybe the executed vector was the screen vector: && current_callback == uxn_device::Screen
             if (do_graphics && halt_code == 1) {
                 graphicsStep();
+                //TODO clear image here
+                // make a clear shader that clear the image to its background colour
+                // or some other way of clearing the image here
                 if (!in_vector) do_graphics = false;
                 last_frame_time = std::chrono::steady_clock::now();
             }

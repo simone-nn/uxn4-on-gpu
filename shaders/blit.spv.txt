@@ -1,7 +1,7 @@
 ; SPIR-V
 ; Version: 1.5
 ; Generator: Khronos SPIR-V Tools Assembler; 0
-; Bound: 342
+; Bound: 343
 ; Schema: 0
                OpCapability Shader
           %1 = OpExtInstImport "GLSL.std.450"
@@ -412,31 +412,32 @@
         %251 = OpLabel
         %272 = OpLoad %uint %sprite_low
         %273 = OpLoad %uint %draw_colour
-        %274 = OpIMul %uint %uint_2 %273
-        %275 = OpShiftRightLogical %uint %272 %274
-        %276 = OpBitwiseAnd %uint %275 %uint_3
-               OpStore %color_0 %276
-        %277 = OpLoad %uint %color_0
-               OpStore %param_14 %277
-        %278 = OpFunctionCall %v4float %get_colour_u1_ %param_14
-               OpStore %v_color %278
-        %279 = OpLoad %uint %layer_is_foreground
-        %280 = OpIEqual %bool %279 %uint_1
-               OpSelectionMerge %281 None
-               OpBranchConditional %280 %282 %283
-        %282 = OpLabel
-        %284 = OpLoad %108 %foreground
-        %285 = OpLoad %v2int %coords_0
-        %286 = OpLoad %v4float %v_color
-               OpImageWrite %284 %285 %286
-               OpBranch %281
+        %274 = OpISub %uint %uint_1 %273
+        %275 = OpIMul %uint %uint_2 %274
+        %276 = OpShiftRightLogical %uint %272 %275
+        %277 = OpBitwiseAnd %uint %276 %uint_3
+               OpStore %color_0 %277
+        %278 = OpLoad %uint %color_0
+               OpStore %param_14 %278
+        %279 = OpFunctionCall %v4float %get_colour_u1_ %param_14
+               OpStore %v_color %279
+        %280 = OpLoad %uint %layer_is_foreground
+        %281 = OpIEqual %bool %280 %uint_1
+               OpSelectionMerge %282 None
+               OpBranchConditional %281 %283 %284
         %283 = OpLabel
-        %287 = OpLoad %108 %background
-        %288 = OpLoad %v2int %coords_0
-        %289 = OpLoad %v4float %v_color
-               OpImageWrite %287 %288 %289
-               OpBranch %281
-        %281 = OpLabel
+        %285 = OpLoad %108 %foreground
+        %286 = OpLoad %v2int %coords_0
+        %287 = OpLoad %v4float %v_color
+               OpImageWrite %285 %286 %287
+               OpBranch %282
+        %284 = OpLabel
+        %288 = OpLoad %108 %background
+        %289 = OpLoad %v2int %coords_0
+        %290 = OpLoad %v4float %v_color
+               OpImageWrite %288 %289 %290
+               OpBranch %282
+        %282 = OpLabel
                OpBranch %236
         %236 = OpLabel
                OpBranch %177
@@ -445,40 +446,40 @@
                OpFunctionEnd
 %get_byte_u1_ = OpFunction %uint None %68
        %addr = OpFunctionParameter %_ptr_Function_uint
-        %290 = OpLabel
-        %291 = OpLoad %uint %addr
-        %292 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_1 %291
-        %293 = OpLoad %uint %292
-               OpReturnValue %293
+        %291 = OpLabel
+        %292 = OpLoad %uint %addr
+        %293 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_1 %292
+        %294 = OpLoad %uint %293
+               OpReturnValue %294
                OpFunctionEnd
 %get_short_u1_ = OpFunction %uint None %68
      %addr_0 = OpFunctionParameter %_ptr_Function_uint
-        %294 = OpLabel
-        %295 = OpLoad %uint %addr_0
-        %296 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_1 %295
-        %297 = OpLoad %uint %296
-        %298 = OpShiftLeftLogical %uint %297 %int_8
-        %299 = OpLoad %uint %addr_0
-        %300 = OpIAdd %uint %299 %uint_1
-        %301 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_1 %300
-        %302 = OpLoad %uint %301
-        %303 = OpIAdd %uint %298 %302
-               OpReturnValue %303
+        %295 = OpLabel
+        %296 = OpLoad %uint %addr_0
+        %297 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_1 %296
+        %298 = OpLoad %uint %297
+        %299 = OpShiftLeftLogical %uint %298 %int_8
+        %300 = OpLoad %uint %addr_0
+        %301 = OpIAdd %uint %300 %uint_1
+        %302 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_1 %301
+        %303 = OpLoad %uint %302
+        %304 = OpIAdd %uint %299 %303
+               OpReturnValue %304
                OpFunctionEnd
 %mask_u1_u1_ = OpFunction %bool None %70
           %x = OpFunctionParameter %_ptr_Function_uint
        %mask = OpFunctionParameter %_ptr_Function_uint
-        %304 = OpLabel
-        %305 = OpLoad %uint %x
-        %306 = OpLoad %uint %mask
-        %307 = OpBitwiseAnd %uint %305 %306
-        %308 = OpLoad %uint %mask
-        %309 = OpIEqual %bool %307 %308
-               OpReturnValue %309
+        %305 = OpLabel
+        %306 = OpLoad %uint %x
+        %307 = OpLoad %uint %mask
+        %308 = OpBitwiseAnd %uint %306 %307
+        %309 = OpLoad %uint %mask
+        %310 = OpIEqual %bool %308 %309
+               OpReturnValue %310
                OpFunctionEnd
 %get_colour_u1_ = OpFunction %v4float None %73
    %colour_i = OpFunctionParameter %_ptr_Function_uint
-        %310 = OpLabel
+        %311 = OpLabel
       %shift = OpVariable %_ptr_Function_uint Function
           %r = OpVariable %_ptr_Function_uint Function
       %param = OpVariable %_ptr_Function_uint Function
@@ -487,47 +488,47 @@
           %b = OpVariable %_ptr_Function_uint Function
     %param_1 = OpVariable %_ptr_Function_uint Function
 %sys_colours = OpVariable %_ptr_Function_v3uint Function
-        %311 = OpLoad %uint %colour_i
-        %312 = OpULessThan %bool %311 %uint_4
-               OpSelectionMerge %313 None
-               OpBranchConditional %312 %314 %313
-        %314 = OpLabel
-        %315 = OpLoad %uint %colour_i
-        %316 = OpISub %uint %uint_3 %315
-        %317 = OpIMul %uint %316 %uint_4
-               OpStore %shift %317
+        %312 = OpLoad %uint %colour_i
+        %313 = OpULessThan %bool %312 %uint_4
+               OpSelectionMerge %314 None
+               OpBranchConditional %313 %315 %314
+        %315 = OpLabel
+        %316 = OpLoad %uint %colour_i
+        %317 = OpISub %uint %uint_3 %316
+        %318 = OpIMul %uint %317 %uint_4
+               OpStore %shift %318
                OpStore %param %uint_8
-        %318 = OpFunctionCall %uint %get_short_u1_ %param
-        %319 = OpLoad %uint %shift
-        %320 = OpShiftRightLogical %uint %318 %319
-        %321 = OpBitwiseAnd %uint %320 %uint_15
-               OpStore %r %321
+        %319 = OpFunctionCall %uint %get_short_u1_ %param
+        %320 = OpLoad %uint %shift
+        %321 = OpShiftRightLogical %uint %319 %320
+        %322 = OpBitwiseAnd %uint %321 %uint_15
+               OpStore %r %322
                OpStore %param_0 %uint_10
-        %322 = OpFunctionCall %uint %get_short_u1_ %param_0
-        %323 = OpLoad %uint %shift
-        %324 = OpShiftRightLogical %uint %322 %323
-        %325 = OpBitwiseAnd %uint %324 %uint_15
-               OpStore %g %325
+        %323 = OpFunctionCall %uint %get_short_u1_ %param_0
+        %324 = OpLoad %uint %shift
+        %325 = OpShiftRightLogical %uint %323 %324
+        %326 = OpBitwiseAnd %uint %325 %uint_15
+               OpStore %g %326
                OpStore %param_1 %uint_12
-        %326 = OpFunctionCall %uint %get_short_u1_ %param_1
-        %327 = OpLoad %uint %shift
-        %328 = OpShiftRightLogical %uint %326 %327
-        %329 = OpBitwiseAnd %uint %328 %uint_15
-               OpStore %b %329
-        %330 = OpLoad %uint %r
-        %331 = OpLoad %uint %g
-        %332 = OpLoad %uint %b
-        %333 = OpCompositeConstruct %v3uint %330 %331 %332
-               OpStore %sys_colours %333
-        %334 = OpLoad %v3uint %sys_colours
-        %335 = OpConvertUToF %v3float %334
-        %336 = OpCompositeConstruct %v3float %float_16 %float_16 %float_16
-        %337 = OpFDiv %v3float %335 %336
-        %338 = OpCompositeExtract %float %337 0
-        %339 = OpCompositeExtract %float %337 1
-        %340 = OpCompositeExtract %float %337 2
-        %341 = OpCompositeConstruct %v4float %338 %339 %340 %float_1
-               OpReturnValue %341
-        %313 = OpLabel
+        %327 = OpFunctionCall %uint %get_short_u1_ %param_1
+        %328 = OpLoad %uint %shift
+        %329 = OpShiftRightLogical %uint %327 %328
+        %330 = OpBitwiseAnd %uint %329 %uint_15
+               OpStore %b %330
+        %331 = OpLoad %uint %r
+        %332 = OpLoad %uint %g
+        %333 = OpLoad %uint %b
+        %334 = OpCompositeConstruct %v3uint %331 %332 %333
+               OpStore %sys_colours %334
+        %335 = OpLoad %v3uint %sys_colours
+        %336 = OpConvertUToF %v3float %335
+        %337 = OpCompositeConstruct %v3float %float_16 %float_16 %float_16
+        %338 = OpFDiv %v3float %336 %337
+        %339 = OpCompositeExtract %float %338 0
+        %340 = OpCompositeExtract %float %338 1
+        %341 = OpCompositeExtract %float %338 2
+        %342 = OpCompositeConstruct %v4float %339 %340 %341 %float_1
+               OpReturnValue %342
+        %314 = OpLabel
                OpReturnValue %93
                OpFunctionEnd
