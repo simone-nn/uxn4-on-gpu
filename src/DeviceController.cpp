@@ -1121,7 +1121,26 @@ private:
         }
     }
 
-    void uxnEvalShader() {
+    static void clearImage(VkCommandBuffer cmdBuffer, VkImage image) {
+        VkImageSubresourceRange subresourceRange{};
+        subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        subresourceRange.baseMipLevel = 0;
+        subresourceRange.levelCount = 1;
+        subresourceRange.baseArrayLayer = 0;
+        subresourceRange.layerCount = 1;
+
+        VkClearColorValue clearColor = {};
+        clearColor.float32[0] = 0.0f;
+        clearColor.float32[1] = 1.0f;
+        clearColor.float32[2] = 0.0f;
+        clearColor.float32[3] = 0.0f;
+
+        // Clear the image
+        vkCmdClearColorImage(cmdBuffer, image, VK_IMAGE_LAYOUT_GENERAL, &clearColor, 1, &subresourceRange);
+    }
+
+
+    void uxnEvalShader(bool clear_image) {
         // --- UXN evaluation submission ---
         vkQueueWaitIdle(ctx.computeQueue);
         vkResetFences(ctx.device, 1, &uxnEvaluationFence);
@@ -1143,6 +1162,10 @@ private:
                               VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                               VK_IMAGE_LAYOUT_GENERAL,
                               computeCommandBuffer);
+        if (clear_image) {
+            clearImage(computeCommandBuffer, images[0]);
+            clearImage(computeCommandBuffer, images[1]);
+        }
 
         vkCmdDispatch(computeCommandBuffer, 1, 1, 1);
 
@@ -1261,7 +1284,7 @@ private:
         constexpr std::chrono::milliseconds frame_duration(1000 / target_FPS);
 
         int halt_code = 0;
-        bool in_vector = true, do_graphics = false;
+        bool in_vector = true, do_graphics = false, clear_required = false;
         auto last_time = std::chrono::steady_clock::now();
         auto last_frame_time = std::chrono::steady_clock::now();
 
@@ -1290,7 +1313,7 @@ private:
 
             if (in_vector) {
                 // compute steps
-                uxnEvalShader();
+                uxnEvalShader(clear_required);
                 blitShader();
                 copyDeviceMemToHost(uxn->memory);
                 uxn->handleUxnIO();
@@ -1298,6 +1321,7 @@ private:
                 // decide if the vector is finished
                 halt_code = static_cast<int>(uxn->memory->shared.dev[0]);
                 if (halt_code == 1) in_vector = false;
+                if (clear_required) clear_required = false;
             }
 
             // graphics step
@@ -1305,9 +1329,7 @@ private:
             // maybe the executed vector was the screen vector: && current_callback == uxn_device::Screen
             if (do_graphics && halt_code == 1) {
                 graphicsStep();
-                //TODO clear image here
-                // make a clear shader that clear the image to its background colour
-                // or some other way of clearing the image here
+                clear_required = true;
                 if (!in_vector) do_graphics = false;
                 last_frame_time = std::chrono::steady_clock::now();
             }
