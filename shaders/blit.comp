@@ -52,7 +52,6 @@ bool mask(uint x, uint mask) {
     return (x & mask) == mask;
 }
 
-//TODO decide on a spelling of color/colour and stick to it
 vec4 get_colour(uint colour_i) {
     if (colour_i < 4) {
         uint shift = (3 - colour_i) * 4;
@@ -77,15 +76,15 @@ void main() {
 
         // colour
         uint pixel = get_byte(SCREEN_PIXEL);
-        vec4 color = get_colour(pixel & 0x0f);
+        vec4 colour = get_colour(pixel & 0x0f);
 
         // editing the image
         if (pixel / 0x10 == 0x0) {
-            imageStore(background, coords, color);
+            imageStore(background, coords, colour);
             shared_uxn.flags |= 0x1000;
         }
         if (pixel / 0x10 == 0x4) {
-            imageStore(foreground, coords, color);
+            imageStore(foreground, coords, colour);
             shared_uxn.flags |= 0x2000;
         }
     }
@@ -126,13 +125,13 @@ void main() {
                 return; // 'clear' or 'none'
             }
             // Extract bits [3:2] for 1 or bits [1:0] for 0
-            uint color = (sprite_low >> (2 * (1 - draw_colour))) & 0x3;
-            vec4 v_color = get_colour(color);
+            uint colour = (sprite_low >> (2 * (1 - draw_colour))) & 0x3;
+            vec4 v_colour = get_colour(colour);
 
             if (layer_is_foreground == 1) {
-                imageStore(foreground, coords, v_color);
+                imageStore(foreground, coords, v_colour);
             } else {
-                imageStore(background, coords, v_color);
+                imageStore(background, coords, v_colour);
             }
         }
     }

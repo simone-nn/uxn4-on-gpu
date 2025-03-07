@@ -42,7 +42,7 @@
                OpName %coords "coords"
                OpName %pixel "pixel"
                OpName %param_6 "param"
-               OpName %color "color"
+               OpName %colour "colour"
                OpName %param_7 "param"
                OpName %background "background"
                OpName %foreground "foreground"
@@ -71,8 +71,8 @@
                OpName %coords_0 "coords"
                OpName %draw_colour "draw_colour"
                OpName %sprite_low "sprite_low"
-               OpName %color_0 "color"
-               OpName %v_color "v_color"
+               OpName %colour_0 "colour"
+               OpName %v_colour "v_colour"
                OpName %param_14 "param"
                OpDecorate %_arr_uint_uint_256 ArrayStride 4
                OpMemberDecorate %Shared_UXN_Buffer 0 Offset 0
@@ -182,7 +182,7 @@
      %coords = OpVariable %_ptr_Function_v2int Function
       %pixel = OpVariable %_ptr_Function_uint Function
     %param_6 = OpVariable %_ptr_Function_uint Function
-      %color = OpVariable %_ptr_Function_v4float Function
+     %colour = OpVariable %_ptr_Function_v4float Function
     %param_7 = OpVariable %_ptr_Function_uint Function
     %param_8 = OpVariable %_ptr_Function_uint Function
     %param_9 = OpVariable %_ptr_Function_uint Function
@@ -202,8 +202,8 @@
    %coords_0 = OpVariable %_ptr_Function_v2int Function
 %draw_colour = OpVariable %_ptr_Function_uint Function
  %sprite_low = OpVariable %_ptr_Function_uint Function
-    %color_0 = OpVariable %_ptr_Function_uint Function
-    %v_color = OpVariable %_ptr_Function_v4float Function
+   %colour_0 = OpVariable %_ptr_Function_uint Function
+   %v_colour = OpVariable %_ptr_Function_v4float Function
    %param_14 = OpVariable %_ptr_Function_uint Function
         %126 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_2
         %127 = OpLoad %uint %126
@@ -243,7 +243,7 @@
         %148 = OpBitwiseAnd %uint %147 %uint_15
                OpStore %param_7 %148
         %149 = OpFunctionCall %v4float %get_colour_u1_ %param_7
-               OpStore %color %149
+               OpStore %colour %149
         %150 = OpLoad %uint %pixel
         %151 = OpUDiv %uint %150 %uint_16
         %152 = OpIEqual %bool %151 %uint_0
@@ -252,7 +252,7 @@
         %154 = OpLabel
         %155 = OpLoad %108 %background
         %156 = OpLoad %v2int %coords
-        %157 = OpLoad %v4float %color
+        %157 = OpLoad %v4float %colour
                OpImageWrite %155 %156 %157
         %158 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_2
         %159 = OpLoad %uint %158
@@ -269,7 +269,7 @@
         %166 = OpLabel
         %167 = OpLoad %108 %foreground
         %168 = OpLoad %v2int %coords
-        %169 = OpLoad %v4float %color
+        %169 = OpLoad %v4float %colour
                OpImageWrite %167 %168 %169
         %170 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_2
         %171 = OpLoad %uint %170
@@ -416,11 +416,11 @@
         %275 = OpIMul %uint %uint_2 %274
         %276 = OpShiftRightLogical %uint %272 %275
         %277 = OpBitwiseAnd %uint %276 %uint_3
-               OpStore %color_0 %277
-        %278 = OpLoad %uint %color_0
+               OpStore %colour_0 %277
+        %278 = OpLoad %uint %colour_0
                OpStore %param_14 %278
         %279 = OpFunctionCall %v4float %get_colour_u1_ %param_14
-               OpStore %v_color %279
+               OpStore %v_colour %279
         %280 = OpLoad %uint %layer_is_foreground
         %281 = OpIEqual %bool %280 %uint_1
                OpSelectionMerge %282 None
@@ -428,13 +428,13 @@
         %283 = OpLabel
         %285 = OpLoad %108 %foreground
         %286 = OpLoad %v2int %coords_0
-        %287 = OpLoad %v4float %v_color
+        %287 = OpLoad %v4float %v_colour
                OpImageWrite %285 %286 %287
                OpBranch %282
         %284 = OpLabel
         %288 = OpLoad %108 %background
         %289 = OpLoad %v2int %coords_0
-        %290 = OpLoad %v4float %v_color
+        %290 = OpLoad %v4float %v_colour
                OpImageWrite %288 %289 %290
                OpBranch %282
         %282 = OpLabel
