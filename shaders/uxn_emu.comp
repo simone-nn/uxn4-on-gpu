@@ -163,7 +163,7 @@ uvec2 DEI(uint addr, uvec2 o, int _r, int _2) {
 // output to device
 void DEO(uint addr, uvec2 v, int _2) {
 
-    shared_uxn.flags = 0x0;
+    shared_uxn.flags = DEO_FLAG;
     if (addr == 0x2e) shared_uxn.flags |= DRAW_PIXEL_FLAG;
     if (addr == 0x2f) shared_uxn.flags |= DRAW_SPRITE_FLAG;
     if (addr == 0x18) shared_uxn.flags |= DEO_CONSOLE_FLAG;

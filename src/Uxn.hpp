@@ -32,7 +32,7 @@ typedef struct uxn_memory {
     uxn_memory();
 } UxnMemory;
 
-enum class UXN_DEVICE: glm::uint {
+enum class uxn_device: glm::uint {
     System = 0x0,
     Console = 0x10,
     Screen = 0x20,
@@ -42,7 +42,7 @@ enum class UXN_DEVICE: glm::uint {
     File = 0xA0,
     Datetime = 0xC0,
 };
-#define CALLBACK_DEVICES {UXN_DEVICE::Screen, UXN_DEVICE::Controller, UXN_DEVICE::Mouse}
+#define CALLBACK_DEVICES {uxn_device::Screen, uxn_device::Controller, uxn_device::Mouse}
 
 char8_t from_uxn_mem(const glm::uint* p);
 
@@ -57,7 +57,7 @@ bool mask(glm::uint x, glm::uint mask);
 class Uxn {
 public:
     UxnMemory* memory;
-    std::unordered_map<UXN_DEVICE,uint16_t> deviceCallbackVectors;
+    std::unordered_map<uxn_device,uint16_t> deviceCallbackVectors;
 
     explicit Uxn(const char* program_path);
 

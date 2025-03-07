@@ -301,30 +301,30 @@ void keyboardCallback(GLFWwindow* window, int key, int scancode, int action, int
     // if SHIFT + A then it captures both separately
     // maybe mods tells if shift is being held down
     ioEvents.push(IOEvent::keyPressed);
-    if (action == GLFW_PRESS) {
-        std::cout << "Key Pressed: " << key << std::endl;
-    }
-    else if (action == GLFW_RELEASE) {
-        std::cout << "Key Released: " << key << std::endl;
-    }
+    // if (action == GLFW_PRESS) {
+    //     std::cout << "Key Pressed: " << key << std::endl;
+    // }
+    // else if (action == GLFW_RELEASE) {
+    //     std::cout << "Key Released: " << key << std::endl;
+    // }
 }
 
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
     // button = 0 when left click, button = 1 when right click
     ioEvents.push(IOEvent::mouseButton);
-    if (action == GLFW_PRESS) {
-        std::cout << "Mouse Button Pressed: " << button << std::endl;
-    }
-    else if (action == GLFW_RELEASE) {
-        std::cout << "Mouse Button Released: " << button << std::endl;
-    }
+    // if (action == GLFW_PRESS) {
+    //     std::cout << "Mouse Button Pressed: " << button << std::endl;
+    // }
+    // else if (action == GLFW_RELEASE) {
+    //     std::cout << "Mouse Button Released: " << button << std::endl;
+    // }
 }
 
 void cursorPositionCallback(GLFWwindow* window, double x, double y) {
     // values are from 0 to WIDTH, HEIGHT
     // 0,0 top left
     ioEvents.push(IOEvent::mouseMove);
-    std::cout << "Mouse Moved to: (" << x << ", " << y << ")" << std::endl;
+    // std::cout << "Mouse Moved to: (" << x << ", " << y << ")" << std::endl;
 }
 
 
@@ -379,8 +379,11 @@ private:
     Resource foregroundImageResource;
     Resource vertexResource;
 
-    VkBuffer hostStagingBuffer;
-    VkDeviceMemory hostStagingMemory;
+    VkBuffer hostDestBuffer;
+    VkDeviceMemory hostDestMemory;
+    VkBuffer hostSrcBuffer;
+    VkDeviceMemory hostSrcMemory;
+    void* hostSrcP;
 
     VkSemaphore imageAvailableSemaphore;
     VkSemaphore renderFinishedSemaphore;
@@ -974,10 +977,17 @@ private:
         descriptorSet.initialise(ctx);
 
         // host staging buffer
-        createBuffer(ctx, sizeof(UxnMemory),
+        createBuffer(ctx, sizeof(UxnMemory::shared),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            hostStagingBuffer, hostStagingMemory);
+            hostDestBuffer, hostDestMemory);
+        createBuffer(ctx, sizeof(UxnMemory::shared),
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            hostSrcBuffer, hostSrcMemory);
+        if (vkMapMemory(ctx.device, hostSrcMemory, 0, sizeof(UxnMemory::shared), 0, &hostSrcP) != VK_SUCCESS) {
+            std::cerr << "Failed to map memory!" << std::endl;
+        }
     }
 
     void initSync() {
@@ -1035,13 +1045,13 @@ private:
         initSync();
     }
 
-    void copyDeviceSharedUxnMemory(UxnMemory* target) {
+    void copyDeviceMemToHost(UxnMemory* target) {
         // copy from ssbo buffer to host staging buffer
         auto size = sharedUxnResource.data.buffer.size;
-        copyBuffer(ctx, sharedUxnResource.data.buffer.buffer, hostStagingBuffer, size);
+        copyBuffer(ctx, sharedUxnResource.data.buffer.buffer, hostDestBuffer, size);
 
         void* data;
-        if (vkMapMemory(ctx.device, hostStagingMemory, 0, size, 0, &data) != VK_SUCCESS) {
+        if (vkMapMemory(ctx.device, hostDestMemory, 0, size, 0, &data) != VK_SUCCESS) {
             std::cerr << "Failed to map memory!" << std::endl;
             return;
         }
@@ -1049,7 +1059,15 @@ private:
         auto* mappedMemory = static_cast<UxnMemory*>(data);
         memset(&target->shared, 0, size);
         memcpy(&target->shared, mappedMemory, size);
-        vkUnmapMemory(ctx.device, hostStagingMemory);
+        vkUnmapMemory(ctx.device, hostDestMemory);
+    }
+
+    void copyHostMemToDevice(const UxnMemory* source) {
+        // copy data to staging buffer
+        memcpy(hostSrcP, &source->shared, sizeof(UxnMemory::shared));
+
+        // copy from host staging buffer to ssbo buffer
+        copyBuffer(ctx, hostSrcBuffer, sharedUxnResource.data.buffer.buffer, sizeof(UxnMemory::shared));
     }
 
     void recordGraphicsCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageIndex) {
@@ -1208,7 +1226,6 @@ private:
         // submit info that accompanies the commands:
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        // std::array waitSemaphores = {computeFinishedSemaphores[frameStep], imageAvailableSemaphores[frameStep]};
         std::array waitSemaphores = {imageAvailableSemaphore};
         submitInfo.waitSemaphoreCount = waitSemaphores.size();
         submitInfo.pWaitSemaphores = waitSemaphores.data();
@@ -1247,42 +1264,58 @@ private:
         bool in_vector = true, do_graphics = false;
         auto last_time = std::chrono::steady_clock::now();
         auto last_frame_time = std::chrono::steady_clock::now();
+        uxn_device current_callback = uxn_device::System; // system is null
 
         while (!glfwWindowShouldClose(ctx.window) && !uxn->programTerminated()) {
-            auto start_time = std::chrono::steady_clock::now();
+
             glfwPollEvents();
 
-            // continue execution of current vector
-            if (in_vector) {
-                uxnEvalShader();
-                copyDeviceSharedUxnMemory(uxn->memory);
-                uxn->handleUxnIO();
-                blitShader();
-                halt_code = static_cast<int>(uxn->memory->shared.dev[0]);
-                if (halt_code == 1) in_vector = false;
-            } else { // decide what else to execute
-                auto elapsed_since_frame = std::chrono::duration_cast<std::chrono::milliseconds>(last_frame_time - start_time);
-                if (!ioEvents.empty() && (elapsed_since_frame < frame_duration)) {
-                    // handle IO events -> run uxn callback if necessary
-                    // is callback is found -> in_vector = true;
-                } else {
-                    // run graphics
-                    graphicsStep();
+            if (!in_vector) {
+                // has it been enough time since last frame to draw a new one
+                auto now_time = std::chrono::steady_clock::now();
+                auto elapsed_since_frame = std::chrono::duration_cast<std::chrono::milliseconds>(last_frame_time - now_time);
+                if (elapsed_since_frame < frame_duration) do_graphics = true;
 
-                    // update time
-                    last_frame_time = std::chrono::steady_clock::now();
-                    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(start_time - last_frame_time);
-                    // sleep to maintain 60 fps
-                    std::this_thread::sleep_for(frame_duration - elapsed);
+                if (do_graphics && uxn->deviceCallbackVectors.contains(uxn_device::Screen)) {
+                    // change to @on-screen vector
+                    uxn->memory->shared.pc = uxn->deviceCallbackVectors.at(uxn_device::Screen);
+                    // copyHostMemToDevice(uxn->memory);
+                    current_callback = uxn_device::Screen;
+                    in_vector = true;
+                } else {
+                    // change to an I/O callback
+                    //todo
                 }
             }
+
+            if (in_vector) {
+                // compute steps
+                uxnEvalShader();
+                blitShader();
+                copyDeviceMemToHost(uxn->memory);
+                uxn->handleUxnIO();
+
+                // decide if the vector is finished
+                halt_code = static_cast<int>(uxn->memory->shared.dev[0]);
+                if (halt_code == 1) in_vector = false;
+            }
+
+            // graphics step
+            // only enter if it is time
+            // maybe the executed vector was the screen vector: && current_callback == uxn_device::Screen
+            if (do_graphics) {
+                graphicsStep();
+                if (!in_vector) do_graphics = false;
+                last_frame_time = std::chrono::steady_clock::now();
+            }
+
             // Debug Printout:
-            auto t = std::chrono::duration_cast<std::chrono::milliseconds>(start_time - last_time);
-            std::cout << "[Frame]"
-                << " VM halt code: " << halt_code
-                << ", flags: 0x" << std::hex << uxn->memory->shared.flags << std::dec
-                << ", time: " << (t/1000.0).count() << "[s]\n";
-            last_time = start_time;
+            // auto t = std::chrono::duration_cast<std::chrono::milliseconds>(start_time - last_time);
+            // std::cout << "[Frame]"
+            //     << " VM halt code: " << halt_code
+            //     << ", flags: 0x" << std::hex << uxn->memory->shared.flags << std::dec
+            //     << ", time: " << (t/1000.0).count() << "[s]\n";
+            // last_time = start_time;
         }
         if (uxn->programTerminated()) {
             std::cout << "Uxn Program Terminated with exit code: 0x" << std::hex
@@ -1291,10 +1324,14 @@ private:
     }
 
     void cleanup() {
+        vkDeviceWaitIdle(ctx.device);
         delete uxn;
         descriptorSet.destroy(ctx);
-        vkDestroyBuffer(ctx.device, hostStagingBuffer, nullptr);
-        vkFreeMemory(ctx.device, hostStagingMemory, nullptr);
+        vkUnmapMemory(ctx.device, hostSrcMemory);
+        vkDestroyBuffer(ctx.device, hostDestBuffer, nullptr);
+        vkFreeMemory(ctx.device, hostDestMemory, nullptr);
+        vkDestroyBuffer(ctx.device, hostSrcBuffer, nullptr);
+        vkFreeMemory(ctx.device, hostSrcMemory, nullptr);
         vkDestroySemaphore(ctx.device, renderFinishedSemaphore, nullptr);
         vkDestroySemaphore(ctx.device, imageAvailableSemaphore, nullptr);
         vkDestroyFence(ctx.device, graphicsFence, nullptr);

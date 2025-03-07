@@ -105,7 +105,7 @@ void Uxn::handleUxnIO() {
     if (maskFlag(DEO_CONSOLE_FLAG)) {
         // console output
         char8_t c = from_uxn_mem(&memory->shared.dev[0x18]);
-        console_buffer.push_back(c);
+        console_buffer.push_back(static_cast<char>(c));
         if (c == 0x0a) {
             std::cout << "[CONSOLE] " << console_buffer;
             console_buffer.clear();
@@ -115,7 +115,7 @@ void Uxn::handleUxnIO() {
     if (maskFlag(DEO_CERROR_FLAG)) {
         // console error output
         char8_t c = from_uxn_mem(&memory->shared.dev[0x19]);
-        cerror_buffer.push_back(c);
+        cerror_buffer.push_back(static_cast<char>(c));
         if (c == 0x0a) {
             std::cerr << "[ERROR] " << cerror_buffer;
             cerror_buffer.clear();
@@ -129,9 +129,11 @@ void Uxn::handleUxnIO() {
     }
     // callbacks
     if (maskFlag(DEO_FLAG)) {
-        for (UXN_DEVICE device : CALLBACK_DEVICES) {
-            if (uint16_t addr = from_uxn_mem2(&memory->shared.dev[static_cast<glm::uint>(device)]))
+        //TODO move callback discovery to shader!!
+        for (uxn_device device : CALLBACK_DEVICES) {
+            if (uint16_t addr = from_uxn_mem2(&memory->shared.dev[static_cast<glm::uint>(device)])) {
                 deviceCallbackVectors.insert({device, addr});
+            }
         }
         return;
     }

@@ -2820,7 +2820,7 @@
        %_2_8 = OpFunctionParameter %_ptr_Function_int
        %2528 = OpLabel
        %2529 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_2
-               OpStore %2529 %uint_0
+               OpStore %2529 %uint_1
        %2530 = OpLoad %uint %addr_0
        %2531 = OpIEqual %bool %2530 %uint_46
                OpSelectionMerge %2532 None
