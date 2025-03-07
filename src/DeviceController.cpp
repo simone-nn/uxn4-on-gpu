@@ -1146,7 +1146,6 @@ private:
         vkCmdClearColorImage(cmdBuffer, foregroundImageResource.data.image.image, VK_IMAGE_LAYOUT_GENERAL, &foregroundColor, 1, &subresourceRange);
     }
 
-
     void uxnEvalShader(bool clear_image) {
         // --- UXN evaluation submission ---
         vkQueueWaitIdle(ctx.computeQueue);
@@ -1351,7 +1350,6 @@ private:
             std::cout << "Uxn Program Terminated with exit code: 0x" << std::hex
             << static_cast<int>(from_uxn_mem(&uxn->memory->shared.dev[0x0f])) - 0x80 << std::dec;
         }
-        //uxn->outputToFile("output.txt", true);
     }
 
     void cleanup() {
