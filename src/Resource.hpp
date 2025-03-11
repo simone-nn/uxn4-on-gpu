@@ -3,6 +3,8 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <glm/vec4.hpp>
+
 #include "DeviceController.hpp"
 
 uint32_t findMemoryType(
@@ -30,6 +32,13 @@ void copyBuffer(
 void transitionImageLayout(const Context &ctx, int imageCount, const VkImage *image, VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandBuffer cmdBuffer);
 
 void copyBufferToImage(const Context &ctx, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+
+
+struct ImageParams {
+    uint32_t width;
+    uint32_t height;
+    int color;
+};
 
 
 class DescriptorSet {
@@ -104,7 +113,7 @@ public:
         uint32_t imageBinding,
         uint32_t samplerBinding,
         DescriptorSet *descriptorSet,
-        char const* texture_file
+        ImageParams params
     );
 
     void destroy() const;

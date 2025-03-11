@@ -86,6 +86,7 @@ uint get_2bpp_colour_i(uint sprite_low, uint value) {
 void main() {
     // pixel requested
     if (mask(shared_uxn.flags,DRAW_PIXEL_FLAG) && (gl_GlobalInvocationID.xy == vec2(0, 0))) {
+        // ---------------------- pixel --------------------------------
         // coordinates
         uint x = get_short(SCREEN_X);
         uint y = get_short(SCREEN_Y);
@@ -122,13 +123,14 @@ void main() {
         uint y_flipped = (sprite >> 9) & 1;
         uint x_flipped = (sprite >> 8) & 1;
         ivec2 coords;
-        coords.x = int(x + ((1 - x_flipped) * offset.x)
-                         + (x_flipped * (8 - offset.x)));
+        coords.x = int(x + (x_flipped * offset.x)
+                         + ((1 - x_flipped) * (8 - offset.x)));
         coords.y = int(y + ((1 - y_flipped) * offset.y)
                          + (y_flipped * (8 - offset.y)));
 
         // choosing the bpp mode
         if (mode_is_2bpp == 1) {
+            // ---------------------- 2 bpp --------------------------------
             uint row = uxn.ram[get_short(SCREEN_ADDR) + offset.y * 2];
             uint draw_colour = (row >> (offset.x * 2)) & 0x3; // for 2 bpp
             uint colour_i = get_2bpp_colour_i(sprite_low, draw_colour);

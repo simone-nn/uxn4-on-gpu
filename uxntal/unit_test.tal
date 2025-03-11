@@ -3,6 +3,8 @@
 |00 @System/vector $2 &expansion $2 &wst $1 &rst $1 &metadata $2 &r $2 &g $2 &b $2 &debug $1 &state $1
 |10 @Console &vector $2 &read $1 &pad $5 &write $1 &error $1
 
+|50 @cell $2
+
 ( main program )
 |0100
     ( hi with DEO )
@@ -23,7 +25,42 @@
     .Console/write DEO
 
     ( MUL, GTH )
-    #10 #02 MUL
+    #10 DUP #02 MUL
+    GTH
+    #40 ADD
+    .Console/write DEO ( @ )
+
+    ( end line )
+    #0a .Console/write DEO
+
+    ( JCN, SWP, POP )
+    #7071 #01 ,&pass JCN SWP &pass POP ( p )
+    .Console/write DEO
+
+    #7071 #00 ,&fail JCN SWP &fail POP ( q )
+    .Console/write DEO
+
+    ( end line )
+    #0a .Console/write DEO
+
+    ( LDZ, STZ )
+    .cell LDZ
+    #40 ADD
+    DUP .Console/write DEO ( @ )
+    #30 ADD
+    .cell STZ
+    .cell LDZ
+    .Console/write DEO ( p )
+
+    ( end line )
+    #0a .Console/write DEO
+
+    ( ADD2, LTH2/GTH2 )
+    #0020 DUP2
+    #0400 ADD2
+    GTH2 ( true )
+    #42 ADD
+    .Console/write DEO ( B )
 
     ( end line )
     #0a .Console/write DEO

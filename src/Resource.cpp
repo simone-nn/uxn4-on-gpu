@@ -1,7 +1,5 @@
 #include "Resource.hpp"
 #include <stdexcept>
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
 
 uint32_t findMemoryType(
     const Context &ctx,
@@ -368,21 +366,24 @@ Resource::Resource(
     uint32_t imageBinding,
     uint32_t samplerBinding,
     DescriptorSet *descriptorSet,
-    char const* texture_file
+    ImageParams params
 ) {
     this->type = Image;
     this->binding = imageBinding;
     this->data.image.samplerBinding = samplerBinding;
     this->ctx = &ctx;
     this->descriptorSet = descriptorSet;
-    int textureWidth, textureHeight, textureChannels;
 
     // loading the image from files
-    stbi_uc* pixels = stbi_load(texture_file, &textureWidth, &textureHeight, &textureChannels, STBI_rgb_alpha);
-    VkDeviceSize imageSize = textureWidth * textureHeight * STBI_rgb_alpha;
-    if (!pixels) {
-        throw std::runtime_error("failed to load texture!");
-    }
+    // stbi_uc* pixels = stbi_load(texture_file, &textureWidth, &textureHeight, &textureChannels, STBI_rgb_alpha);
+
+    // Allocate memory for the image
+    auto* pixels = new uint8_t[params.width * params.height * 4];
+
+    // Fill with a color (e.g., white = 255,255,255,255)
+    memset(pixels, params.color, params.width * params.height * 4);
+
+    VkDeviceSize imageSize = params.width * params.height * 4;
 
     // making a buffer and copying the pixel data into it
     VkBuffer stagingBuffer;
@@ -399,8 +400,8 @@ Resource::Resource(
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.extent.width = static_cast<uint32_t>(textureWidth);
-    imageInfo.extent.height = static_cast<uint32_t>(textureHeight);
+    imageInfo.extent.width = params.width;
+    imageInfo.extent.height = params.height;
     imageInfo.extent.depth = 1;
     imageInfo.mipLevels = 1;
     imageInfo.arrayLayers = 1;
@@ -429,7 +430,7 @@ Resource::Resource(
 
     // preparing the image to be copied into, and then copying the pixel date from the staging buffer into it
     transitionImageLayout(ctx, 1, &this->data.image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, nullptr);
-    copyBufferToImage(ctx, stagingBuffer, this->data.image.image, static_cast<uint32_t>(textureWidth), static_cast<uint32_t>(textureHeight));
+    copyBufferToImage(ctx, stagingBuffer, this->data.image.image, params.width, params.height);
     transitionImageLayout(ctx, 1, &this->data.image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, nullptr);
 
     // creating the image view object
@@ -473,7 +474,7 @@ Resource::Resource(
     }
 
     // freeing stuff
-    stbi_image_free(pixels);
+    free(pixels);
     vkDestroyBuffer(ctx.device, stagingBuffer, nullptr);
     vkFreeMemory(ctx.device, stagingBufferMemory, nullptr);
 

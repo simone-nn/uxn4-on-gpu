@@ -1,0 +1,51 @@
+( hello-2bpp-sprite.tal )
+
+( devices )
+|00 @System  [ &vector $2 &pad $6 &r $2 &g $2 &b $2 ]
+|20 @Screen  [ &vector $2 &width $2 &height $2 &pad $2 &x $2 &y $2 &addr $2 &pixel $1 &sprite $1 ]
+
+( macros )
+%INIT-X { #0008 .Screen/x DEO2 } ( -- )
+%INIT-Y { #0008 .Screen/y DEO2 } ( -- )
+%cADD-X { .Screen/x DEI2 #000c ADD2 .Screen/x DEO2 } ( -- )
+%cADD-Y { .Screen/y DEI2 #000c ADD2 .Screen/y DEO2 } ( -- )
+%PAD { #0008 }
+
+( main program )
+|0100
+      ( set system colors )
+      #ff00 .System/r DEO2
+      #f0f0 .System/g DEO2
+      #f00f .System/b DEO2
+
+      ;on-frame .Screen/vector DEO2
+BRK
+
+@on-frame ( -> )
+    ;square .Screen/addr DEO2
+
+    PAD .Screen/x DEO2
+    PAD .Screen/y DEO2
+    #41 .Screen/sprite DEO
+
+    .Screen/width DEI2
+    PAD SUB2 .Screen/x DEO2
+    PAD .Screen/y DEO2
+    #41 .Screen/sprite DEO
+
+    PAD .Screen/x DEO2
+    .Screen/height DEI2
+    PAD SUB2 .Screen/y DEO2
+    #41 .Screen/sprite DEO
+
+    .Screen/width DEI2
+    PAD SUB2 .Screen/x DEO2
+    .Screen/height DEI2
+    PAD SUB2 .Screen/y DEO2
+    #41 .Screen/sprite DEO
+BRK
+
+(@square  ffff ffff ffff ffff     ffff ffff ffff ffff)
+(@square  017f 7b73 6343 7fff     007c 7c7c 7c7c 0000)
+
+@square ffff ffff ffff ffff

@@ -334,13 +334,16 @@ public:
     int WIDTH = 800;
     int HEIGHT = 600;
     bool enableValidationLayers;
+#define H 0.9
+#define L (-0.9)
+#define Z 0.0
     std::vector<Vertex> vertices = {
-        vertex(-1.0, -1.0, 0.0, 0.0), // first triangle
-        vertex(1.0, -1.0, 1.0, 0.0),
-        vertex(1.0, 1.0, 1.0, 1.0),
-        vertex(1.0, 1.0, 1.0, 1.0), // second triangle
-        vertex(-1.0, 1.0, 0.0, 1.0),
-        vertex(-1.0, -1.0, 0.0, 0.0)
+        vertex(L, L, Z, Z), // first triangle
+        vertex(H, L, H, Z),
+        vertex(H, H, H, H),
+        vertex(H, H, H, H), // second triangle
+        vertex(L, H, Z, H),
+        vertex(L, L, Z, Z)
     };
     const size_t VERTICES_SIZE = sizeof(Vertex) * vertices.size();
     std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
@@ -360,6 +363,7 @@ public:
 private:
     Context ctx;
     Uxn *uxn;
+    uint32_t uxn_width, uxn_height;
 
     VkRenderPass renderPass;
     VkPipelineLayout graphicsPipelineLayout;
@@ -968,9 +972,9 @@ private:
             true, false, false);
 
         backgroundImageResource = Resource(ctx, BACKGROUND_IMAGE_BINDING, BACKGROUND_SAMPLER_BINDING,
-            &descriptorSet, "resources/default_background.png");
+            &descriptorSet, {uxn_width, uxn_height, 0});
         foregroundImageResource = Resource(ctx, FOREGROUND_IMAGE_BINDING, FOREGROUND_SAMPLER_BINDING,
-            &descriptorSet, "resources/default_foreground.png");
+            &descriptorSet, {uxn_width, uxn_height, 0});
         vertexResource = Resource(ctx, VERTEX_LOCATION, &descriptorSet, VERTICES_SIZE, vertices.data(),
             false, true, false);
 
@@ -1016,11 +1020,15 @@ private:
     void updateUxnConstants() {
         std::cout << "..updateUxnConstants" << std::endl;
 
+        uxn_width  = static_cast<uint32_t>(WIDTH * H);
+        uxn_height = static_cast<uint32_t>(HEIGHT * H);
+
         // Screen Device
-        to_uxn_mem2(static_cast<uint16_t>(WIDTH), &uxn->memory->shared.dev[0x22]);
-        to_uxn_mem2(static_cast<uint16_t>(HEIGHT), &uxn->memory->shared.dev[0x24]);
+        to_uxn_mem2(static_cast<uint16_t>(uxn_width), &uxn->memory->shared.dev[0x22]);
+        to_uxn_mem2(static_cast<uint16_t>(uxn_height), &uxn->memory->shared.dev[0x24]);
 
         //todo populate all uxn constants for all devices
+        // uxn.dev[0x17] = argc > 2;
     }
 
     void init() {
@@ -1304,7 +1312,9 @@ private:
 
                 if (do_graphics && uxn->deviceCallbackVectors.contains(uxn_device::Screen)) {
                     // change to @on-screen vector
+                    // std::cout << "Old pc: " << uxn->memory->shared.pc << std::endl;
                     uxn->memory->shared.pc = uxn->deviceCallbackVectors.at(uxn_device::Screen);
+                    // std::cout << "New pc: " << uxn->memory->shared.pc << std::endl;
                     copyHostMemToDevice(uxn->memory);
                     in_vector = true;
                 } else {
@@ -1328,12 +1338,16 @@ private:
 
             // graphics step
             // only enter if it is time
-            // maybe the executed vector was the screen vector: && current_callback == uxn_device::Screen
             if (do_graphics && halt_code == 1) {
                 graphicsStep();
                 clear_required = true;
                 if (!in_vector) do_graphics = false;
                 last_frame_time = std::chrono::steady_clock::now();
+            }
+
+            // check if crashed
+            if (halt_code == 4) {
+                throw std::runtime_error("VM encountered unknown opcode!");
             }
 
             // Debug Printout:

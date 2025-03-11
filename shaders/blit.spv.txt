@@ -344,17 +344,17 @@
                OpStore %x_flipped %213
         %214 = OpLoad %uint %x_1
         %215 = OpLoad %uint %x_flipped
-        %216 = OpISub %uint %uint_1 %215
-        %217 = OpAccessChain %_ptr_Function_uint %offset %uint_0
-        %218 = OpLoad %uint %217
-        %219 = OpIMul %uint %216 %218
-        %220 = OpIAdd %uint %214 %219
-        %221 = OpLoad %uint %x_flipped
+        %216 = OpAccessChain %_ptr_Function_uint %offset %uint_0
+        %217 = OpLoad %uint %216
+        %218 = OpIMul %uint %215 %217
+        %219 = OpIAdd %uint %214 %218
+        %220 = OpLoad %uint %x_flipped
+        %221 = OpISub %uint %uint_1 %220
         %222 = OpAccessChain %_ptr_Function_uint %offset %uint_0
         %223 = OpLoad %uint %222
         %224 = OpISub %uint %uint_8 %223
         %225 = OpIMul %uint %221 %224
-        %226 = OpIAdd %uint %220 %225
+        %226 = OpIAdd %uint %219 %225
         %227 = OpBitcast %int %226
         %228 = OpAccessChain %_ptr_Function_int %coords_0 %uint_0
                OpStore %228 %227
