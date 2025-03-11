@@ -1,0 +1,33 @@
+( unit_test.tal )
+( devices )
+|00 @System/vector $2 &expansion $2 &wst $1 &rst $1 &metadata $2 &r $2 &g $2 &b $2 &debug $1 &state $1
+|10 @Console &vector $2 &read $1 &pad $5 &write $1 &error $1
+
+( main program )
+|0100
+    ( hi with DEO )
+    #68 .Console/write DEO
+    #69 .Console/write DEO
+    #0a .Console/write DEO
+
+    ( ADD, EQU )
+    #01 #02 ADD
+    #03 EQU
+    #40 ADD
+    .Console/write DEO
+
+    ( SUB, DUP, NEQ )
+    #10 DUP #03 SUB
+    NEQ
+    #40 ADD
+    .Console/write DEO
+
+    ( MUL, GTH )
+    #10 #02 MUL
+
+    ( end line )
+    #0a .Console/write DEO
+
+    ( terminate )
+    #80 .System/state DEO
+BRK

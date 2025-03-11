@@ -112,7 +112,7 @@ BRK
 
 @handle-direction-change-x ( -- )
     .dvd-loc/x LDZ2
-    #001c ADD2 ( add padding for heigh of chars )
+    #001c ADD2 ( add padding for height of chars )
     .Screen/width DEI2
     GTH2 ,&must-flip-left JCN
         ,&check-flip-right JMP
@@ -135,7 +135,7 @@ BRK
 
 @handle-direction-change-y ( -- )
     .dvd-loc/y LDZ2
-    #0010 ADD2 ( add padding for heigh of chars )
+    #0010 ADD2 ( add padding for height of chars )
     .Screen/height DEI2
     GTH2 ,&must-flip-up JCN
         ,&check-flip-down JMP
