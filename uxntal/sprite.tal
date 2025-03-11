@@ -17,34 +17,41 @@
       #01c0 .System/g DEO2
       #2ce5 .System/b DEO2
 
-      ( set  initial x,y coordinates )
-      INIT-X INIT-Y
-      ( set sprite address )
-      ;new-square .Screen/addr DEO2
+      ;on-frame .Screen/vector DEO2
+BRK
 
-      #80 .Screen/sprite DEO cADD-X
-      #81 .Screen/sprite DEO cADD-X
-      #82 .Screen/sprite DEO cADD-X
-      #83 .Screen/sprite DEO cADD-Y
+@on-frame ( -> )
+    ;init-sprite JMP2
+BRK
 
-      INIT-X
-      #84 .Screen/sprite DEO cADD-X
-      #85 .Screen/sprite DEO cADD-X
-      #86 .Screen/sprite DEO cADD-X
-      #87 .Screen/sprite DEO cADD-Y
+@init-sprite ( -> )
+    ( set  initial x,y coordinates )
+    INIT-X INIT-Y
+    ( set sprite address )
+    ;new-square .Screen/addr DEO2
 
-      INIT-X
-      #88 .Screen/sprite DEO cADD-X
-      #89 .Screen/sprite DEO cADD-X
-      #8a .Screen/sprite DEO cADD-X
-      #8b .Screen/sprite DEO cADD-Y
+    #80 .Screen/sprite DEO cADD-X
+    #81 .Screen/sprite DEO cADD-X
+    #82 .Screen/sprite DEO cADD-X
+    #83 .Screen/sprite DEO cADD-Y
 
-      INIT-X
-      #8c .Screen/sprite DEO cADD-X
-      #8d .Screen/sprite DEO cADD-X
-      #8e .Screen/sprite DEO cADD-X
-      #8f .Screen/sprite DEO
+    INIT-X
+    #84 .Screen/sprite DEO cADD-X
+    #85 .Screen/sprite DEO cADD-X
+    #86 .Screen/sprite DEO cADD-X
+    #87 .Screen/sprite DEO cADD-Y
 
+    INIT-X
+    #88 .Screen/sprite DEO cADD-X
+    #89 .Screen/sprite DEO cADD-X
+    #8a .Screen/sprite DEO cADD-X
+    #8b .Screen/sprite DEO cADD-Y
+
+    INIT-X
+    #8c .Screen/sprite DEO cADD-X
+    #8d .Screen/sprite DEO cADD-X
+    #8e .Screen/sprite DEO cADD-X
+    #8f .Screen/sprite DEO
 BRK
 
 @new-square  017f 7b73 6343 7fff     007c 7c7c 7c7c 0000
