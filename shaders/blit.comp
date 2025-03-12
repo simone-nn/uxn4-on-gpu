@@ -128,6 +128,9 @@ void main() {
         coords.y = int(y + ((1 - y_flipped) * offset.y)
                          + (y_flipped * (8 - offset.y)));
 
+        // hacky solution:
+        //coords = coords / 2;
+
         // choosing the bpp mode
         if (mode_is_2bpp == 1) {
             // ---------------------- 2 bpp --------------------------------
