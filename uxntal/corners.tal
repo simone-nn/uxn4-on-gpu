@@ -24,6 +24,7 @@ BRK
 @on-frame ( -> )
     ;square .Screen/addr DEO2
 
+    ( corners )
     PAD .Screen/x DEO2
     PAD .Screen/y DEO2
     #41 .Screen/sprite DEO
@@ -43,6 +44,24 @@ BRK
     .Screen/height DEI2
     PAD SUB2 .Screen/y DEO2
     #41 .Screen/sprite DEO
+
+    ( mid points )
+    .Screen/width DEI2
+    #0002 DIV2 .Screen/x DEO2
+    PAD .Screen/y DEO2
+    #42 .Screen/sprite DEO
+
+    PAD .Screen/x DEO2
+    .Screen/height DEI2
+    #0002 DIV2 .Screen/y DEO2
+    #42 .Screen/sprite DEO
+
+    ( center )
+    .Screen/width DEI2
+    #0002 DIV2 .Screen/x DEO2
+    .Screen/height DEI2
+    #0002 DIV2 .Screen/y DEO2
+    #43 .Screen/sprite DEO
 BRK
 
 (@square  ffff ffff ffff ffff     ffff ffff ffff ffff)

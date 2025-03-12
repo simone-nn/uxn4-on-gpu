@@ -374,16 +374,15 @@ Resource::Resource(
     this->ctx = &ctx;
     this->descriptorSet = descriptorSet;
 
-    // loading the image from files
-    // stbi_uc* pixels = stbi_load(texture_file, &textureWidth, &textureHeight, &textureChannels, STBI_rgb_alpha);
-
     // Allocate memory for the image
     auto* pixels = new uint8_t[params.width * params.height * 4];
 
-    // Fill with a color (e.g., white = 255,255,255,255)
-    memset(pixels, params.color, params.width * params.height * 4);
+    // memset(pixels, params.color, params.width * params.height * 4);
+    for (size_t i = 0; i < params.width * params.height; i++) {
+        reinterpret_cast<uint32_t *>(pixels)[i] = params.color;
+    }
 
-    VkDeviceSize imageSize = params.width * params.height * 4;
+    VkDeviceSize imageSize = params.width * params.height * sizeof(uint32_t);
 
     // making a buffer and copying the pixel data into it
     VkBuffer stagingBuffer;
@@ -474,7 +473,7 @@ Resource::Resource(
     }
 
     // freeing stuff
-    free(pixels);
+    delete[] pixels;
     vkDestroyBuffer(ctx.device, stagingBuffer, nullptr);
     vkFreeMemory(ctx.device, stagingBufferMemory, nullptr);
 

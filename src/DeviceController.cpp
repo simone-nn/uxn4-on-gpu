@@ -335,14 +335,15 @@ public:
     int HEIGHT = 600;
     bool enableValidationLayers;
 #define H 0.9
-#define L (-0.9)
+#define T 1.0
+#define L (-H)
 #define Z 0.0
     std::vector<Vertex> vertices = {
         vertex(L, L, Z, Z), // first triangle
-        vertex(H, L, H, Z),
-        vertex(H, H, H, H),
-        vertex(H, H, H, H), // second triangle
-        vertex(L, H, Z, H),
+        vertex(H, L, T, Z),
+        vertex(H, H, T, T),
+        vertex(H, H, T, T), // second triangle
+        vertex(L, H, Z, T),
         vertex(L, L, Z, Z)
     };
     const size_t VERTICES_SIZE = sizeof(Vertex) * vertices.size();
