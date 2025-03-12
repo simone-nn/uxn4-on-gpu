@@ -1175,12 +1175,29 @@ private:
         vkCmdClearColorImage(cmdBuffer, foregroundImageResource.data.image._, VK_IMAGE_LAYOUT_GENERAL, &foregroundColor, 1, &subresourceRange);
     }
 
+    /// Transition the images formats to edit mode for the blit shader
+    void transitionImagesToEditLayout(VkCommandBuffer cmdBuffer) {
+        std::array images = {backgroundImageResource.data.image._, foregroundImageResource.data.image._};
+        transitionImageLayout(ctx, 2, images.data(),
+                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                              VK_IMAGE_LAYOUT_GENERAL,
+                              cmdBuffer);
+    }
+
+    /// Transition the images formats to read mode for graphics
+    void transitionImagesToReadLayout(VkCommandBuffer cmdBuffer) {
+        std::array images = {backgroundImageResource.data.image._, foregroundImageResource.data.image._};
+        transitionImageLayout(ctx, 2, images.data(),
+                              VK_IMAGE_LAYOUT_GENERAL,
+                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                              cmdBuffer);
+    }
+
     void uxnEvalShader(bool clear_image) {
         // --- UXN evaluation submission ---
         vkQueueWaitIdle(ctx.computeQueue);
         vkResetFences(ctx.device, 1, &uxnEvaluationFence);
         vkResetCommandBuffer(computeCommandBuffer, 0);
-        std::array images = {backgroundImageResource.data.image._, foregroundImageResource.data.image._};
 
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1192,11 +1209,6 @@ private:
         vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, uxnEvaluatePipelineLayout,
             0,1, &uxnDescriptorSet.set, 0, nullptr);
 
-        // transition image format to edit mode for the blit shader
-        transitionImageLayout(ctx, 2, images.data(),
-                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                              VK_IMAGE_LAYOUT_GENERAL,
-                              computeCommandBuffer);
         if (clear_image)
             clearImage(computeCommandBuffer);
 
@@ -1221,7 +1233,6 @@ private:
         // --- Blit submission ---
         vkResetFences(ctx.device, 1, &blitFence);
         vkResetCommandBuffer(computeCommandBuffer, 0);
-        std::array images = {backgroundImageResource.data.image._, foregroundImageResource.data.image._};
 
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1233,12 +1244,6 @@ private:
         vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, blitPipeline);
         vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, blitPipelineLayout,
             0,descriptors.size(), descriptors.data(), 0, nullptr);
-
-        // transition image format to read only for graphics
-        transitionImageLayout(ctx, 2, images.data(),
-                              VK_IMAGE_LAYOUT_GENERAL,
-                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                              computeCommandBuffer);
 
         vkCmdDispatch(computeCommandBuffer, 1, 1, 1);
 
@@ -1356,7 +1361,9 @@ private:
 
             // graphics step: only enter if it is time to draw a frame again (60 FPS)
             if (do_graphics && halt_code == 1) {
+                transitionImagesToReadLayout(nullptr);
                 graphicsStep();
+                transitionImagesToEditLayout(nullptr);
                 clear_required = true;
                 if (!in_vector) do_graphics = false;
                 last_frame_time = std::chrono::steady_clock::now();

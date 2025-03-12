@@ -267,7 +267,7 @@ void DescriptorSet::addImageWrite(VkImageView imageView, uint32_t binding) {
     //VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL or VK_IMAGE_LAYOUT_GENERAL
     //todo should be VK_IMAGE_LAYOUT_GENERAL, but this one works better;
     // figure out why (impossible; just leave it be)
-    imageInfo->imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageInfo->imageLayout = VK_IMAGE_LAYOUT_GENERAL;
     imageInfo->imageView = imageView;
 
     auto* descriptorWrite = new VkWriteDescriptorSet;
@@ -455,7 +455,7 @@ Resource::Resource(
     // preparing the image to be copied into, and then copying the pixel date from the staging buffer into it
     transitionImageLayout(ctx, 1, &this->data.image._, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, nullptr);
     copyBufferToImage(ctx, stagingBuffer, this->data.image._, params.width, params.height);
-    transitionImageLayout(ctx, 1, &this->data.image._, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, nullptr);
+    transitionImageLayout(ctx, 1, &this->data.image._, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, nullptr);
 
     // creating the image view object
     VkImageViewCreateInfo viewInfo{};
