@@ -392,8 +392,6 @@ private:
     VkDeviceMemory hostSrcMemory;
     void* hostSrcP;
 
-    // VkImageLayout imageLayout;
-
     VkSemaphore imageAvailableSemaphore;
     VkSemaphore renderFinishedSemaphore;
     VkFence graphicsFence;
@@ -428,6 +426,8 @@ private:
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         // Tell GLFW that the window shouldn't be resizable.
         glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+        // Disables Retina Displays
+        glfwWindowHint(GLFW_SCALE_FRAMEBUFFER, GLFW_FALSE);
 
         // Creating the window
         ctx.window = glfwCreateWindow(WIDTH, HEIGHT, "UXN on GPU", nullptr, nullptr);
@@ -594,7 +594,7 @@ private:
     }
 
     void initSwapChain() {
-        std::cout << "..initSwapChain" << std::endl;
+        std::cout << "..initSwapChain";
         auto [capabilities, formats, presentModes] = querySwapChainSupport(ctx.physicalDevice, ctx.surface);
 
         auto [surfaceFormat, surfaceColorSpace] = chooseSwapSurfaceFormat(formats);
@@ -642,6 +642,8 @@ private:
         vkGetSwapchainImagesKHR(ctx.device, ctx.swapChain, &imageCount, ctx.swapChainImages.data());
         ctx.swapChainImageFormat = surfaceFormat;
         ctx.swapChainExtent = extent;
+
+        std::cout << ": extent[w:" << ctx.swapChainExtent.width << ", h:" << ctx.swapChainExtent.height << "]\n";
     }
 
     void initImageViews() {
