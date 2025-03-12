@@ -1317,11 +1317,9 @@ private:
 
         int halt_code = 0;
         bool in_vector = true, do_graphics = false, clear_required = false;
-        auto last_time = std::chrono::steady_clock::now();
         auto last_frame_time = std::chrono::steady_clock::now();
 
         while (!glfwWindowShouldClose(ctx.window) && !uxn->programTerminated()) {
-            auto start_time = std::chrono::steady_clock::now();
             glfwPollEvents();
 
             if (!in_vector) {
@@ -1332,9 +1330,7 @@ private:
 
                 if (do_graphics && uxn->deviceCallbackVectors.contains(uxn_device::Screen)) {
                     // change to @on-screen vector
-                    // std::cout << "Old pc: " << uxn->memory->shared.pc << std::endl;
                     uxn->memory->shared.pc = uxn->deviceCallbackVectors.at(uxn_device::Screen);
-                    // std::cout << "New pc: " << uxn->memory->shared.pc << std::endl;
                     copyHostMemToDevice(uxn->memory);
                     in_vector = true;
                 } else {
@@ -1356,8 +1352,7 @@ private:
                 if (clear_required) clear_required = false;
             }
 
-            // graphics step
-            // only enter if it is time
+            // graphics step: only enter if it is time to draw a frame again (60 FPS)
             if (do_graphics && halt_code == 1) {
                 graphicsStep();
                 clear_required = true;
@@ -1366,17 +1361,8 @@ private:
             }
 
             // check if crashed
-            if (halt_code == 4) {
+            if (halt_code == 4)
                 throw std::runtime_error("VM encountered unknown opcode!");
-            }
-
-            // Debug Printout:
-            // auto t = std::chrono::duration_cast<std::chrono::milliseconds>(start_time - last_time);
-            // std::cout << "[Frame]"
-            //     << " VM halt code: " << halt_code
-            //     << ", flags: 0x" << std::hex << uxn->memory->shared.flags << std::dec
-            //     << ", time: " << (t/1000.0).count() << "[s]\n";
-            // last_time = start_time;
         }
         if (uxn->programTerminated()) {
             std::cout << "Uxn Program Terminated with exit code: 0x" << std::hex
