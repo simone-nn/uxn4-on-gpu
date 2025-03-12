@@ -334,7 +334,7 @@ public:
     int WIDTH = 800;
     int HEIGHT = 600;
     bool enableValidationLayers;
-#define H 0.9
+#define H 1.0
 #define T 1.0
 #define L (-H)
 #define Z 0.0
@@ -377,7 +377,9 @@ private:
     VkPipeline blitPipeline;
     VkCommandBuffer computeCommandBuffer;
 
-    DescriptorSet descriptorSet;
+    DescriptorSet uxnDescriptorSet;
+    DescriptorSet blitDescriptorSet;
+    DescriptorSet graphicsDescriptorSet;
     Resource sharedUxnResource;
     Resource privateUxnResource;
     Resource backgroundImageResource;
@@ -389,6 +391,8 @@ private:
     VkBuffer hostSrcBuffer;
     VkDeviceMemory hostSrcMemory;
     void* hostSrcP;
+
+    // VkImageLayout imageLayout;
 
     VkSemaphore imageAvailableSemaphore;
     VkSemaphore renderFinishedSemaphore;
@@ -774,7 +778,7 @@ private:
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
         poolInfo.poolSizeCount = poolSizes.size();
         poolInfo.pPoolSizes = poolSizes.data();
-        poolInfo.maxSets = 1;
+        poolInfo.maxSets = 3;
 
         if (vkCreateDescriptorPool(ctx.device, &poolInfo, nullptr, &ctx.descriptorPool) != VK_SUCCESS) {
             throw std::runtime_error("failed to create descriptor pool!");
@@ -819,7 +823,6 @@ private:
         inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
         inputAssembly.primitiveRestartEnable = VK_FALSE;
 
-        // TODO figure out how many of these things are actually optional, and trim the rest
         std::vector dynamicStates = {
                 VK_DYNAMIC_STATE_VIEWPORT,
                 VK_DYNAMIC_STATE_SCISSOR
@@ -895,7 +898,7 @@ private:
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipelineLayoutInfo.setLayoutCount = 1;
-        pipelineLayoutInfo.pSetLayouts = &descriptorSet.layout;
+        pipelineLayoutInfo.pSetLayouts = &graphicsDescriptorSet.layout;
         pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
         pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
 
@@ -930,8 +933,15 @@ private:
         vkDestroyShaderModule(ctx.device, vertShaderModule, nullptr);
     }
 
-    void initComputePipeline(const char* shaderPath, VkPipeline &pipeline, VkPipelineLayout &pipelineLayout) {
+    void initComputePipeline(
+        const char* shaderPath,
+        VkPipeline &pipeline,
+        VkPipelineLayout &pipelineLayout,
+        const VkDescriptorSetLayout *descriptorLayouts,
+        int descriptorCount
+    ) const {
         std::cout << "..initPipeline: " << shaderPath << std::endl;
+
         auto compShaderCode = readFile(shaderPath);
         VkShaderModule compShaderModule = createShaderModule(compShaderCode, ctx.device);
         VkPipelineShaderStageCreateInfo compShaderStageInfo{};
@@ -942,8 +952,8 @@ private:
 
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipelineLayoutInfo.setLayoutCount = 1;
-        pipelineLayoutInfo.pSetLayouts = &descriptorSet.layout;
+        pipelineLayoutInfo.setLayoutCount = descriptorCount;
+        pipelineLayoutInfo.pSetLayouts = descriptorLayouts;
 
         if (vkCreatePipelineLayout(ctx.device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
             throw std::runtime_error("failed to create compute pipeline layout!");
@@ -964,22 +974,29 @@ private:
     void initResources() {
         std::cout << "..initResources" << std::endl;
 
-        descriptorSet = DescriptorSet();
+        uxnDescriptorSet = DescriptorSet();
+        blitDescriptorSet = DescriptorSet();
+        graphicsDescriptorSet = DescriptorSet();
 
         // resource creation
-        sharedUxnResource = Resource(ctx, SHARED_UXN_BINDING, &descriptorSet, sizeof(UxnMemory::shared), &uxn->memory->shared,
+        sharedUxnResource = Resource(ctx, SHARED_UXN_BINDING, &uxnDescriptorSet,
+            sizeof(UxnMemory::shared), &uxn->memory->shared,
             true, false, true);
-        privateUxnResource = Resource(ctx, PRIVATE_UXN_BINDING, &descriptorSet, sizeof(UxnMemory::_private), &uxn->memory->_private,
+        privateUxnResource = Resource(ctx, PRIVATE_UXN_BINDING, &uxnDescriptorSet,
+            sizeof(UxnMemory::_private), &uxn->memory->_private,
             true, false, false);
 
         backgroundImageResource = Resource(ctx, BACKGROUND_IMAGE_BINDING, BACKGROUND_SAMPLER_BINDING,
-            &descriptorSet, {uxn_width, uxn_height, 0});
+            &blitDescriptorSet, &graphicsDescriptorSet, {uxn_width, uxn_height, 0});
         foregroundImageResource = Resource(ctx, FOREGROUND_IMAGE_BINDING, FOREGROUND_SAMPLER_BINDING,
-            &descriptorSet, {uxn_width, uxn_height, 0});
-        vertexResource = Resource(ctx, VERTEX_LOCATION, &descriptorSet, VERTICES_SIZE, vertices.data(),
+            &blitDescriptorSet, &graphicsDescriptorSet, {uxn_width, uxn_height, 0});
+        vertexResource = Resource(ctx, VERTEX_LOCATION, &graphicsDescriptorSet,
+            VERTICES_SIZE, vertices.data(),
             false, true, false);
 
-        descriptorSet.initialise(ctx);
+        uxnDescriptorSet.initialise(ctx);
+        blitDescriptorSet.initialise(ctx);
+        graphicsDescriptorSet.initialise(ctx);
 
         // host staging buffer
         createBuffer(ctx, sizeof(UxnMemory::shared),
@@ -1047,8 +1064,9 @@ private:
         initDescriptorPool();
         updateUxnConstants();
         initResources();
-        initComputePipeline(UXN_EMULATOR_PATH, uxnEvaluatePipeline, uxnEvaluatePipelineLayout);
-        initComputePipeline(BLIT_SHADER_PATH, blitPipeline, blitPipelineLayout);
+        std::array blitLayouts = {uxnDescriptorSet.layout, blitDescriptorSet.layout};
+        initComputePipeline(UXN_EMULATOR_PATH, uxnEvaluatePipeline, uxnEvaluatePipelineLayout, &uxnDescriptorSet.layout, 1);
+        initComputePipeline(BLIT_SHADER_PATH, blitPipeline, blitPipelineLayout, blitLayouts.data(), blitLayouts.size());
         initFrameBuffers();
         initGraphicsPipeline();
         initSync();
@@ -1057,7 +1075,7 @@ private:
     void copyDeviceMemToHost(UxnMemory* target) {
         // copy from ssbo buffer to host staging buffer
         auto size = sharedUxnResource.data.buffer.size;
-        copyBuffer(ctx, sharedUxnResource.data.buffer.buffer, hostDestBuffer, size);
+        copyBuffer(ctx, sharedUxnResource.data.buffer._, hostDestBuffer, size);
 
         void* data;
         if (vkMapMemory(ctx.device, hostDestMemory, 0, size, 0, &data) != VK_SUCCESS) {
@@ -1076,7 +1094,7 @@ private:
         memcpy(hostSrcP, &source->shared, sizeof(UxnMemory::shared));
 
         // copy from host staging buffer to ssbo buffer
-        copyBuffer(ctx, hostSrcBuffer, sharedUxnResource.data.buffer.buffer, sizeof(UxnMemory::shared));
+        copyBuffer(ctx, hostSrcBuffer, sharedUxnResource.data.buffer._, sizeof(UxnMemory::shared));
     }
 
     void recordGraphicsCommandBuffer(VkCommandBuffer cmdBuffer, uint32_t imageIndex) {
@@ -1102,7 +1120,7 @@ private:
         { // Render Pass
             vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
             vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipelineLayout,
-            0,1, &descriptorSet.set, 0, nullptr);
+            0,1, &graphicsDescriptorSet.set, 0, nullptr);
 
             VkViewport viewport{};
             viewport.x = 0.0f;
@@ -1119,7 +1137,7 @@ private:
             vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
 
             VkDeviceSize offsets[] = {0};
-            vkCmdBindVertexBuffers(cmdBuffer, VERTEX_BINDING, 1, &vertexResource.data.buffer.buffer, offsets);
+            vkCmdBindVertexBuffers(cmdBuffer, VERTEX_BINDING, 1, &vertexResource.data.buffer._, offsets);
 
             vkCmdDraw(cmdBuffer, vertices.size(), 1, 0, 0);
         }
@@ -1151,8 +1169,8 @@ private:
         backgroundColor.float32[2] = back.z;
         backgroundColor.float32[3] = back.w;
 
-        vkCmdClearColorImage(cmdBuffer, backgroundImageResource.data.image.image, VK_IMAGE_LAYOUT_GENERAL, &backgroundColor, 1, &subresourceRange);
-        vkCmdClearColorImage(cmdBuffer, foregroundImageResource.data.image.image, VK_IMAGE_LAYOUT_GENERAL, &foregroundColor, 1, &subresourceRange);
+        vkCmdClearColorImage(cmdBuffer, backgroundImageResource.data.image._, VK_IMAGE_LAYOUT_GENERAL, &backgroundColor, 1, &subresourceRange);
+        vkCmdClearColorImage(cmdBuffer, foregroundImageResource.data.image._, VK_IMAGE_LAYOUT_GENERAL, &foregroundColor, 1, &subresourceRange);
     }
 
     void uxnEvalShader(bool clear_image) {
@@ -1160,7 +1178,7 @@ private:
         vkQueueWaitIdle(ctx.computeQueue);
         vkResetFences(ctx.device, 1, &uxnEvaluationFence);
         vkResetCommandBuffer(computeCommandBuffer, 0);
-        std::array images = {backgroundImageResource.data.image.image, foregroundImageResource.data.image.image};
+        std::array images = {backgroundImageResource.data.image._, foregroundImageResource.data.image._};
 
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1170,9 +1188,9 @@ private:
 
         vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, uxnEvaluatePipeline);
         vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, uxnEvaluatePipelineLayout,
-            0,1, &descriptorSet.set, 0, nullptr);
+            0,1, &uxnDescriptorSet.set, 0, nullptr);
 
-        // transition image format to edit mode
+        // transition image format to edit mode for the blit shader
         transitionImageLayout(ctx, 2, images.data(),
                               VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                               VK_IMAGE_LAYOUT_GENERAL,
@@ -1201,7 +1219,7 @@ private:
         // --- Blit submission ---
         vkResetFences(ctx.device, 1, &blitFence);
         vkResetCommandBuffer(computeCommandBuffer, 0);
-        std::array images = {backgroundImageResource.data.image.image, foregroundImageResource.data.image.image};
+        std::array images = {backgroundImageResource.data.image._, foregroundImageResource.data.image._};
 
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1209,11 +1227,12 @@ private:
             throw std::runtime_error("failed to begin recording command buffer!");
         }
 
+        std::array descriptors = {uxnDescriptorSet.set, blitDescriptorSet.set};
         vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, blitPipeline);
         vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, blitPipelineLayout,
-            0,1, &descriptorSet.set, 0, nullptr);
+            0,descriptors.size(), descriptors.data(), 0, nullptr);
 
-        // transition image format to read only
+        // transition image format to read only for graphics
         transitionImageLayout(ctx, 2, images.data(),
                               VK_IMAGE_LAYOUT_GENERAL,
                               VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -1368,7 +1387,9 @@ private:
     void cleanup() {
         vkDeviceWaitIdle(ctx.device);
         delete uxn;
-        descriptorSet.destroy(ctx);
+        uxnDescriptorSet.destroy(ctx);
+        blitDescriptorSet.destroy(ctx);
+        graphicsDescriptorSet.destroy(ctx);
         vkUnmapMemory(ctx.device, hostSrcMemory);
         vkDestroyBuffer(ctx.device, hostDestBuffer, nullptr);
         vkFreeMemory(ctx.device, hostDestMemory, nullptr);

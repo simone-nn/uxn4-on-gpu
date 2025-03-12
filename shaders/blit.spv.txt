@@ -94,9 +94,9 @@
                OpDecorate %shared_uxn DescriptorSet 0
                OpDecorate %shared_uxn Binding 0
                OpDecorate %gl_GlobalInvocationID BuiltIn GlobalInvocationId
-               OpDecorate %background DescriptorSet 0
+               OpDecorate %background DescriptorSet 1
                OpDecorate %background Binding 2
-               OpDecorate %foreground DescriptorSet 0
+               OpDecorate %foreground DescriptorSet 1
                OpDecorate %foreground Binding 3
                OpDecorate %_arr_uint_uint_65536 ArrayStride 4
                OpDecorate %_arr_uint_uint_256_0 ArrayStride 4

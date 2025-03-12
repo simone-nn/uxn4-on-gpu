@@ -46,7 +46,7 @@ public:
     VkDescriptorSet set;
     VkDescriptorSetLayout layout;
 
-    DescriptorSet() : set(nullptr), layout(nullptr) {};
+    DescriptorSet() : set(nullptr), layout(nullptr) {}
 
     void initialise(const Context &ctx);
 
@@ -74,28 +74,29 @@ public:
         SSBO,
         Image
     } type;
-    DescriptorSet* descriptorSet;
     Context* ctx;
     uint32_t binding;
     union {
         struct {
-            VkBuffer buffer;
+            VkBuffer _;
             VkDeviceMemory memory;
             VkDeviceSize size;
+            DescriptorSet* descriptorSet;
         } buffer;
         struct {
-            VkImage image;
+            VkImage _;
             VkDeviceMemory memory;
             VkImageView view;
             VkSampler sampler;
             uint32_t samplerBinding;
+            DescriptorSet* imageDescriptorSet;
+            DescriptorSet* samplerDescriptorSet;
         } image;
     } data;
 
 
-    Resource() : type(), descriptorSet(VK_NULL_HANDLE),
-                 ctx(nullptr),
-                 binding(0), data() {};
+    Resource() : type(), ctx(nullptr),
+                 binding(0), data() {}
 
     Resource(
         Context &ctx,
@@ -112,14 +113,12 @@ public:
         Context &ctx,
         uint32_t imageBinding,
         uint32_t samplerBinding,
-        DescriptorSet *descriptorSet,
+        DescriptorSet *imageDescriptorSet,
+        DescriptorSet *samplerDescriptorSet,
         ImageParams params
     );
 
     void destroy() const;
-
-private:
-    void updateDescriptorSet() const;
 };
 
 #endif //RESOURCE_H

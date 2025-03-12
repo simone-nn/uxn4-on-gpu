@@ -1,12 +1,12 @@
 #version 450
 
-layout(std140, binding = 0) buffer Shared_UXN_Buffer {
+layout(std140, set = 0, binding = 0) buffer Shared_UXN_Buffer {
     uint pc;
     uint dev[256];  // device data
     uint flags;
 } shared_uxn;
 
-layout(std140, binding = 1) buffer Private_UXN_Buffer {
+layout(std140, set = 0, binding = 1) buffer Private_UXN_Buffer {
     uint ram[65536];
     uint wst[256];  // working stack
     uint pWst;
@@ -14,8 +14,8 @@ layout(std140, binding = 1) buffer Private_UXN_Buffer {
     uint pRst;
 } uxn;
 
-layout(binding = 2, rgba8) uniform image2D background;
-layout(binding = 3, rgba8) uniform image2D foreground;
+layout(set = 1, binding = 2, rgba8) uniform image2D background;
+layout(set = 1, binding = 3, rgba8) uniform image2D foreground;
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
