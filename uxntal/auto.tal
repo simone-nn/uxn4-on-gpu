@@ -18,7 +18,7 @@ BRK
 @paint-sprite ( x* y* -- )
     .Screen/y DEO2 ( set y position )
     .Screen/x DEO2 ( set x position )
-    #32 .Screen/auto DEO ( set length 2 with auto y and addr )
+    #16 .Screen/auto DEO ( set length 2 with auto y and addr )
     ;23x-icns .Screen/addr DEO2 ( set addr )
     #01 .Screen/sprite DEOk DEOk DEO ( draw 3 rows of 1-bit sprites )
     JMP2r

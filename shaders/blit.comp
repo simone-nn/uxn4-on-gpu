@@ -90,7 +90,7 @@ uint get_2bpp_colour_i(uint sprite_low, uint value) {
 
 vec4 colour_2bpp(uint sprite_low, uvec2 offset, ivec2 auto_xy, int auto_i) {
     // ---------------------- 2 bpp --------------------------------
-    uint addr = get_short(SCREEN_ADDR) + offset.y * 2;// + (auto_xy.y * auto_i * 2);
+    uint addr = get_short(SCREEN_ADDR) + offset.y * 2 + (auto_xy.y * auto_i * 16);
     uint row = uxn.ram[addr];
     uint draw_colour = (row >> (offset.x * 2)) & 0x3; // for 2 bpp
     uint colour_i = get_2bpp_colour_i(sprite_low, draw_colour);
@@ -102,7 +102,7 @@ vec4 colour_2bpp(uint sprite_low, uvec2 offset, ivec2 auto_xy, int auto_i) {
 
 vec4 colour_1bpp(uint sprite_low, uvec2 offset, ivec2 auto_xy, int auto_i) {
     // ---------------------- 1 bpp --------------------------------
-    uint addr = get_short(SCREEN_ADDR) + offset.y;// + (auto_xy.y * auto_i);
+    uint addr = get_short(SCREEN_ADDR) + offset.y + (auto_xy.y * auto_i * 8);
     uint row = uxn.ram[addr];
     uint draw_colour = (row >> offset.x) & 0x1; // for 1 bpp
 
@@ -168,8 +168,6 @@ void main() {
         //if auto addr bit is set, then the addr needs to be incremented like the coords
         bool auto_addr = ((auto_byte >> 2) & 1) != 0;
 
-        shared_uxn.flags = auto_xy.x * 1000 + auto_xy.y * 100;
-
         // drawing
         for (int i = 0; i < auto_length; i ++) {
             ivec2 o = (i * 8) * auto_xy.yx;
@@ -193,7 +191,9 @@ void main() {
         if (gl_LocalInvocationIndex == 0) {
             to_short(x + auto_xy.x * 8, SCREEN_X);
             to_short(y + auto_xy.y * 8, SCREEN_Y);
-            //todo increment the addr too
+            uint addr = get_short(SCREEN_ADDR);
+            uint s = auto_addr ? (mode_is_2bpp ? 16 : 8) : 0;
+            to_short(addr + s * auto_length, SCREEN_ADDR);
         }
     }
 }
