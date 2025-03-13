@@ -41,7 +41,7 @@ enum class uxn_device: glm::uint {
     File = 0xA0,
     Datetime = 0xC0,
 };
-#define CALLBACK_DEVICES {uxn_device::Screen, uxn_device::Controller, uxn_device::Mouse}
+#define CALLBACK_DEVICES {uxn_device::Console, uxn_device::Screen, uxn_device::Controller, uxn_device::Mouse}
 
 char8_t from_uxn_mem(const glm::uint* p);
 

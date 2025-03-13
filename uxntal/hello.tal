@@ -10,12 +10,11 @@
     #69 .Console/write DEO
     #0a .Console/write DEO
 
-    ( hi with ADD, SWP )
-    LIT "h DUP #01 ADD SWP
-    .Console/error DEO
-    .Console/error DEO
-    #0a .Console/error DEO
+    ( vector )
+    ;on-console .Console/vector DEO2
+BRK
 
-    ( terminate )
-    #80 .System/state DEO
+@on-console
+    .Console/read DEI .Console/write DEO
+    #20 .Console/write DEO
 BRK
