@@ -1368,8 +1368,13 @@ private:
             }
 
             // check if crashed
-            if (halt_code == 4)
+            if (halt_code == 4) {
+                copyHostMemToDevice(uxn->memory);
+                std::cerr << "Estimated last opcode before crash: 0x" << std::hex
+                          << uxn->memory->_private.ram[uxn->memory->shared.pc-1]
+                          << std::dec << "\n";
                 throw std::runtime_error("VM encountered unknown opcode!");
+            }
         }
         if (uxn->programTerminated()) {
             std::cout << "Uxn Program Terminated with exit code: 0x" << std::hex
