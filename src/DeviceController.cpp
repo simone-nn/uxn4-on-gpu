@@ -8,6 +8,8 @@
 #include <glm/glm.hpp>
 #include "Resource.hpp"
 #include "DeviceController.hpp"
+
+#include "Console.hpp"
 #include "Uxn.hpp"
 
 #define UXN_EMULATOR_PATH "shaders/uxn_emu.spv"
@@ -355,9 +357,11 @@ public:
     std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
     std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, "VK_KHR_portability_subset" };
 
-    DeviceController(bool enableValidationLayers, Uxn* uxn) {
+    DeviceController(bool enableValidationLayers, Uxn* uxn, Console* console) {
         this->enableValidationLayers = enableValidationLayers;
         this->uxn = uxn;
+        uxn->debug = enableValidationLayers;
+        this->console = console;
         init();
     }
 
@@ -369,6 +373,7 @@ public:
 private:
     Context ctx;
     Uxn *uxn;
+    Console *console;
     uint32_t uxn_width, uxn_height;
 
     VkRenderPass renderPass;
@@ -1316,6 +1321,19 @@ private:
         vkQueuePresentKHR(ctx.presentQueue, &presentInfo);
     }
 
+    bool doCallback(uxn_device device, bool do_graphics) {
+        switch (device) {
+            case uxn_device::Console:
+                return console->notEmpty();
+            case uxn_device::Screen:
+                return do_graphics;
+            case uxn_device::Controller: //todo
+            case uxn_device::Mouse: //todo
+            default:
+               return false;
+        }
+    }
+
     void mainLoop() {
         constexpr int target_FPS = 60;
         constexpr std::chrono::milliseconds frame_duration(1000 / target_FPS);
@@ -1323,6 +1341,7 @@ private:
         int halt_code = 0;
         bool in_vector = true, do_graphics = false, clear_required = false;
         auto last_frame_time = std::chrono::steady_clock::now();
+        int current_vector = 0; // should correspond to a uxn_device
 
         while (!glfwWindowShouldClose(ctx.window) && !uxn->programTerminated()) {
             glfwPollEvents();
@@ -1333,14 +1352,13 @@ private:
                 auto elapsed_since_frame = std::chrono::duration_cast<std::chrono::milliseconds>(last_frame_time - now_time);
                 if (elapsed_since_frame < frame_duration) do_graphics = true;
 
-                if (do_graphics && uxn->deviceCallbackVectors.contains(uxn_device::Screen)) {
-                    // change to @on-screen vector
-                    uxn->memory->shared.pc = uxn->deviceCallbackVectors.at(uxn_device::Screen);
-                    copyHostMemToDevice(uxn->memory);
-                    in_vector = true;
-                } else {
-                    // change to an I/O callback
-                    //todo io callback
+                for (auto callback : CALLBACK_DEVICES) {
+                    if (uxn->deviceCallbackVectors.contains(callback) && doCallback(callback, do_graphics)) {
+                        uxn->prepareCallback(callback);
+                        copyHostMemToDevice(uxn->memory);
+                        in_vector = true;
+                        current_vector = static_cast<int>(callback);
+                    }
                 }
             }
 
@@ -1385,6 +1403,7 @@ private:
     void cleanup() {
         vkDeviceWaitIdle(ctx.device);
         delete uxn;
+        console->stop();
         uxnDescriptorSet.destroy(ctx);
         blitDescriptorSet.destroy(ctx);
         graphicsDescriptorSet.destroy(ctx);
@@ -1439,9 +1458,10 @@ int main(int nargs, char** args) {
         return EXIT_FAILURE;
     }
     const char* filename = args[1];
-    auto uxn = new Uxn(filename);
+    auto console = new Console;
+    auto uxn = new Uxn(filename, console);
 
-    DeviceController app(true, uxn);
+    DeviceController app(true, uxn, console);
 
     try {
         app.run();

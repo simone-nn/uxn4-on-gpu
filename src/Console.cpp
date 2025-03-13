@@ -10,6 +10,8 @@ void Console::start() {
 
 void Console::stop() {
     if (!running.load()) return;
+    //Console waits for one more input before closing
+    std::cout << "Press any key to exit...\n"; // workaround
     running.store(false);
     if (thread.joinable()) {
         thread.join();
@@ -22,6 +24,7 @@ void Console::run() {
         if (std::cin.peek() != EOF) {
             char ch;
             std::cin.get(ch);
+            std::lock_guard lock(bufferMutex);
             buffer.push(ch);
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(100));

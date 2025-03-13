@@ -23,7 +23,8 @@ void to_uxn_mem2(char16_t c, glm::uint* p) {
 
 uxn_memory::uxn_memory() = default;
 
-Uxn::Uxn(const char *program_path) {
+Uxn::Uxn(const char *program_path, Console *console) {
+    this->console = console;
     this->program_path = std::string(program_path);
     this->program_rom = readFile(program_path);
 
@@ -100,16 +101,25 @@ void Uxn::outputToFile(const char* output_file_name, bool showRAM) const {
     std::cout << "[Log] Memory to file: " << output_file_name << "\n";
 }
 
+void Uxn::prepareCallback(uxn_device callback) {
+    memory->shared.pc = deviceCallbackVectors.at(callback);
+    switch (callback) {
+        case uxn_device::Console: {
+            std::optional<char> c = console->pop();
+            if (c.has_value()) {
+                to_uxn_mem(c.value(), &memory->shared.dev[0x12]);
+            }
+        } break;
+        default: break;
+    }
+}
+
 void Uxn::handleUxnIO() {
-    // console
     if (maskFlag(DEO_CONSOLE_FLAG)) {
         // console output
         char8_t c = from_uxn_mem(&memory->shared.dev[0x18]);
         console_buffer.push_back(static_cast<char>(c));
-        if (c == 0x0a) {
-            std::cout << "[CONSOLE] " << console_buffer;
-            console_buffer.clear();
-        }
+        if (c == 0x0a) { printBuffer(); }
         return;
     }
     if (maskFlag(DEO_CERROR_FLAG)) {
@@ -122,11 +132,6 @@ void Uxn::handleUxnIO() {
         }
         return;
     }
-    if (maskFlag(DEI_CONSOLE_FLAG)) {
-        // todo handle console device read
-        //https://wiki.xxiivv.com/site/varvara.html#console
-        return;
-    }
     // callbacks
     if (maskFlag(DEO_FLAG)) {
         for (uxn_device device : CALLBACK_DEVICES) {
@@ -135,10 +140,23 @@ void Uxn::handleUxnIO() {
                     std::cout << "Adding new callback device: " << static_cast<int>(device) << "\n";
                 }
                 deviceCallbackVectors.insert({device, addr});
+                // start the Console class
+                if (device == uxn_device::Console) {
+                    console->start();
+                }
             }
         }
         return;
     }
+}
+
+void Uxn::printBuffer() {
+    if (debug) {
+        std::cout << "[CONSOLE] " << console_buffer;
+    } else {
+        std::cout << console_buffer;
+    }
+    console_buffer.clear();
 }
 
 bool Uxn::programTerminated() const {

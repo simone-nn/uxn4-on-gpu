@@ -162,7 +162,7 @@ void DEO(uint addr, uvec2 v, int _2) {
     if (addr == 0x22) return;
     if (addr == 0x24) return;
 
-    shared_uxn.flags = DEO_FLAG;
+    shared_uxn.flags |= DEO_FLAG;
     if (addr == 0x2e) shared_uxn.flags |= DRAW_PIXEL_FLAG;
     if (addr == 0x2f) shared_uxn.flags |= DRAW_SPRITE_FLAG;
     if (addr == 0x18) shared_uxn.flags |= DEO_CONSOLE_FLAG;

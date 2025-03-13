@@ -2,6 +2,7 @@
 #define UXN_H
 #include <glm/glm.hpp>
 #include "Resource.hpp"
+#include "Console.hpp"
 
 // Uxn sizes
 #define UXN_RAM_SIZE 65536
@@ -56,9 +57,11 @@ bool mask(glm::uint x, glm::uint mask);
 class Uxn {
 public:
     UxnMemory* memory;
+    Console* console;
     std::unordered_map<uxn_device,uint16_t> deviceCallbackVectors;
+    bool debug{false};
 
-    explicit Uxn(const char* program_path);
+    explicit Uxn(const char* program_path, Console *console);
 
     ~Uxn();
 
@@ -66,7 +69,11 @@ public:
 
     void outputToFile(const char* output_file_name, bool showRAM) const;
 
+    void prepareCallback(uxn_device callback);
+
     void handleUxnIO();
+
+    void printBuffer();
 
     [[nodiscard]]
     bool programTerminated() const;
