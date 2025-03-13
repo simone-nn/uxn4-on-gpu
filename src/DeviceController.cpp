@@ -1351,6 +1351,11 @@ private:
                 copyDeviceMemToHost(uxn->memory);
                 uxn->handleUxnIO();
 
+                // todo remove this debug print
+                // std::cout << "flags: " << uxn->memory->shared.flags << std::endl;
+                // std::cout << "x: " << (int)from_uxn_mem2(&uxn->memory->shared.dev[0x28]) << ",  ";
+                // std::cout << "y: " << (int)from_uxn_mem2(&uxn->memory->shared.dev[0x2a]) << "\n";
+
                 // decide if the vector is finished
                 halt_code = static_cast<int>(uxn->memory->shared.dev[0]);
                 if (halt_code == 1) in_vector = false;

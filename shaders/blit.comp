@@ -48,6 +48,11 @@ uint get_short(uint addr) {
     return (shared_uxn.dev[addr] << 8) | shared_uxn.dev[addr + 1];
 }
 
+void to_short(uint v, uint addr) {
+    shared_uxn.dev[addr]   = (v >> 8) & 0xff;
+    shared_uxn.dev[addr+1] =  v       & 0xff;
+}
+
 bool mask(uint x, uint mask) {
     return (x & mask) == mask;
 }
@@ -83,9 +88,39 @@ uint get_2bpp_colour_i(uint sprite_low, uint value) {
     return 4;
 }
 
+vec4 colour_2bpp(uint sprite_low, uvec2 offset, ivec2 auto_xy, int auto_i) {
+    // ---------------------- 2 bpp --------------------------------
+    uint addr = get_short(SCREEN_ADDR) + offset.y * 2;// + (auto_xy.y * auto_i * 2);
+    uint row = uxn.ram[addr];
+    uint draw_colour = (row >> (offset.x * 2)) & 0x3; // for 2 bpp
+    uint colour_i = get_2bpp_colour_i(sprite_low, draw_colour);
+
+    if (colour_i > 3) { return vec4(0, 0, 0, 0); }
+
+    return get_colour(colour_i);
+}
+
+vec4 colour_1bpp(uint sprite_low, uvec2 offset, ivec2 auto_xy, int auto_i) {
+    // ---------------------- 1 bpp --------------------------------
+    uint addr = get_short(SCREEN_ADDR) + offset.y;// + (auto_xy.y * auto_i);
+    uint row = uxn.ram[addr];
+    uint draw_colour = (row >> offset.x) & 0x1; // for 1 bpp
+
+    // select colour
+    if (draw_colour != 0 && sprite_low == 0x0) {
+        return vec4(0, 0, 0, 0); // 'none'
+    } else if (draw_colour == 0 && (sprite_low == 0x0 || sprite_low == 0x5 || sprite_low == 0xa || sprite_low == 0xf)) {
+        return vec4(0, 0, 0, 0); // 'clear' or 'none'
+    }
+    // Extract bits [3:2] for 1 or bits [1:0] for 0
+    uint colour = (sprite_low >> (2 * (1 - draw_colour))) & 0x3;
+    return get_colour(colour);
+}
+
 void main() {
+    uvec2 offset = uvec2(gl_GlobalInvocationID);
     // pixel requested
-    if (mask(shared_uxn.flags,DRAW_PIXEL_FLAG) && (gl_GlobalInvocationID.xy == vec2(0, 0))) {
+    if (mask(shared_uxn.flags, DRAW_PIXEL_FLAG) && (offset == uvec2(0, 0))) {
         // ---------------------- pixel --------------------------------
         // coordinates
         uint x = get_short(SCREEN_X);
@@ -106,60 +141,59 @@ void main() {
     }
     // sprite requested
     if (mask(shared_uxn.flags, DRAW_SPRITE_FLAG)) {
-        uvec2 offset = uvec2(gl_GlobalInvocationID);
         uint sprite = get_byte(SCREEN_SPRITE);
         uint sprite_low = sprite & 0xf;
         vec4 v_colour;
 
         // flipped, modes and layer
-        uint mode_is_2bpp = (sprite >> 11) & 1;
-        uint layer_is_foreground = (sprite >> 10) & 1;
+        bool mode_is_2bpp = ((sprite >> 11) & 1) != 0;
+        bool layer_is_foreground = ((sprite >> 10) & 1) != 0;
 
         // coordinates
         uint x = get_short(SCREEN_X);
         uint y = get_short(SCREEN_Y);
-        uint y_flipped = (sprite >> 9) & 1;
-        uint x_flipped = (sprite >> 8) & 1;
+        bool y_flipped = ((sprite >> 9) & 1) == 1;
+        bool x_flipped = ((sprite >> 8) & 1) == 1;
         ivec2 coords;
 
-        coords.x = int(x + (x_flipped == 1 ? offset.x : (7 - offset.x)));
-        coords.y = int(y + (y_flipped == 1 ? (7 - offset.y) : offset.y));
+        coords.x = int(x + (x_flipped ? offset.x : (7 - offset.x)));
+        coords.y = int(y + (y_flipped ? (7 - offset.y) : offset.y));
 
-        // hacky solution:
-        //coords = coords / 2;
+        // auto
+        uint auto_byte = get_byte(SCREEN_AUTO);
+        uint auto_length = ((auto_byte & 0xf0) / 0x10) + 1;
+        ivec2 auto_xy = ivec2(auto_byte & 1, (auto_byte >> 1) & 1);
+        auto_xy.x = x_flipped ? (-auto_xy.x) : auto_xy.x;
+        auto_xy.y = y_flipped ? (-auto_xy.y) : auto_xy.y;
+        //if auto addr bit is set, then the addr needs to be incremented like the coords
+        bool auto_addr = ((auto_byte >> 2) & 1) != 0;
 
-        // choosing the bpp mode
-        if (mode_is_2bpp == 1) {
-            // ---------------------- 2 bpp --------------------------------
-            uint row = uxn.ram[get_short(SCREEN_ADDR) + offset.y * 2];
-            uint draw_colour = (row >> (offset.x * 2)) & 0x3; // for 2 bpp
-            uint colour_i = get_2bpp_colour_i(sprite_low, draw_colour);
+        shared_uxn.flags = auto_xy.x * 1000 + auto_xy.y * 100;
 
-            if (colour_i > 3) {
-                return;
+        // drawing
+        for (int i = 0; i < auto_length; i ++) {
+            ivec2 o = (i * 8) * auto_xy.yx;
+
+            // choosing the bpp mode
+            vec4 v_colour = mode_is_2bpp ? colour_2bpp(sprite_low, offset, auto_xy, auto_addr ? i : 0)
+                                         : colour_1bpp(sprite_low, offset, auto_xy, auto_addr ? i : 0);
+
+            if(v_colour == vec4(0, 0, 0, 0)) { continue; }
+
+            if (layer_is_foreground) {
+                imageStore(foreground, coords + o, v_colour);
+            } else {
+                imageStore(background, coords + o, v_colour);
             }
-
-            v_colour = get_colour(colour_i);
-
-        } else {
-            // ---------------------- 1 bpp --------------------------------
-            uint row = uxn.ram[get_short(SCREEN_ADDR) + offset.y];
-            uint draw_colour = (row >> offset.x) & 0x1; // for 1 bpp
-
-            // select colour
-            if (draw_colour != 0 && sprite_low == 0x0) {
-                return; // 'none'
-            } else if (draw_colour == 0 && (sprite_low == 0x0 || sprite_low == 0x5 || sprite_low == 0xa || sprite_low == 0xf)) {
-                return; // 'clear' or 'none'
-            }
-            // Extract bits [3:2] for 1 or bits [1:0] for 0
-            uint colour = (sprite_low >> (2 * (1 - draw_colour))) & 0x3;
-            v_colour = get_colour(colour);
         }
-        if (layer_is_foreground == 1) {
-            imageStore(foreground, coords, v_colour);
-        } else {
-            imageStore(background, coords, v_colour);
+
+        // incrementing the ports
+        memoryBarrier();
+        barrier();
+        if (gl_LocalInvocationIndex == 0) {
+            to_short(x + auto_xy.x * 8, SCREEN_X);
+            to_short(y + auto_xy.y * 8, SCREEN_Y);
+            //todo increment the addr too
         }
     }
 }
