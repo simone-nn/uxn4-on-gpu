@@ -38,3 +38,7 @@ std::optional<char> Console::pop() {
     return ch;
 }
 
+bool Console::notEmpty() {
+    std::lock_guard lock(bufferMutex);
+    return !buffer.empty();
+}
