@@ -158,6 +158,10 @@ uvec2 DEI(uint addr, uvec2 o, int _r, int _2) {
 // output to device
 void DEO(uint addr, uvec2 v, int _2) {
 
+    // cannot resize screen
+    if (addr == 0x22) return;
+    if (addr == 0x24) return;
+
     shared_uxn.flags = DEO_FLAG;
     if (addr == 0x2e) shared_uxn.flags |= DRAW_PIXEL_FLAG;
     if (addr == 0x2f) shared_uxn.flags |= DRAW_SPRITE_FLAG;
