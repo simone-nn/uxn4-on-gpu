@@ -1,8 +1,0 @@
-LIT 68 LIT 18 DEO LIT 0a LIT 18 DEO
-80 68 80 18 17 80 0a 80 18 17
-
-LIT = pushes the next value onto the working stack, and iterates the wst pointer
-68 = 'h'
-18 = address of the console output
-0a = LF, line feed/new line = in this context, should make the console print
-DEO(address, value) = outputs to device, pops the top two values from the wst
