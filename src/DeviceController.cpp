@@ -1259,13 +1259,6 @@ private:
             throw std::runtime_error("failed to submit compute command buffer!");
         }
 
-        //TODO (warnings): validation layer: Validation Error: [ UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout ]
-        // Object 0: handle = 0x7fe087047f68, type = VK_OBJECT_TYPE_COMMAND_BUFFER;
-        // Object 1: handle = 0xd175b40000000013, type = VK_OBJECT_TYPE_IMAGE; | MessageID = 0x4dae5635 |
-        // vkQueueSubmit(): pSubmits[0].pCommandBuffers[0] command buffer VkCommandBuffer 0x7fe087047f68[]
-        // expects VkImage 0xd175b40000000013[] (subresource: aspectMask 0x1 array layer 0, mip level 0) to be
-        // in layout VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL--instead, current layout is VK_IMAGE_LAYOUT_GENERAL.
-
         // wait for blit step to be done
         vkWaitForFences(ctx.device, 1, &blitFence, VK_TRUE, UINT64_MAX);
     }
@@ -1342,7 +1335,7 @@ private:
                     in_vector = true;
                 } else {
                     // change to an I/O callback
-                    //todo
+                    //todo io callback
                 }
             }
 

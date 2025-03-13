@@ -15,7 +15,6 @@
 #define DRAW_PIXEL_FLAG  0x100
 #define DRAW_SPRITE_FLAG 0x200
 
-//todo split into another buffer: pc, dev, flags
 typedef struct uxn_memory {
     struct shared {
         glm::uint pc;

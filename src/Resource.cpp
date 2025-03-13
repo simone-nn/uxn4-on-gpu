@@ -264,9 +264,6 @@ void DescriptorSet::addSSBOWrite(VkBuffer buffer, VkDeviceSize bufferRange, uint
 
 void DescriptorSet::addImageWrite(VkImageView imageView, uint32_t binding) {
     auto* imageInfo = new VkDescriptorImageInfo;
-    //VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL or VK_IMAGE_LAYOUT_GENERAL
-    //todo should be VK_IMAGE_LAYOUT_GENERAL, but this one works better;
-    // figure out why (impossible; just leave it be)
     imageInfo->imageLayout = VK_IMAGE_LAYOUT_GENERAL;
     imageInfo->imageView = imageView;
 
