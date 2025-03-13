@@ -1320,7 +1320,7 @@ private:
         int halt_code = 0;
         bool in_vector = true, do_graphics = false, clear_required = false;
         auto last_frame_time = std::chrono::steady_clock::now();
-        int current_vector = 0; // should correspond to a uxn_device
+        uxn_device current_vector = uxn_device::System;
 
         while (!glfwWindowShouldClose(ctx.window) && !uxn->programTerminated()) {
             glfwPollEvents();
@@ -1336,14 +1336,15 @@ private:
                         uxn->prepareCallback(callback);
                         copyHostMemToDevice(uxn->memory);
                         in_vector = true;
-                        current_vector = static_cast<int>(callback);
+                        current_vector = callback;
                     }
                 }
             }
 
             if (in_vector) {
                 // compute steps
-                uxnEvalShader(clear_required);
+                bool do_clear = clear_required && (current_vector == uxn_device::Screen);
+                uxnEvalShader(do_clear);
                 blitShader();
                 copyDeviceMemToHost(uxn->memory);
                 uxn->handleUxnIO();
@@ -1351,7 +1352,7 @@ private:
                 // decide if the vector is finished
                 halt_code = static_cast<int>(uxn->memory->shared.dev[0]);
                 if (halt_code == 1) in_vector = false;
-                if (clear_required) clear_required = false;
+                if (do_clear) clear_required = false;
             }
 
             // graphics step: only enter if it is time to draw a frame again (60 FPS)
