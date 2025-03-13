@@ -99,11 +99,9 @@ void main() {
         // editing the image
         if (pixel / 0x10 == 0x0) {
             imageStore(background, coords, colour);
-            shared_uxn.flags |= 0x1000;
         }
         if (pixel / 0x10 == 0x4) {
             imageStore(foreground, coords, colour);
-            shared_uxn.flags |= 0x2000;
         }
     }
     // sprite requested
@@ -123,10 +121,9 @@ void main() {
         uint y_flipped = (sprite >> 9) & 1;
         uint x_flipped = (sprite >> 8) & 1;
         ivec2 coords;
-        coords.x = int(x + (x_flipped * offset.x)
-                         + ((1 - x_flipped) * (8 - offset.x)));
-        coords.y = int(y + ((1 - y_flipped) * offset.y)
-                         + (y_flipped * (8 - offset.y)));
+
+        coords.x = int(x + (x_flipped == 1 ? offset.x : (7 - offset.x)));
+        coords.y = int(y + (y_flipped == 1 ? (7 - offset.y) : offset.y));
 
         // hacky solution:
         //coords = coords / 2;

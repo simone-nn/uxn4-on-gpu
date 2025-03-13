@@ -42,7 +42,7 @@
 
       ( set initial dvd location )
       #000f .dvd-loc/x STZ2
-      #00ff .dvd-loc/y STZ2
+      #000f .dvd-loc/y STZ2
 
       ( set initial dvd direction )
       #0001 .dvd-direction/x STZ2

@@ -34,6 +34,11 @@ typedef struct vertex {
         uv = glm::vec2(u, v);
     }
 
+    vertex(glm::vec2 position, glm::vec2 uv) {
+        this->position = position;
+        this->uv = uv;
+    }
+
     static VkVertexInputBindingDescription getBindingDescription() {
         VkVertexInputBindingDescription bindingDescription{};
         bindingDescription.binding = VERTEX_BINDING;
