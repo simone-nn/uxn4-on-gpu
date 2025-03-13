@@ -45,7 +45,7 @@ uint get_byte(uint addr) {
 }
 
 uint get_short(uint addr) {
-    return (shared_uxn.dev[addr] << 8) + shared_uxn.dev[addr + 1];
+    return (shared_uxn.dev[addr] << 8) | shared_uxn.dev[addr + 1];
 }
 
 bool mask(uint x, uint mask) {

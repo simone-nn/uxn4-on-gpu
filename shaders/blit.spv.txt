@@ -520,7 +520,7 @@
         %330 = OpIAdd %uint %329 %uint_1
         %331 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_1 %330
         %332 = OpLoad %uint %331
-        %333 = OpIAdd %uint %328 %332
+        %333 = OpBitwiseOr %uint %328 %332
                OpReturnValue %333
                OpFunctionEnd
 %mask_u1_u1_ = OpFunction %bool None %82
