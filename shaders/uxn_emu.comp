@@ -54,10 +54,6 @@ void PUr(uint i, int _r) {
     }
 }
 
-void JMP(uint i, int _2) {
-    shared_uxn.pc = (_2 != 0) ? i : shared_uxn.pc + i;
-}
-
 uint PO1(int _r) {
     return (_r != 0) ? pop_rst() : pop_wst();
 }
@@ -66,11 +62,25 @@ uint PO2(int _r) {
     return (_r != 0) ? pop_rst() | pop_rst() << 8 : pop_wst() | pop_wst() << 8;
 }
 
+uint POx(int _r, int _2) {
+    return (_2 != 0) ? PO2(_r) : PO1(_r);
+}
+
 void PU1(uint i, int _r) {
     if(_r != 0) {
         push_rst(i);
     } else {
         push_wst(i);
+    }
+}
+
+void PUx(inout State s, uint i, int _r, int _2) {
+    if (_2 != 0) {
+        s.c = i;
+        PU1(s.c >> 8, _r);
+        PU1(s.c, _r);
+    } else {
+        PU1(i, _r);
     }
 }
 
@@ -111,25 +121,15 @@ void JMI(inout State s) {
     shared_uxn.pc += s.a + 2;
 }
 
+void JMP(uint i, int _2) {
+    shared_uxn.pc = (_2 != 0) ? i : shared_uxn.pc + i;
+}
+
 void REM(int _r, int _2) {
     if(_r != 0) {
         uxn.pRst -= 1 + _2;
     } else {
         uxn.pWst -= 1 + _2;
-    }
-}
-
-uint POx(int _r, int _2) {
-    return (_2 != 0) ? PO2(_r) : PO1(_r);
-}
-
-void PUx(inout State s, uint i, int _r, int _2) {
-    if (_2 != 0) {
-        s.c = i;
-        PU1(s.c >> 8, _r);
-        PU1(s.c, _r);
-    } else {
-        PU1(i, _r);
     }
 }
 

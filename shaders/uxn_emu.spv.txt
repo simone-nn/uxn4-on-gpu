@@ -19,36 +19,16 @@
                OpName %PUr_u1_i1_ "PUr(u1;i1;"
                OpName %i_1 "i"
                OpName %_r "_r"
-               OpName %JMP_u1_i1_ "JMP(u1;i1;"
-               OpName %i_2 "i"
-               OpName %_2 "_2"
                OpName %PO1_i1_ "PO1(i1;"
                OpName %_r_0 "_r"
                OpName %PO2_i1_ "PO2(i1;"
                OpName %_r_1 "_r"
-               OpName %PU1_u1_i1_ "PU1(u1;i1;"
-               OpName %i_3 "i"
+               OpName %POx_i1_i1_ "POx(i1;i1;"
                OpName %_r_2 "_r"
-               OpName %PUT_vu2_i1_i1_ "PUT(vu2;i1;i1;"
-               OpName %i_4 "i"
+               OpName %_2 "_2"
+               OpName %PU1_u1_i1_ "PU1(u1;i1;"
+               OpName %i_2 "i"
                OpName %_r_3 "_r"
-               OpName %_2_0 "_2"
-               OpName %POK_u1_vu2_u1_i1_i1_ "POK(u1;vu2;u1;i1;i1;"
-               OpName %i_5 "i"
-               OpName %j "j"
-               OpName %m "m"
-               OpName %_r_4 "_r"
-               OpName %_2_1 "_2"
-               OpName %PEK_u1_vu2_u1_i1_i1_ "PEK(u1;vu2;u1;i1;i1;"
-               OpName %i_6 "i"
-               OpName %o "o"
-               OpName %m_0 "m"
-               OpName %_r_5 "_r"
-               OpName %_2_2 "_2"
-               OpName %GET_vu2_i1_i1_ "GET(vu2;i1;i1;"
-               OpName %v "v"
-               OpName %_r_6 "_r"
-               OpName %_2_3 "_2"
                OpName %State "State"
                OpMemberName %State 0 "a"
                OpMemberName %State 1 "b"
@@ -56,17 +36,37 @@
                OpMemberName %State 3 "x"
                OpMemberName %State 4 "y"
                OpMemberName %State 5 "z"
-               OpName %JMI_struct_State_u1_u1_u1_vu2_vu2_vu21_ "JMI(struct-State-u1-u1-u1-vu2-vu2-vu21;"
-               OpName %s "s"
-               OpName %REM_i1_i1_ "REM(i1;i1;"
-               OpName %_r_7 "_r"
-               OpName %_2_4 "_2"
-               OpName %POx_i1_i1_ "POx(i1;i1;"
-               OpName %_r_8 "_r"
-               OpName %_2_5 "_2"
                OpName %PUx_struct_State_u1_u1_u1_vu2_vu2_vu21_u1_i1_i1_ "PUx(struct-State-u1-u1-u1-vu2-vu2-vu21;u1;i1;i1;"
+               OpName %s "s"
+               OpName %i_3 "i"
+               OpName %_r_4 "_r"
+               OpName %_2_0 "_2"
+               OpName %PUT_vu2_i1_i1_ "PUT(vu2;i1;i1;"
+               OpName %i_4 "i"
+               OpName %_r_5 "_r"
+               OpName %_2_1 "_2"
+               OpName %POK_u1_vu2_u1_i1_i1_ "POK(u1;vu2;u1;i1;i1;"
+               OpName %i_5 "i"
+               OpName %j "j"
+               OpName %m "m"
+               OpName %_r_6 "_r"
+               OpName %_2_2 "_2"
+               OpName %PEK_u1_vu2_u1_i1_i1_ "PEK(u1;vu2;u1;i1;i1;"
+               OpName %i_6 "i"
+               OpName %o "o"
+               OpName %m_0 "m"
+               OpName %_r_7 "_r"
+               OpName %_2_3 "_2"
+               OpName %GET_vu2_i1_i1_ "GET(vu2;i1;i1;"
+               OpName %v "v"
+               OpName %_r_8 "_r"
+               OpName %_2_4 "_2"
+               OpName %JMI_struct_State_u1_u1_u1_vu2_vu2_vu21_ "JMI(struct-State-u1-u1-u1-vu2-vu2-vu21;"
                OpName %s_0 "s"
+               OpName %JMP_u1_i1_ "JMP(u1;i1;"
                OpName %i_7 "i"
+               OpName %_2_5 "_2"
+               OpName %REM_i1_i1_ "REM(i1;i1;"
                OpName %_r_9 "_r"
                OpName %_2_6 "_2"
                OpName %DEI_u1_vu2_i1_i1_ "DEI(u1;vu2;i1;i1;"
@@ -89,11 +89,6 @@
                OpName %uxn "uxn"
                OpName %param "param"
                OpName %param_0 "param"
-               OpName %Shared_UXN_Buffer "Shared_UXN_Buffer"
-               OpMemberName %Shared_UXN_Buffer 0 "pc"
-               OpMemberName %Shared_UXN_Buffer 1 "dev"
-               OpMemberName %Shared_UXN_Buffer 2 "flags"
-               OpName %shared_uxn "shared_uxn"
                OpName %param_1 "param"
                OpName %param_2 "param"
                OpName %param_3 "param"
@@ -114,6 +109,11 @@
                OpName %param_18 "param"
                OpName %param_19 "param"
                OpName %param_20 "param"
+               OpName %Shared_UXN_Buffer "Shared_UXN_Buffer"
+               OpMemberName %Shared_UXN_Buffer 0 "pc"
+               OpMemberName %Shared_UXN_Buffer 1 "dev"
+               OpMemberName %Shared_UXN_Buffer 2 "flags"
+               OpName %shared_uxn "shared_uxn"
                OpName %param_21 "param"
                OpName %param_22 "param"
                OpName %param_23 "param"
@@ -2250,17 +2250,17 @@
 %_ptr_Function_int = OpTypePointer Function %int
        %2213 = OpTypeFunction %void %_ptr_Function_uint %_ptr_Function_int
        %2214 = OpTypeFunction %uint %_ptr_Function_int
+       %2215 = OpTypeFunction %uint %_ptr_Function_int %_ptr_Function_int
      %v2uint = OpTypeVector %uint 2
-%_ptr_Function_v2uint = OpTypePointer Function %v2uint
-       %2217 = OpTypeFunction %void %_ptr_Function_v2uint %_ptr_Function_int %_ptr_Function_int
-       %2218 = OpTypeFunction %void %_ptr_Function_uint %_ptr_Function_v2uint %_ptr_Function_uint %_ptr_Function_int %_ptr_Function_int
-       %2219 = OpTypeFunction %v2uint %_ptr_Function_uint %_ptr_Function_v2uint %_ptr_Function_uint %_ptr_Function_int %_ptr_Function_int
       %State = OpTypeStruct %uint %uint %uint %v2uint %v2uint %v2uint
 %_ptr_Function_State = OpTypePointer Function %State
-       %2221 = OpTypeFunction %void %_ptr_Function_State
-       %2222 = OpTypeFunction %void %_ptr_Function_int %_ptr_Function_int
-       %2223 = OpTypeFunction %uint %_ptr_Function_int %_ptr_Function_int
-       %2224 = OpTypeFunction %void %_ptr_Function_State %_ptr_Function_uint %_ptr_Function_int %_ptr_Function_int
+       %2218 = OpTypeFunction %void %_ptr_Function_State %_ptr_Function_uint %_ptr_Function_int %_ptr_Function_int
+%_ptr_Function_v2uint = OpTypePointer Function %v2uint
+       %2220 = OpTypeFunction %void %_ptr_Function_v2uint %_ptr_Function_int %_ptr_Function_int
+       %2221 = OpTypeFunction %void %_ptr_Function_uint %_ptr_Function_v2uint %_ptr_Function_uint %_ptr_Function_int %_ptr_Function_int
+       %2222 = OpTypeFunction %v2uint %_ptr_Function_uint %_ptr_Function_v2uint %_ptr_Function_uint %_ptr_Function_int %_ptr_Function_int
+       %2223 = OpTypeFunction %void %_ptr_Function_State
+       %2224 = OpTypeFunction %void %_ptr_Function_int %_ptr_Function_int
        %2225 = OpTypeFunction %v2uint %_ptr_Function_uint %_ptr_Function_v2uint %_ptr_Function_int %_ptr_Function_int
        %2226 = OpTypeFunction %void %_ptr_Function_uint %_ptr_Function_v2uint %_ptr_Function_int
        %2227 = OpTypeFunction %uint %_ptr_Function_State
@@ -2279,13 +2279,13 @@
       %int_4 = OpConstant %int 4
       %int_0 = OpConstant %int 0
        %bool = OpTypeBool
+      %int_8 = OpConstant %int 8
+     %uint_0 = OpConstant %uint 0
+     %uint_1 = OpConstant %uint 1
 %_arr_uint_uint_256_1 = OpTypeArray %uint %uint_256
 %Shared_UXN_Buffer = OpTypeStruct %uint %_arr_uint_uint_256_1 %uint
 %_ptr_StorageBuffer_Shared_UXN_Buffer = OpTypePointer StorageBuffer %Shared_UXN_Buffer
  %shared_uxn = OpVariable %_ptr_StorageBuffer_Shared_UXN_Buffer StorageBuffer
-      %int_8 = OpConstant %int 8
-     %uint_0 = OpConstant %uint 0
-     %uint_1 = OpConstant %uint 1
      %uint_2 = OpConstant %uint 2
     %uint_18 = OpConstant %uint 18
     %uint_16 = OpConstant %uint 16
@@ -2415,358 +2415,358 @@
        %2311 = OpLabel
                OpReturn
                OpFunctionEnd
- %JMP_u1_i1_ = OpFunction %void None %2213
-        %i_2 = OpFunctionParameter %_ptr_Function_uint
-         %_2 = OpFunctionParameter %_ptr_Function_int
+    %PO1_i1_ = OpFunction %uint None %2214
+       %_r_0 = OpFunctionParameter %_ptr_Function_int
        %2318 = OpLabel
        %2319 = OpVariable %_ptr_Function_uint Function
-       %2320 = OpLoad %int %_2
+       %2320 = OpLoad %int %_r_0
        %2321 = OpINotEqual %bool %2320 %int_0
                OpSelectionMerge %2322 None
                OpBranchConditional %2321 %2323 %2324
        %2323 = OpLabel
-       %2325 = OpLoad %uint %i_2
+       %2325 = OpFunctionCall %uint %pop_rst_
                OpStore %2319 %2325
                OpBranch %2322
        %2324 = OpLabel
-       %2326 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_0
-       %2327 = OpLoad %uint %2326
-       %2328 = OpLoad %uint %i_2
-       %2329 = OpIAdd %uint %2327 %2328
-               OpStore %2319 %2329
+       %2326 = OpFunctionCall %uint %pop_wst_
+               OpStore %2319 %2326
                OpBranch %2322
        %2322 = OpLabel
-       %2330 = OpLoad %uint %2319
-       %2331 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_0
-               OpStore %2331 %2330
-               OpReturn
-               OpFunctionEnd
-    %PO1_i1_ = OpFunction %uint None %2214
-       %_r_0 = OpFunctionParameter %_ptr_Function_int
-       %2332 = OpLabel
-       %2333 = OpVariable %_ptr_Function_uint Function
-       %2334 = OpLoad %int %_r_0
-       %2335 = OpINotEqual %bool %2334 %int_0
-               OpSelectionMerge %2336 None
-               OpBranchConditional %2335 %2337 %2338
-       %2337 = OpLabel
-       %2339 = OpFunctionCall %uint %pop_rst_
-               OpStore %2333 %2339
-               OpBranch %2336
-       %2338 = OpLabel
-       %2340 = OpFunctionCall %uint %pop_wst_
-               OpStore %2333 %2340
-               OpBranch %2336
-       %2336 = OpLabel
-       %2341 = OpLoad %uint %2333
-               OpReturnValue %2341
+       %2327 = OpLoad %uint %2319
+               OpReturnValue %2327
                OpFunctionEnd
     %PO2_i1_ = OpFunction %uint None %2214
        %_r_1 = OpFunctionParameter %_ptr_Function_int
-       %2342 = OpLabel
-       %2343 = OpVariable %_ptr_Function_uint Function
-       %2344 = OpLoad %int %_r_1
-       %2345 = OpINotEqual %bool %2344 %int_0
-               OpSelectionMerge %2346 None
-               OpBranchConditional %2345 %2347 %2348
-       %2347 = OpLabel
-       %2349 = OpFunctionCall %uint %pop_rst_
-       %2350 = OpFunctionCall %uint %pop_rst_
-       %2351 = OpShiftLeftLogical %uint %2350 %int_8
-       %2352 = OpBitwiseOr %uint %2349 %2351
-               OpStore %2343 %2352
-               OpBranch %2346
+       %2328 = OpLabel
+       %2329 = OpVariable %_ptr_Function_uint Function
+       %2330 = OpLoad %int %_r_1
+       %2331 = OpINotEqual %bool %2330 %int_0
+               OpSelectionMerge %2332 None
+               OpBranchConditional %2331 %2333 %2334
+       %2333 = OpLabel
+       %2335 = OpFunctionCall %uint %pop_rst_
+       %2336 = OpFunctionCall %uint %pop_rst_
+       %2337 = OpShiftLeftLogical %uint %2336 %int_8
+       %2338 = OpBitwiseOr %uint %2335 %2337
+               OpStore %2329 %2338
+               OpBranch %2332
+       %2334 = OpLabel
+       %2339 = OpFunctionCall %uint %pop_wst_
+       %2340 = OpFunctionCall %uint %pop_wst_
+       %2341 = OpShiftLeftLogical %uint %2340 %int_8
+       %2342 = OpBitwiseOr %uint %2339 %2341
+               OpStore %2329 %2342
+               OpBranch %2332
+       %2332 = OpLabel
+       %2343 = OpLoad %uint %2329
+               OpReturnValue %2343
+               OpFunctionEnd
+ %POx_i1_i1_ = OpFunction %uint None %2215
+       %_r_2 = OpFunctionParameter %_ptr_Function_int
+         %_2 = OpFunctionParameter %_ptr_Function_int
+       %2344 = OpLabel
+       %2345 = OpVariable %_ptr_Function_uint Function
+    %param_1 = OpVariable %_ptr_Function_int Function
+    %param_2 = OpVariable %_ptr_Function_int Function
+       %2346 = OpLoad %int %_2
+       %2347 = OpINotEqual %bool %2346 %int_0
+               OpSelectionMerge %2348 None
+               OpBranchConditional %2347 %2349 %2350
+       %2349 = OpLabel
+       %2351 = OpLoad %int %_r_2
+               OpStore %param_1 %2351
+       %2352 = OpFunctionCall %uint %PO2_i1_ %param_1
+               OpStore %2345 %2352
+               OpBranch %2348
+       %2350 = OpLabel
+       %2353 = OpLoad %int %_r_2
+               OpStore %param_2 %2353
+       %2354 = OpFunctionCall %uint %PO1_i1_ %param_2
+               OpStore %2345 %2354
+               OpBranch %2348
        %2348 = OpLabel
-       %2353 = OpFunctionCall %uint %pop_wst_
-       %2354 = OpFunctionCall %uint %pop_wst_
-       %2355 = OpShiftLeftLogical %uint %2354 %int_8
-       %2356 = OpBitwiseOr %uint %2353 %2355
-               OpStore %2343 %2356
-               OpBranch %2346
-       %2346 = OpLabel
-       %2357 = OpLoad %uint %2343
-               OpReturnValue %2357
+       %2355 = OpLoad %uint %2345
+               OpReturnValue %2355
                OpFunctionEnd
  %PU1_u1_i1_ = OpFunction %void None %2213
-        %i_3 = OpFunctionParameter %_ptr_Function_uint
-       %_r_2 = OpFunctionParameter %_ptr_Function_int
-       %2358 = OpLabel
-    %param_1 = OpVariable %_ptr_Function_uint Function
-    %param_2 = OpVariable %_ptr_Function_uint Function
-       %2359 = OpLoad %int %_r_2
-       %2360 = OpINotEqual %bool %2359 %int_0
-               OpSelectionMerge %2361 None
-               OpBranchConditional %2360 %2362 %2363
-       %2362 = OpLabel
-       %2364 = OpLoad %uint %i_3
-               OpStore %param_1 %2364
-       %2365 = OpFunctionCall %void %push_rst_u1_ %param_1
-               OpBranch %2361
-       %2363 = OpLabel
-       %2366 = OpLoad %uint %i_3
-               OpStore %param_2 %2366
-       %2367 = OpFunctionCall %void %push_wst_u1_ %param_2
-               OpBranch %2361
+        %i_2 = OpFunctionParameter %_ptr_Function_uint
+       %_r_3 = OpFunctionParameter %_ptr_Function_int
+       %2356 = OpLabel
+    %param_3 = OpVariable %_ptr_Function_uint Function
+    %param_4 = OpVariable %_ptr_Function_uint Function
+       %2357 = OpLoad %int %_r_3
+       %2358 = OpINotEqual %bool %2357 %int_0
+               OpSelectionMerge %2359 None
+               OpBranchConditional %2358 %2360 %2361
+       %2360 = OpLabel
+       %2362 = OpLoad %uint %i_2
+               OpStore %param_3 %2362
+       %2363 = OpFunctionCall %void %push_rst_u1_ %param_3
+               OpBranch %2359
        %2361 = OpLabel
+       %2364 = OpLoad %uint %i_2
+               OpStore %param_4 %2364
+       %2365 = OpFunctionCall %void %push_wst_u1_ %param_4
+               OpBranch %2359
+       %2359 = OpLabel
                OpReturn
                OpFunctionEnd
-%PUT_vu2_i1_i1_ = OpFunction %void None %2217
-        %i_4 = OpFunctionParameter %_ptr_Function_v2uint
-       %_r_3 = OpFunctionParameter %_ptr_Function_int
+%PUx_struct_State_u1_u1_u1_vu2_vu2_vu21_u1_i1_i1_ = OpFunction %void None %2218
+          %s = OpFunctionParameter %_ptr_Function_State
+        %i_3 = OpFunctionParameter %_ptr_Function_uint
+       %_r_4 = OpFunctionParameter %_ptr_Function_int
        %_2_0 = OpFunctionParameter %_ptr_Function_int
-       %2368 = OpLabel
-    %param_3 = OpVariable %_ptr_Function_uint Function
-    %param_4 = OpVariable %_ptr_Function_int Function
+       %2366 = OpLabel
     %param_5 = OpVariable %_ptr_Function_uint Function
     %param_6 = OpVariable %_ptr_Function_int Function
-       %2369 = OpAccessChain %_ptr_Function_uint %i_4 %uint_0
-       %2370 = OpLoad %uint %2369
-               OpStore %param_3 %2370
-       %2371 = OpLoad %int %_r_3
-               OpStore %param_4 %2371
-       %2372 = OpFunctionCall %void %PU1_u1_i1_ %param_3 %param_4
-       %2373 = OpLoad %int %_2_0
-       %2374 = OpINotEqual %bool %2373 %int_0
-               OpSelectionMerge %2375 None
-               OpBranchConditional %2374 %2376 %2375
-       %2376 = OpLabel
-       %2377 = OpAccessChain %_ptr_Function_uint %i_4 %uint_1
-       %2378 = OpLoad %uint %2377
-               OpStore %param_5 %2378
-       %2379 = OpLoad %int %_r_3
-               OpStore %param_6 %2379
-       %2380 = OpFunctionCall %void %PU1_u1_i1_ %param_5 %param_6
-               OpBranch %2375
-       %2375 = OpLabel
+    %param_7 = OpVariable %_ptr_Function_uint Function
+    %param_8 = OpVariable %_ptr_Function_int Function
+    %param_9 = OpVariable %_ptr_Function_uint Function
+   %param_10 = OpVariable %_ptr_Function_int Function
+       %2367 = OpLoad %int %_2_0
+       %2368 = OpINotEqual %bool %2367 %int_0
+               OpSelectionMerge %2369 None
+               OpBranchConditional %2368 %2370 %2371
+       %2370 = OpLabel
+       %2372 = OpLoad %uint %i_3
+       %2373 = OpAccessChain %_ptr_Function_uint %s %int_2
+               OpStore %2373 %2372
+       %2374 = OpAccessChain %_ptr_Function_uint %s %int_2
+       %2375 = OpLoad %uint %2374
+       %2376 = OpShiftRightLogical %uint %2375 %int_8
+               OpStore %param_5 %2376
+       %2377 = OpLoad %int %_r_4
+               OpStore %param_6 %2377
+       %2378 = OpFunctionCall %void %PU1_u1_i1_ %param_5 %param_6
+       %2379 = OpAccessChain %_ptr_Function_uint %s %int_2
+       %2380 = OpLoad %uint %2379
+               OpStore %param_7 %2380
+       %2381 = OpLoad %int %_r_4
+               OpStore %param_8 %2381
+       %2382 = OpFunctionCall %void %PU1_u1_i1_ %param_7 %param_8
+               OpBranch %2369
+       %2371 = OpLabel
+       %2383 = OpLoad %uint %i_3
+               OpStore %param_9 %2383
+       %2384 = OpLoad %int %_r_4
+               OpStore %param_10 %2384
+       %2385 = OpFunctionCall %void %PU1_u1_i1_ %param_9 %param_10
+               OpBranch %2369
+       %2369 = OpLabel
                OpReturn
                OpFunctionEnd
-%POK_u1_vu2_u1_i1_i1_ = OpFunction %void None %2218
+%PUT_vu2_i1_i1_ = OpFunction %void None %2220
+        %i_4 = OpFunctionParameter %_ptr_Function_v2uint
+       %_r_5 = OpFunctionParameter %_ptr_Function_int
+       %_2_1 = OpFunctionParameter %_ptr_Function_int
+       %2386 = OpLabel
+   %param_11 = OpVariable %_ptr_Function_uint Function
+   %param_12 = OpVariable %_ptr_Function_int Function
+   %param_13 = OpVariable %_ptr_Function_uint Function
+   %param_14 = OpVariable %_ptr_Function_int Function
+       %2387 = OpAccessChain %_ptr_Function_uint %i_4 %uint_0
+       %2388 = OpLoad %uint %2387
+               OpStore %param_11 %2388
+       %2389 = OpLoad %int %_r_5
+               OpStore %param_12 %2389
+       %2390 = OpFunctionCall %void %PU1_u1_i1_ %param_11 %param_12
+       %2391 = OpLoad %int %_2_1
+       %2392 = OpINotEqual %bool %2391 %int_0
+               OpSelectionMerge %2393 None
+               OpBranchConditional %2392 %2394 %2393
+       %2394 = OpLabel
+       %2395 = OpAccessChain %_ptr_Function_uint %i_4 %uint_1
+       %2396 = OpLoad %uint %2395
+               OpStore %param_13 %2396
+       %2397 = OpLoad %int %_r_5
+               OpStore %param_14 %2397
+       %2398 = OpFunctionCall %void %PU1_u1_i1_ %param_13 %param_14
+               OpBranch %2393
+       %2393 = OpLabel
+               OpReturn
+               OpFunctionEnd
+%POK_u1_vu2_u1_i1_i1_ = OpFunction %void None %2221
         %i_5 = OpFunctionParameter %_ptr_Function_uint
           %j = OpFunctionParameter %_ptr_Function_v2uint
           %m = OpFunctionParameter %_ptr_Function_uint
-       %_r_4 = OpFunctionParameter %_ptr_Function_int
-       %_2_1 = OpFunctionParameter %_ptr_Function_int
-       %2381 = OpLabel
-       %2382 = OpLoad %uint %i_5
-       %2383 = OpAccessChain %_ptr_Function_uint %j %uint_0
-       %2384 = OpLoad %uint %2383
-       %2385 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_0 %2382
-               OpStore %2385 %2384
-       %2386 = OpLoad %int %_2_1
-       %2387 = OpINotEqual %bool %2386 %int_0
-               OpSelectionMerge %2388 None
-               OpBranchConditional %2387 %2389 %2388
-       %2389 = OpLabel
-       %2390 = OpLoad %uint %i_5
-       %2391 = OpIAdd %uint %2390 %uint_1
-       %2392 = OpLoad %uint %m
-       %2393 = OpBitwiseAnd %uint %2391 %2392
-       %2394 = OpAccessChain %_ptr_Function_uint %j %uint_1
-       %2395 = OpLoad %uint %2394
-       %2396 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_0 %2393
-               OpStore %2396 %2395
-               OpBranch %2388
-       %2388 = OpLabel
+       %_r_6 = OpFunctionParameter %_ptr_Function_int
+       %_2_2 = OpFunctionParameter %_ptr_Function_int
+       %2399 = OpLabel
+       %2400 = OpLoad %uint %i_5
+       %2401 = OpAccessChain %_ptr_Function_uint %j %uint_0
+       %2402 = OpLoad %uint %2401
+       %2403 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_0 %2400
+               OpStore %2403 %2402
+       %2404 = OpLoad %int %_2_2
+       %2405 = OpINotEqual %bool %2404 %int_0
+               OpSelectionMerge %2406 None
+               OpBranchConditional %2405 %2407 %2406
+       %2407 = OpLabel
+       %2408 = OpLoad %uint %i_5
+       %2409 = OpIAdd %uint %2408 %uint_1
+       %2410 = OpLoad %uint %m
+       %2411 = OpBitwiseAnd %uint %2409 %2410
+       %2412 = OpAccessChain %_ptr_Function_uint %j %uint_1
+       %2413 = OpLoad %uint %2412
+       %2414 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_0 %2411
+               OpStore %2414 %2413
+               OpBranch %2406
+       %2406 = OpLabel
                OpReturn
                OpFunctionEnd
-%PEK_u1_vu2_u1_i1_i1_ = OpFunction %v2uint None %2219
+%PEK_u1_vu2_u1_i1_i1_ = OpFunction %v2uint None %2222
         %i_6 = OpFunctionParameter %_ptr_Function_uint
           %o = OpFunctionParameter %_ptr_Function_v2uint
         %m_0 = OpFunctionParameter %_ptr_Function_uint
-       %_r_5 = OpFunctionParameter %_ptr_Function_int
-       %_2_2 = OpFunctionParameter %_ptr_Function_int
-       %2397 = OpLabel
-    %param_7 = OpVariable %_ptr_Function_v2uint Function
-    %param_8 = OpVariable %_ptr_Function_int Function
-    %param_9 = OpVariable %_ptr_Function_int Function
-       %2398 = OpLoad %uint %i_6
-       %2399 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_0 %2398
-       %2400 = OpLoad %uint %2399
-       %2401 = OpAccessChain %_ptr_Function_uint %o %uint_0
-               OpStore %2401 %2400
-       %2402 = OpLoad %int %_2_2
-       %2403 = OpINotEqual %bool %2402 %int_0
-               OpSelectionMerge %2404 None
-               OpBranchConditional %2403 %2405 %2404
-       %2405 = OpLabel
-       %2406 = OpLoad %uint %i_6
-       %2407 = OpIAdd %uint %2406 %uint_1
-       %2408 = OpLoad %uint %m_0
-       %2409 = OpBitwiseAnd %uint %2407 %2408
-       %2410 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_0 %2409
-       %2411 = OpLoad %uint %2410
-       %2412 = OpAccessChain %_ptr_Function_uint %o %uint_1
-               OpStore %2412 %2411
-               OpBranch %2404
-       %2404 = OpLabel
-       %2413 = OpLoad %v2uint %o
-               OpStore %param_7 %2413
-       %2414 = OpLoad %int %_r_5
-               OpStore %param_8 %2414
-       %2415 = OpLoad %int %_2_2
-               OpStore %param_9 %2415
-       %2416 = OpFunctionCall %void %PUT_vu2_i1_i1_ %param_7 %param_8 %param_9
-       %2417 = OpLoad %v2uint %o
-               OpReturnValue %2417
-               OpFunctionEnd
-%GET_vu2_i1_i1_ = OpFunction %void None %2217
-          %v = OpFunctionParameter %_ptr_Function_v2uint
-       %_r_6 = OpFunctionParameter %_ptr_Function_int
-       %_2_3 = OpFunctionParameter %_ptr_Function_int
-       %2418 = OpLabel
-   %param_10 = OpVariable %_ptr_Function_int Function
-   %param_11 = OpVariable %_ptr_Function_int Function
-   %param_12 = OpVariable %_ptr_Function_int Function
-       %2419 = OpLoad %int %_2_3
-       %2420 = OpINotEqual %bool %2419 %int_0
-               OpSelectionMerge %2421 None
-               OpBranchConditional %2420 %2422 %2423
-       %2422 = OpLabel
-       %2424 = OpLoad %int %_r_6
-               OpStore %param_10 %2424
-       %2425 = OpFunctionCall %uint %PO1_i1_ %param_10
-       %2426 = OpAccessChain %_ptr_Function_uint %v %uint_1
-               OpStore %2426 %2425
-       %2427 = OpLoad %int %_r_6
-               OpStore %param_11 %2427
-       %2428 = OpFunctionCall %uint %PO1_i1_ %param_11
-       %2429 = OpAccessChain %_ptr_Function_uint %v %uint_0
-               OpStore %2429 %2428
-               OpBranch %2421
-       %2423 = OpLabel
-       %2430 = OpLoad %int %_r_6
-               OpStore %param_12 %2430
-       %2431 = OpFunctionCall %uint %PO1_i1_ %param_12
-       %2432 = OpAccessChain %_ptr_Function_uint %v %uint_0
-               OpStore %2432 %2431
-               OpBranch %2421
-       %2421 = OpLabel
-               OpReturn
-               OpFunctionEnd
-%JMI_struct_State_u1_u1_u1_vu2_vu2_vu21_ = OpFunction %void None %2221
-          %s = OpFunctionParameter %_ptr_Function_State
-       %2433 = OpLabel
-       %2434 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_0
-       %2435 = OpLoad %uint %2434
-       %2436 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_0 %2435
-       %2437 = OpLoad %uint %2436
-       %2438 = OpShiftLeftLogical %uint %2437 %int_8
-       %2439 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_0
-       %2440 = OpLoad %uint %2439
-       %2441 = OpIAdd %uint %2440 %uint_1
-       %2442 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_0 %2441
-       %2443 = OpLoad %uint %2442
-       %2444 = OpBitwiseOr %uint %2438 %2443
-       %2445 = OpAccessChain %_ptr_Function_uint %s %int_0
-               OpStore %2445 %2444
-       %2446 = OpAccessChain %_ptr_Function_uint %s %int_0
-       %2447 = OpLoad %uint %2446
-       %2448 = OpIAdd %uint %2447 %uint_2
-       %2449 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_0
-       %2450 = OpLoad %uint %2449
-       %2451 = OpIAdd %uint %2450 %2448
-       %2452 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_0
-               OpStore %2452 %2451
-               OpReturn
-               OpFunctionEnd
- %REM_i1_i1_ = OpFunction %void None %2222
        %_r_7 = OpFunctionParameter %_ptr_Function_int
+       %_2_3 = OpFunctionParameter %_ptr_Function_int
+       %2415 = OpLabel
+   %param_15 = OpVariable %_ptr_Function_v2uint Function
+   %param_16 = OpVariable %_ptr_Function_int Function
+   %param_17 = OpVariable %_ptr_Function_int Function
+       %2416 = OpLoad %uint %i_6
+       %2417 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_0 %2416
+       %2418 = OpLoad %uint %2417
+       %2419 = OpAccessChain %_ptr_Function_uint %o %uint_0
+               OpStore %2419 %2418
+       %2420 = OpLoad %int %_2_3
+       %2421 = OpINotEqual %bool %2420 %int_0
+               OpSelectionMerge %2422 None
+               OpBranchConditional %2421 %2423 %2422
+       %2423 = OpLabel
+       %2424 = OpLoad %uint %i_6
+       %2425 = OpIAdd %uint %2424 %uint_1
+       %2426 = OpLoad %uint %m_0
+       %2427 = OpBitwiseAnd %uint %2425 %2426
+       %2428 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_0 %2427
+       %2429 = OpLoad %uint %2428
+       %2430 = OpAccessChain %_ptr_Function_uint %o %uint_1
+               OpStore %2430 %2429
+               OpBranch %2422
+       %2422 = OpLabel
+       %2431 = OpLoad %v2uint %o
+               OpStore %param_15 %2431
+       %2432 = OpLoad %int %_r_7
+               OpStore %param_16 %2432
+       %2433 = OpLoad %int %_2_3
+               OpStore %param_17 %2433
+       %2434 = OpFunctionCall %void %PUT_vu2_i1_i1_ %param_15 %param_16 %param_17
+       %2435 = OpLoad %v2uint %o
+               OpReturnValue %2435
+               OpFunctionEnd
+%GET_vu2_i1_i1_ = OpFunction %void None %2220
+          %v = OpFunctionParameter %_ptr_Function_v2uint
+       %_r_8 = OpFunctionParameter %_ptr_Function_int
        %_2_4 = OpFunctionParameter %_ptr_Function_int
-       %2453 = OpLabel
-       %2454 = OpLoad %int %_r_7
-       %2455 = OpINotEqual %bool %2454 %int_0
-               OpSelectionMerge %2456 None
-               OpBranchConditional %2455 %2457 %2458
-       %2457 = OpLabel
-       %2459 = OpLoad %int %_2_4
-       %2460 = OpIAdd %int %int_1 %2459
-       %2461 = OpBitcast %uint %2460
-       %2462 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_4
-       %2463 = OpLoad %uint %2462
-       %2464 = OpISub %uint %2463 %2461
-       %2465 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_4
-               OpStore %2465 %2464
-               OpBranch %2456
-       %2458 = OpLabel
-       %2466 = OpLoad %int %_2_4
-       %2467 = OpIAdd %int %int_1 %2466
-       %2468 = OpBitcast %uint %2467
-       %2469 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_2
-       %2470 = OpLoad %uint %2469
-       %2471 = OpISub %uint %2470 %2468
-       %2472 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_2
-               OpStore %2472 %2471
-               OpBranch %2456
-       %2456 = OpLabel
+       %2436 = OpLabel
+   %param_18 = OpVariable %_ptr_Function_int Function
+   %param_19 = OpVariable %_ptr_Function_int Function
+   %param_20 = OpVariable %_ptr_Function_int Function
+       %2437 = OpLoad %int %_2_4
+       %2438 = OpINotEqual %bool %2437 %int_0
+               OpSelectionMerge %2439 None
+               OpBranchConditional %2438 %2440 %2441
+       %2440 = OpLabel
+       %2442 = OpLoad %int %_r_8
+               OpStore %param_18 %2442
+       %2443 = OpFunctionCall %uint %PO1_i1_ %param_18
+       %2444 = OpAccessChain %_ptr_Function_uint %v %uint_1
+               OpStore %2444 %2443
+       %2445 = OpLoad %int %_r_8
+               OpStore %param_19 %2445
+       %2446 = OpFunctionCall %uint %PO1_i1_ %param_19
+       %2447 = OpAccessChain %_ptr_Function_uint %v %uint_0
+               OpStore %2447 %2446
+               OpBranch %2439
+       %2441 = OpLabel
+       %2448 = OpLoad %int %_r_8
+               OpStore %param_20 %2448
+       %2449 = OpFunctionCall %uint %PO1_i1_ %param_20
+       %2450 = OpAccessChain %_ptr_Function_uint %v %uint_0
+               OpStore %2450 %2449
+               OpBranch %2439
+       %2439 = OpLabel
                OpReturn
                OpFunctionEnd
- %POx_i1_i1_ = OpFunction %uint None %2223
-       %_r_8 = OpFunctionParameter %_ptr_Function_int
-       %_2_5 = OpFunctionParameter %_ptr_Function_int
-       %2473 = OpLabel
-       %2474 = OpVariable %_ptr_Function_uint Function
-   %param_13 = OpVariable %_ptr_Function_int Function
-   %param_14 = OpVariable %_ptr_Function_int Function
-       %2475 = OpLoad %int %_2_5
-       %2476 = OpINotEqual %bool %2475 %int_0
-               OpSelectionMerge %2477 None
-               OpBranchConditional %2476 %2478 %2479
-       %2478 = OpLabel
-       %2480 = OpLoad %int %_r_8
-               OpStore %param_13 %2480
-       %2481 = OpFunctionCall %uint %PO2_i1_ %param_13
-               OpStore %2474 %2481
-               OpBranch %2477
-       %2479 = OpLabel
-       %2482 = OpLoad %int %_r_8
-               OpStore %param_14 %2482
-       %2483 = OpFunctionCall %uint %PO1_i1_ %param_14
-               OpStore %2474 %2483
-               OpBranch %2477
-       %2477 = OpLabel
-       %2484 = OpLoad %uint %2474
-               OpReturnValue %2484
-               OpFunctionEnd
-%PUx_struct_State_u1_u1_u1_vu2_vu2_vu21_u1_i1_i1_ = OpFunction %void None %2224
+%JMI_struct_State_u1_u1_u1_vu2_vu2_vu21_ = OpFunction %void None %2223
         %s_0 = OpFunctionParameter %_ptr_Function_State
+       %2451 = OpLabel
+       %2452 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_0
+       %2453 = OpLoad %uint %2452
+       %2454 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_0 %2453
+       %2455 = OpLoad %uint %2454
+       %2456 = OpShiftLeftLogical %uint %2455 %int_8
+       %2457 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_0
+       %2458 = OpLoad %uint %2457
+       %2459 = OpIAdd %uint %2458 %uint_1
+       %2460 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_0 %2459
+       %2461 = OpLoad %uint %2460
+       %2462 = OpBitwiseOr %uint %2456 %2461
+       %2463 = OpAccessChain %_ptr_Function_uint %s_0 %int_0
+               OpStore %2463 %2462
+       %2464 = OpAccessChain %_ptr_Function_uint %s_0 %int_0
+       %2465 = OpLoad %uint %2464
+       %2466 = OpIAdd %uint %2465 %uint_2
+       %2467 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_0
+       %2468 = OpLoad %uint %2467
+       %2469 = OpIAdd %uint %2468 %2466
+       %2470 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_0
+               OpStore %2470 %2469
+               OpReturn
+               OpFunctionEnd
+ %JMP_u1_i1_ = OpFunction %void None %2213
         %i_7 = OpFunctionParameter %_ptr_Function_uint
+       %_2_5 = OpFunctionParameter %_ptr_Function_int
+       %2471 = OpLabel
+       %2472 = OpVariable %_ptr_Function_uint Function
+       %2473 = OpLoad %int %_2_5
+       %2474 = OpINotEqual %bool %2473 %int_0
+               OpSelectionMerge %2475 None
+               OpBranchConditional %2474 %2476 %2477
+       %2476 = OpLabel
+       %2478 = OpLoad %uint %i_7
+               OpStore %2472 %2478
+               OpBranch %2475
+       %2477 = OpLabel
+       %2479 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_0
+       %2480 = OpLoad %uint %2479
+       %2481 = OpLoad %uint %i_7
+       %2482 = OpIAdd %uint %2480 %2481
+               OpStore %2472 %2482
+               OpBranch %2475
+       %2475 = OpLabel
+       %2483 = OpLoad %uint %2472
+       %2484 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_0
+               OpStore %2484 %2483
+               OpReturn
+               OpFunctionEnd
+ %REM_i1_i1_ = OpFunction %void None %2224
        %_r_9 = OpFunctionParameter %_ptr_Function_int
        %_2_6 = OpFunctionParameter %_ptr_Function_int
        %2485 = OpLabel
-   %param_15 = OpVariable %_ptr_Function_uint Function
-   %param_16 = OpVariable %_ptr_Function_int Function
-   %param_17 = OpVariable %_ptr_Function_uint Function
-   %param_18 = OpVariable %_ptr_Function_int Function
-   %param_19 = OpVariable %_ptr_Function_uint Function
-   %param_20 = OpVariable %_ptr_Function_int Function
-       %2486 = OpLoad %int %_2_6
+       %2486 = OpLoad %int %_r_9
        %2487 = OpINotEqual %bool %2486 %int_0
                OpSelectionMerge %2488 None
                OpBranchConditional %2487 %2489 %2490
        %2489 = OpLabel
-       %2491 = OpLoad %uint %i_7
-       %2492 = OpAccessChain %_ptr_Function_uint %s_0 %int_2
-               OpStore %2492 %2491
-       %2493 = OpAccessChain %_ptr_Function_uint %s_0 %int_2
-       %2494 = OpLoad %uint %2493
-       %2495 = OpShiftRightLogical %uint %2494 %int_8
-               OpStore %param_15 %2495
-       %2496 = OpLoad %int %_r_9
-               OpStore %param_16 %2496
-       %2497 = OpFunctionCall %void %PU1_u1_i1_ %param_15 %param_16
-       %2498 = OpAccessChain %_ptr_Function_uint %s_0 %int_2
-       %2499 = OpLoad %uint %2498
-               OpStore %param_17 %2499
-       %2500 = OpLoad %int %_r_9
-               OpStore %param_18 %2500
-       %2501 = OpFunctionCall %void %PU1_u1_i1_ %param_17 %param_18
+       %2491 = OpLoad %int %_2_6
+       %2492 = OpIAdd %int %int_1 %2491
+       %2493 = OpBitcast %uint %2492
+       %2494 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_4
+       %2495 = OpLoad %uint %2494
+       %2496 = OpISub %uint %2495 %2493
+       %2497 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_4
+               OpStore %2497 %2496
                OpBranch %2488
        %2490 = OpLabel
-       %2502 = OpLoad %uint %i_7
-               OpStore %param_19 %2502
-       %2503 = OpLoad %int %_r_9
-               OpStore %param_20 %2503
-       %2504 = OpFunctionCall %void %PU1_u1_i1_ %param_19 %param_20
+       %2498 = OpLoad %int %_2_6
+       %2499 = OpIAdd %int %int_1 %2498
+       %2500 = OpBitcast %uint %2499
+       %2501 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_2
+       %2502 = OpLoad %uint %2501
+       %2503 = OpISub %uint %2502 %2500
+       %2504 = OpAccessChain %_ptr_StorageBuffer_uint %uxn %int_2
+               OpStore %2504 %2503
                OpBranch %2488
        %2488 = OpLabel
                OpReturn
