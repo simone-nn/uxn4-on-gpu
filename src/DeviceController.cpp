@@ -297,41 +297,19 @@ void endSingleTimeCommands(const Context &ctx, VkCommandBuffer commandBuffer) {
 }
 
 // --- --- GLFW Event Callback Functions --- ---
-enum class IOEvent {
-    keyPressed,
-    mouseButton,
-    mouseMove
-};
-std::queue<IOEvent> ioEvents;
-
-void keyboardCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-    // if SHIFT + A then it captures both separately
-    // maybe mods tells if shift is being held down
-    ioEvents.push(IOEvent::keyPressed);
-    // if (action == GLFW_PRESS) {
-    //     std::cout << "Key Pressed: " << key << std::endl;
-    // }
-    // else if (action == GLFW_RELEASE) {
-    //     std::cout << "Key Released: " << key << std::endl;
-    // }
-}
-
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
     // button = 0 when left click, button = 1 when right click
-    ioEvents.push(IOEvent::mouseButton);
-    // if (action == GLFW_PRESS) {
-    //     std::cout << "Mouse Button Pressed: " << button << std::endl;
-    // }
-    // else if (action == GLFW_RELEASE) {
-    //     std::cout << "Mouse Button Released: " << button << std::endl;
-    // }
+    std::lock_guard lock(mouse.mutex);
+    mouse.used = true;
+    mouse.state = button;
 }
 
 void cursorPositionCallback(GLFWwindow* window, double x, double y) {
-    // values are from 0 to WIDTH, HEIGHT
-    // 0,0 top left
-    ioEvents.push(IOEvent::mouseMove);
-    // std::cout << "Mouse Moved to: (" << x << ", " << y << ")" << std::endl;
+    // values are from 0 to WIDTH, HEIGHT;  0,0 top left
+    std::lock_guard lock(mouse.mutex);
+    mouse.used = true;
+    mouse.cursor_x += x;
+    mouse.cursor_y += y;
 }
 
 
@@ -443,7 +421,7 @@ private:
         ctx.window = glfwCreateWindow(WIDTH, HEIGHT, "UXN on GPU", nullptr, nullptr);
 
         // setting callbacks
-        glfwSetKeyCallback(ctx.window, keyboardCallback);
+        // glfwSetKeyCallback(ctx.window, keyboardCallback);
         glfwSetMouseButtonCallback(ctx.window, mouseButtonCallback);
         glfwSetCursorPosCallback(ctx.window, cursorPositionCallback);
     }
@@ -1327,8 +1305,9 @@ private:
                 return console->notEmpty();
             case uxn_device::Screen:
                 return do_graphics;
+            case uxn_device::Mouse:
+                return mouse.used;
             case uxn_device::Controller: //todo
-            case uxn_device::Mouse: //todo
             default:
                return false;
         }

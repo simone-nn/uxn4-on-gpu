@@ -2,6 +2,14 @@
 #define MAIN_H
 #include <vector>
 
+// mouse stuff
+inline struct MouseState {
+    std::mutex mutex;
+    bool used = false;
+    double cursor_x, cursor_y;
+    int state;
+} mouse;
+
 typedef struct context {
     GLFWwindow* window;
     VkInstance instance;
