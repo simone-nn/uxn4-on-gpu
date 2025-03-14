@@ -114,8 +114,8 @@ void Uxn::prepareCallback(uxn_device callback) {
     }
     // always copy mouse data
     std::lock_guard lock(mouse.mutex);
-    uint16_t x = static_cast<uint16_t>(mouse.cursor_x);
-    uint16_t y = static_cast<uint16_t>(mouse.cursor_y);
+    auto x = static_cast<uint16_t>(mouse.cursor_x);
+    auto y = static_cast<uint16_t>(mouse.cursor_y);
     to_uxn_mem2(x, &memory->shared.dev[0x92]);
     to_uxn_mem2(y, &memory->shared.dev[0x94]);
     to_uxn_mem(mouse.state, &memory->shared.dev[0x96]);
