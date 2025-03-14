@@ -1360,7 +1360,7 @@ private:
                 transitionImagesToReadLayout(nullptr);
                 graphicsStep();
                 transitionImagesToEditLayout(nullptr);
-                clear_required = true;
+                clear_required = true; //todo better to have two sets of internal images
                 if (!in_vector) do_graphics = false;
                 last_frame_time = std::chrono::steady_clock::now();
             }
