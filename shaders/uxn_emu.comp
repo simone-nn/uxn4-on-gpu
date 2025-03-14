@@ -118,12 +118,13 @@ void GET(inout uvec2 v, int _r, int _2) {
 
 void JMI(inout State s) {
     s.a = ((uxn.ram[shared_uxn.pc] & 0xff) << 8) | (uxn.ram[shared_uxn.pc + 1] & 0xff);
-    shared_uxn.flags = uxn.ram[shared_uxn.pc+1];
     shared_uxn.pc += 2 + s.a; // 2 comes from the size of the jumpto label
+    shared_uxn.pc = shared_uxn.pc % 0x10000; // ensure 16bit overflow behaviour
 }
 
 void JMP(uint i, int _2) {
     shared_uxn.pc = (_2 != 0) ? i : shared_uxn.pc + i;
+    shared_uxn.pc = shared_uxn.pc % 0x10000; // ensure 16bit overflow behaviour
 }
 
 void REM(int _r, int _2) {
@@ -178,7 +179,6 @@ void DEO(uint addr, uvec2 v, int _2) {
 #define DEC uxn.wst[--uxn.pWst]
 
 uint uxn_eval(inout State state) {
-    shared_uxn.pc = shared_uxn.pc % 0x10000; // ensure 16bit overflow behaviour
 	if((shared_uxn.pc == 0) || (shared_uxn.dev[0x0f] != 0)) return 1;
 	switch(uxn.ram[shared_uxn.pc++]) {
     /* BRK */ case 0x00: return 1;
@@ -189,8 +189,8 @@ uint uxn_eval(inout State state) {
     /* JMI */ case 0x40: JMI(state); break;
     /* JSI */ case 0x60:
                 state.c = shared_uxn.pc + 2;
-                push_rst(state.c >> 8);
-                push_rst(state.c);
+                push_rst((state.c >> 8) & 0xff);
+                push_rst(state.c & 0xff);
                 JMI(state); break;
     /* LI2 */ case 0xa0: push_wst(uxn.ram[shared_uxn.pc++]); /* fall-through */
     /* LIT */ case 0x80: push_wst(uxn.ram[shared_uxn.pc++]); break;
@@ -320,7 +320,7 @@ void main() {
     while (halt == 0) {
         halt = uxn_eval(state);
     }
-    shared_uxn.dev[0] = halt;
+    shared_uxn.dev[0] = halt;  //todo add dedicated halt field
 
     // Test memory offsets and strides with this:
     // uxn.ram[0] = 1;

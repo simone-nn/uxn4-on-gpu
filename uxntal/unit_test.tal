@@ -66,7 +66,7 @@
     ( end line )
     #0a .Console/write DEO
 
-    ( JCI )
+    ( ?JCI )
     #03
     &loop
         #61 .Console/write DEO
@@ -74,6 +74,30 @@
     POP
     #0a .Console/write DEO  ( aaa )
 
+    ( !JMI )
+    !&skip
+        #63 .Console/write DEO
+        #0a .Console/write DEO ( should not print CC )
+    &skip
+
+    ( JSR, JMP2r )
+    func
+    hi
+
     ( terminate )
     #80 .System/state DEO
 BRK
+
+@func
+    #66 .Console/write DEO
+    #75 .Console/write DEO
+    #6e .Console/write DEO
+    #63 .Console/write DEO
+    #0a .Console/write DEO
+JMP2r
+
+@hi
+    #68 .Console/write DEO
+    #69 .Console/write DEO
+    #0a .Console/write DEO
+JMP2r
