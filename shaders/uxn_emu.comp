@@ -117,8 +117,9 @@ void GET(inout uvec2 v, int _r, int _2) {
 }
 
 void JMI(inout State s) {
-    s.a = uxn.ram[shared_uxn.pc] << 8 | uxn.ram[shared_uxn.pc + 1];
-    shared_uxn.pc += s.a + 2;
+    s.a = ((uxn.ram[shared_uxn.pc] & 0xff) << 8) | (uxn.ram[shared_uxn.pc + 1] & 0xff);
+    shared_uxn.flags = uxn.ram[shared_uxn.pc+1];
+    shared_uxn.pc += 2 + s.a; // 2 comes from the size of the jumpto label
 }
 
 void JMP(uint i, int _2) {
@@ -174,13 +175,16 @@ void DEO(uint addr, uvec2 v, int _2) {
     }
 }
 
+#define DEC uxn.wst[--uxn.pWst]
+
 uint uxn_eval(inout State state) {
+    shared_uxn.pc = shared_uxn.pc % 0x10000; // ensure 16bit overflow behaviour
 	if((shared_uxn.pc == 0) || (shared_uxn.dev[0x0f] != 0)) return 1;
 	switch(uxn.ram[shared_uxn.pc++]) {
     /* BRK */ case 0x00: return 1;
     /* JCI */ case 0x20:
-                if(pop_wst() != 0) { JMI(state); }
-                shared_uxn.pc += 2;
+                if(DEC != 0) { JMI(state); }
+                else { shared_uxn.pc += 2; }
                 break;
     /* JMI */ case 0x40: JMI(state); break;
     /* JSI */ case 0x60:
