@@ -316,8 +316,8 @@ void cursorPositionCallback(GLFWwindow* window, double x, double y) {
 
 class DeviceController {
 public:
-    int WIDTH = 800;
-    int HEIGHT = 600;
+    int WIDTH = 256;
+    int HEIGHT = 256;
     bool enableValidationLayers;
 #define H 1.0
 #define T 1.0
@@ -1297,6 +1297,9 @@ private:
 
         // Present Commands get submitted:
         vkQueuePresentKHR(ctx.presentQueue, &presentInfo);
+        vkQueueWaitIdle(ctx.presentQueue);
+        vkQueueWaitIdle(ctx.graphicsQueue);
+        //todo possible sync issue here
     }
 
     bool doCallback(uxn_device device, bool do_graphics) {
@@ -1320,7 +1323,7 @@ private:
         int halt_code = 0;
         bool in_vector = true, do_graphics = false, clear_required = false;
         auto last_frame_time = std::chrono::steady_clock::now();
-        uxn_device current_vector = uxn_device::System;
+        auto current_vector = uxn_device::Null;
 
         while (!glfwWindowShouldClose(ctx.window) && !uxn->programTerminated()) {
             glfwPollEvents();
@@ -1328,8 +1331,8 @@ private:
             if (!in_vector) {
                 // has it been enough time since last frame to draw a new one
                 auto now_time = std::chrono::steady_clock::now();
-                auto elapsed_since_frame = std::chrono::duration_cast<std::chrono::milliseconds>(last_frame_time - now_time);
-                if (elapsed_since_frame < frame_duration) do_graphics = true;
+                auto elapsed_since_frame = std::chrono::duration_cast<std::chrono::milliseconds>(now_time - last_frame_time);
+                if (elapsed_since_frame >= frame_duration) do_graphics = true;
 
                 for (auto callback : CALLBACK_DEVICES) {
                     if (uxn->deviceCallbackVectors.contains(callback) && doCallback(callback, do_graphics)) {
@@ -1345,7 +1348,7 @@ private:
                 // compute steps
                 bool do_clear = clear_required && (current_vector == uxn_device::Screen);
                 uxnEvalShader(do_clear);
-                blitShader();
+                if (current_vector == uxn_device::Screen) blitShader();
                 copyDeviceMemToHost(uxn->memory);
                 uxn->handleUxnIO();
 
@@ -1356,14 +1359,16 @@ private:
             }
 
             // graphics step: only enter if it is time to draw a frame again (60 FPS)
-            if (do_graphics && halt_code == 1) {
+            if (current_vector == uxn_device::Screen && halt_code == 1) {
                 transitionImagesToReadLayout(nullptr);
                 graphicsStep();
                 transitionImagesToEditLayout(nullptr);
-                clear_required = true; //todo better to have two sets of internal images
+                clear_required = true;
                 if (!in_vector) do_graphics = false;
                 last_frame_time = std::chrono::steady_clock::now();
             }
+            if (!in_vector)
+                current_vector = uxn_device::Null;
 
             // check if crashed
             if (halt_code == 4) {

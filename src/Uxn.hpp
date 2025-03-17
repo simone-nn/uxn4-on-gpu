@@ -41,6 +41,7 @@ enum class uxn_device: glm::uint {
     Mouse = 0x90,
     File = 0xA0,
     Datetime = 0xC0,
+    Null = 0xff, // no device selected
 };
 #define CALLBACK_DEVICES {uxn_device::Console, uxn_device::Screen, uxn_device::Controller, uxn_device::Mouse}
 
