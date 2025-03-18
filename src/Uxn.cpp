@@ -113,12 +113,15 @@ void Uxn::prepareCallback(uxn_device callback) {
         default: break;
     }
     // always copy mouse data
-    std::lock_guard lock(mouse.mutex);
-    auto x = static_cast<uint16_t>(mouse.cursor_x);
-    auto y = static_cast<uint16_t>(mouse.cursor_y);
-    to_uxn_mem2(x, &memory->shared.dev[0x92]);
-    to_uxn_mem2(y, &memory->shared.dev[0x94]);
-    to_uxn_mem(mouse.state, &memory->shared.dev[0x96]);
+    to_uxn_mem2(mouse.cursor_x, &memory->shared.dev[0x92]);
+    to_uxn_mem2(mouse.cursor_y, &memory->shared.dev[0x94]);
+    int uxn_button = 0;
+    if (mouse.mouse1) uxn_button += 1;
+    if (mouse.mouse2) uxn_button += 2;
+    if (mouse.mouse3) uxn_button += 4;
+    to_uxn_mem(uxn_button, &memory->shared.dev[0x96]);
+    // copy datetime data too
+    // todo datetime
 }
 
 void Uxn::handleUxnIO() {

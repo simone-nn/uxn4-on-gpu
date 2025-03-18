@@ -17,6 +17,10 @@
 #define VERT_SHADER_PATH  "shaders/shader.vert.spv"
 #define FRAG_SHADER_PATH  "shaders/shader.frag.spv"
 
+// Window Dimensions
+int WIDTH = 512;
+int HEIGHT = 512;
+
 // -- Bindings --
 #define SHARED_UXN_BINDING          0
 #define PRIVATE_UXN_BINDING         1
@@ -299,25 +303,27 @@ void endSingleTimeCommands(const Context &ctx, VkCommandBuffer commandBuffer) {
 // --- --- GLFW Event Callback Functions --- ---
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
     // button = 0 when left click, button = 1 when right click
-    std::lock_guard lock(mouse.mutex);
     mouse.used = true;
-    mouse.state = button;
+    switch (button) {
+        case GLFW_MOUSE_BUTTON_LEFT:   mouse.mouse1 = true; break;
+        case GLFW_MOUSE_BUTTON_RIGHT:  mouse.mouse2 = true; break;
+        case GLFW_MOUSE_BUTTON_MIDDLE: mouse.mouse3 = true; break;
+        default: break;
+    }
 }
 
 void cursorPositionCallback(GLFWwindow* window, double x, double y) {
     // values are from 0 to WIDTH, HEIGHT;  0,0 top left
-    std::lock_guard lock(mouse.mutex);
     mouse.used = true;
-    mouse.cursor_x += x;
-    mouse.cursor_y += y;
+    // mouse.cursor_x = (mouse.cursor_x + static_cast<uint16_t>(x)) % WIDTH;
+    mouse.cursor_x = static_cast<uint16_t>(x);
+    // mouse.cursor_y = (mouse.cursor_y + static_cast<uint16_t>(y)) % HEIGHT;
+    mouse.cursor_y = static_cast<uint16_t>(y);
 }
-
 
 
 class DeviceController {
 public:
-    int WIDTH = 256;
-    int HEIGHT = 256;
     bool enableValidationLayers;
 #define H 1.0
 #define T 1.0
@@ -419,6 +425,9 @@ private:
 
         // Creating the window
         ctx.window = glfwCreateWindow(WIDTH, HEIGHT, "UXN on GPU", nullptr, nullptr);
+
+        // make the cursor invisible
+        glfwSetInputMode(ctx.window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
 
         // setting callbacks
         // glfwSetKeyCallback(ctx.window, keyboardCallback);
@@ -1297,9 +1306,6 @@ private:
 
         // Present Commands get submitted:
         vkQueuePresentKHR(ctx.presentQueue, &presentInfo);
-        vkQueueWaitIdle(ctx.presentQueue);
-        vkQueueWaitIdle(ctx.graphicsQueue);
-        //todo possible sync issue here
     }
 
     bool doCallback(uxn_device device, bool do_graphics) {
@@ -1308,8 +1314,11 @@ private:
                 return console->notEmpty();
             case uxn_device::Screen:
                 return do_graphics;
-            case uxn_device::Mouse:
-                return mouse.used;
+            case uxn_device::Mouse: {
+                bool o = mouse.used;
+                mouse.used = false;
+                return o;
+            }
             case uxn_device::Controller: //todo
             default:
                return false;
@@ -1324,6 +1333,7 @@ private:
         bool in_vector = true, do_graphics = false, clear_required = false;
         auto last_frame_time = std::chrono::steady_clock::now();
         auto current_vector = uxn_device::Null;
+        int callback_index = 0;
 
         while (!glfwWindowShouldClose(ctx.window) && !uxn->programTerminated()) {
             glfwPollEvents();
@@ -1334,38 +1344,43 @@ private:
                 auto elapsed_since_frame = std::chrono::duration_cast<std::chrono::milliseconds>(now_time - last_frame_time);
                 if (elapsed_since_frame >= frame_duration) do_graphics = true;
 
-                for (auto callback : CALLBACK_DEVICES) {
-                    if (uxn->deviceCallbackVectors.contains(callback) && doCallback(callback, do_graphics)) {
-                        uxn->prepareCallback(callback);
-                        copyHostMemToDevice(uxn->memory);
-                        in_vector = true;
-                        current_vector = callback;
-                    }
+                auto callback = CALLBACK_DEVICES[callback_index];
+                if (uxn->deviceCallbackVectors.contains(callback) && doCallback(callback, do_graphics)) {
+                    uxn->prepareCallback(callback);
+                    copyHostMemToDevice(uxn->memory);
+                    in_vector = true;
+                    current_vector = callback;
                 }
+                callback_index = (callback_index + 1) % static_cast<int>(CALLBACK_DEVICES.size());
             }
 
             if (in_vector) {
                 // compute steps
-                bool do_clear = clear_required && (current_vector == uxn_device::Screen);
-                uxnEvalShader(do_clear);
-                if (current_vector == uxn_device::Screen) blitShader();
+                uxnEvalShader(clear_required);
+                blitShader();
                 copyDeviceMemToHost(uxn->memory);
                 uxn->handleUxnIO();
 
                 // decide if the vector is finished
                 halt_code = static_cast<int>(uxn->memory->shared.dev[0]);
-                if (halt_code == 1) in_vector = false;
-                if (do_clear) clear_required = false;
+                if (halt_code == 1) {
+                    in_vector = false;
+
+                    std::cout << "Vector finished: " << static_cast<int>(current_vector) << ", pc:"
+                        << std::hex << uxn->memory->shared.pc << std::dec << std::endl;
+                }
+                if (clear_required) clear_required = false;
             }
 
             // graphics step: only enter if it is time to draw a frame again (60 FPS)
-            if (current_vector == uxn_device::Screen && halt_code == 1) {
+            if (do_graphics && halt_code == 1) {
                 transitionImagesToReadLayout(nullptr);
                 graphicsStep();
                 transitionImagesToEditLayout(nullptr);
-                clear_required = true;
+                if (current_vector == uxn_device::Screen) { clear_required = true; }
                 if (!in_vector) do_graphics = false;
                 last_frame_time = std::chrono::steady_clock::now();
+                callback_index = 0;
             }
             if (!in_vector)
                 current_vector = uxn_device::Null;

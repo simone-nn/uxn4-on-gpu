@@ -283,7 +283,8 @@ uint uxn_eval(inout State state) {
                   PUx(state, state.b * state.a, _r,_2); )
     /* DIV */ OPC(0x1b,
                   state.a = POx(_r,_2); state.b = POx(_r,_2); ,
-                  PUx(state, (state.a!=0) ? state.b / state.a : 0, _r,_2); )
+                  if (state.a == 0) { PUx(state, 0, _r,_2); }
+                  else { PUx(state, state.b / state.a, _r,_2); } )
     /* AND */ OPC(0x1c,
                   state.a = POx(_r,_2); state.b = POx(_r,_2); ,
                   PUx(state, state.a & state.b, _r,_2); )
@@ -308,6 +309,7 @@ bool mask(uint x, uint mask) {
 void main() {
     State state = {0, 0, 0, uvec2(0,0), uvec2(0,0), uvec2(0,0)};
     shared_uxn.flags = 0;
+    shared_uxn.dev[0] = 0;
 
     // Run the next Uxn instruction
     // possible halt codes:

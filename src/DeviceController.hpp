@@ -4,10 +4,9 @@
 
 // mouse stuff
 inline struct MouseState {
-    std::mutex mutex;
     bool used = false;
-    double cursor_x, cursor_y;
-    int state;
+    uint16_t cursor_x, cursor_y;
+    bool mouse1, mouse2, mouse3;
 } mouse;
 
 typedef struct context {
