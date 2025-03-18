@@ -113,6 +113,7 @@
                OpMemberName %Shared_UXN_Buffer 0 "pc"
                OpMemberName %Shared_UXN_Buffer 1 "dev"
                OpMemberName %Shared_UXN_Buffer 2 "flags"
+               OpMemberName %Shared_UXN_Buffer 3 "halt"
                OpName %shared_uxn "shared_uxn"
                OpName %param_21 "param"
                OpName %param_22 "param"
@@ -2268,6 +2269,7 @@
                OpMemberDecorate %Shared_UXN_Buffer 0 Offset 0
                OpMemberDecorate %Shared_UXN_Buffer 1 Offset 4
                OpMemberDecorate %Shared_UXN_Buffer 2 Offset 1028
+               OpMemberDecorate %Shared_UXN_Buffer 3 Offset 1032
                OpDecorate %Shared_UXN_Buffer Block
                OpDecorate %shared_uxn DescriptorSet 0
                OpDecorate %shared_uxn Binding 0
@@ -2315,7 +2317,7 @@
      %uint_0 = OpConstant %uint 0
      %uint_1 = OpConstant %uint 1
 %_arr_uint_uint_256_1 = OpTypeArray %uint %uint_256
-%Shared_UXN_Buffer = OpTypeStruct %uint %_arr_uint_uint_256_1 %uint
+%Shared_UXN_Buffer = OpTypeStruct %uint %_arr_uint_uint_256_1 %uint %uint
 %_ptr_StorageBuffer_Shared_UXN_Buffer = OpTypePointer StorageBuffer %Shared_UXN_Buffer
  %shared_uxn = OpVariable %_ptr_StorageBuffer_Shared_UXN_Buffer StorageBuffer
    %uint_255 = OpConstant %uint 255
@@ -2349,7 +2351,7 @@
                OpStore %state_0 %2294
        %2297 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_2
                OpStore %2297 %uint_0
-       %2298 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_1 %int_0
+       %2298 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_3
                OpStore %2298 %uint_0
                OpStore %halt %uint_0
                OpBranch %2299
@@ -2372,7 +2374,7 @@
                OpBranch %2299
        %2300 = OpLabel
        %2309 = OpLoad %uint %halt
-       %2310 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_1 %int_0
+       %2310 = OpAccessChain %_ptr_StorageBuffer_uint %shared_uxn %int_3
                OpStore %2310 %2309
                OpReturn
                OpFunctionEnd

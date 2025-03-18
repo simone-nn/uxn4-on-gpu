@@ -8,6 +8,7 @@ layout(std140, binding = 0) buffer Shared_UXN_Buffer {
     uint pc;
     uint dev[256];  // device data
     uint flags;
+    uint halt;
 } shared_uxn;
 
 layout(std140, binding = 1) buffer Private_UXN_Buffer {
@@ -309,12 +310,12 @@ bool mask(uint x, uint mask) {
 void main() {
     State state = {0, 0, 0, uvec2(0,0), uvec2(0,0), uvec2(0,0)};
     shared_uxn.flags = 0;
-    shared_uxn.dev[0] = 0;
+    shared_uxn.halt = 0;
 
     // Run the next Uxn instruction
     // possible halt codes:
     // 0 - halt not needed; continue evaluation
-    // 1 - device halt (pc==0 or shared_uxn.dev[0x0f] is set to true)
+    // 1 - BRK encountered
     // 2 - DEO halt
     // 3 - DEO2 halt
     // 4 - opcode not recognised
@@ -322,7 +323,7 @@ void main() {
     while (halt == 0) {
         halt = uxn_eval(state);
     }
-    shared_uxn.dev[0] = halt;  //todo add dedicated halt field
+    shared_uxn.halt = halt;
 
     // Test memory offsets and strides with this:
     // uxn.ram[0] = 1;

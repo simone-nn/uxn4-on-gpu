@@ -21,6 +21,7 @@ typedef struct uxn_memory {
         glm::uint pc;
         glm::uint dev[UXN_DEV_SIZE];
         glm::uint flags;
+        glm::uint halt;
     } shared;
     struct _private {
         glm::uint ram[UXN_RAM_SIZE];

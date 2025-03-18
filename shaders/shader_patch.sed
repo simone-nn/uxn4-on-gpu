@@ -12,4 +12,6 @@ s/OpMemberDecorate %Private_UXN_Buffer 4 Offset 1056784/OpMemberDecorate %Privat
 s/OpMemberDecorate %Shared_UXN_Buffer 1 Offset 16/OpMemberDecorate %Shared_UXN_Buffer 1 Offset 4/g
 # flag:
 s/OpMemberDecorate %Shared_UXN_Buffer 2 Offset 4112/OpMemberDecorate %Shared_UXN_Buffer 2 Offset 1028/g
+# halt:
+s/OpMemberDecorate %Shared_UXN_Buffer 3 Offset 4116/OpMemberDecorate %Shared_UXN_Buffer 3 Offset 1032/g
 

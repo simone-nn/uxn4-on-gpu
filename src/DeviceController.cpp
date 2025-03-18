@@ -1329,7 +1329,7 @@ private:
         constexpr int target_FPS = 60;
         constexpr std::chrono::milliseconds frame_duration(1000 / target_FPS);
 
-        int halt_code = 0;
+        glm::uint halt_code = 0;
         bool in_vector = true, do_graphics = false, clear_required = false;
         auto last_frame_time = std::chrono::steady_clock::now();
         auto current_vector = uxn_device::Null;
@@ -1362,7 +1362,7 @@ private:
                 uxn->handleUxnIO();
 
                 // decide if the vector is finished
-                halt_code = static_cast<int>(uxn->memory->shared.dev[0]);
+                halt_code = uxn->memory->shared.halt;
                 if (halt_code == 1) {
                     in_vector = false;
 
