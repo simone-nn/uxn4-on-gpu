@@ -2,6 +2,7 @@
 #include <fstream>
 #include "Uxn.hpp"
 #include "DeviceController.hpp"
+#include "Io.hpp"
 
 char8_t from_uxn_mem(const glm::uint* p) {
     return static_cast<char8_t>(*p);
@@ -112,21 +113,11 @@ void Uxn::prepareCallback(uxn_device callback) {
         } break;
         default: break;
     }
-    // always copy mouse data
-    to_uxn_mem2(mouse.cursor_x, &memory->shared.dev[0x92]);
-    to_uxn_mem2(mouse.cursor_y, &memory->shared.dev[0x94]);
-    if (mouse.used) {
-        int uxn_button = 0;
-        if (mouse.mouse1) uxn_button += 1;
-        if (mouse.mouse2) uxn_button += 2;
-        if (mouse.mouse3) uxn_button += 4;
-        to_uxn_mem(uxn_button, &memory->shared.dev[0x96]);
-        mouse.used = false;
-    } else {
-        to_uxn_mem(0, &memory->shared.dev[0x96]);
-    }
+    // I/O
+    mouseToUxnMemory(memory);
+    keyboardToUxnMemory(memory);
 
-    // copy datetime data
+    // Datetime
     auto now = std::chrono::system_clock::now();
     std::time_t now_c = std::chrono::system_clock::to_time_t(now);
     std::tm localTime = *std::localtime(&now_c);

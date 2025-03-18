@@ -31,8 +31,11 @@ add_executable(uxn-on-gpu
         ${CMAKE_SOURCE_DIR}/src/DeviceController.cpp
         ${CMAKE_SOURCE_DIR}/src/Resource.cpp
         ${CMAKE_SOURCE_DIR}/src/Uxn.cpp
-        src/Console.cpp
-        src/Console.h)
+        ${CMAKE_SOURCE_DIR}/src/Console.cpp
+        ${CMAKE_SOURCE_DIR}/src/Console.hpp
+        ${CMAKE_SOURCE_DIR}/src/Io.cpp
+        ${CMAKE_SOURCE_DIR}/src/Io.hpp
+)
 
 add_dependencies(uxn-on-gpu compile_shaders)
 

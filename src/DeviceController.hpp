@@ -1,13 +1,9 @@
 #ifndef MAIN_H
 #define MAIN_H
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
 #include <vector>
 
-// mouse stuff
-inline struct MouseState {
-    bool used = false;
-    uint16_t cursor_x, cursor_y;
-    bool mouse1, mouse2, mouse3;
-} mouse;
 
 typedef struct context {
     GLFWwindow* window;
