@@ -350,7 +350,6 @@ public:
     }
 
     void run() {
-        std::cout << "Hello world!\n";
         mainLoop();
         cleanup();
     }
@@ -1363,11 +1362,14 @@ private:
 
                 // decide if the vector is finished
                 halt_code = uxn->memory->shared.halt;
+                std::cout << halt_code << " " << std::hex <<
+                    static_cast<int>(from_uxn_mem(uxn->memory->shared.dev)) << std::dec << std::endl;
                 if (halt_code == 1) {
                     in_vector = false;
 
-                    std::cout << "Vector finished: " << static_cast<int>(current_vector) << ", pc:"
-                        << std::hex << uxn->memory->shared.pc << std::dec << std::endl;
+                    std::cout << "Vector finished: " << static_cast<int>(current_vector) << ", pc: 0x"
+                        << std::hex << uxn->memory->shared.pc << std::dec
+                        << " last instruction: " << uxn->memory->_private.ram[uxn->memory->shared.pc-1] << std::endl;
                 }
                 if (clear_required) clear_required = false;
             }

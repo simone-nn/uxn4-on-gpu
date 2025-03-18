@@ -120,8 +120,21 @@ void Uxn::prepareCallback(uxn_device callback) {
     if (mouse.mouse2) uxn_button += 2;
     if (mouse.mouse3) uxn_button += 4;
     to_uxn_mem(uxn_button, &memory->shared.dev[0x96]);
-    // copy datetime data too
-    // todo datetime
+
+    // copy datetime data
+    auto now = std::chrono::system_clock::now();
+    std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+    std::tm localTime = *std::localtime(&now_c);
+
+    to_uxn_mem2(static_cast<uint16_t>(localTime.tm_year + 1900), &memory->shared.dev[0xc0]);
+    to_uxn_mem(static_cast<uint8_t>(localTime.tm_mon + 1), &memory->shared.dev[0xc2]);
+    to_uxn_mem(static_cast<uint8_t>(localTime.tm_mday), &memory->shared.dev[0xc3]);
+    to_uxn_mem(static_cast<uint8_t>(localTime.tm_hour), &memory->shared.dev[0xc4]);
+    to_uxn_mem(static_cast<uint8_t>(localTime.tm_min), &memory->shared.dev[0xc5]);
+    to_uxn_mem(static_cast<uint8_t>(localTime.tm_sec), &memory->shared.dev[0xc6]);
+    to_uxn_mem(static_cast<uint8_t>(localTime.tm_wday), &memory->shared.dev[0xc7]);
+    to_uxn_mem2(static_cast<uint16_t>(localTime.tm_yday + 1), &memory->shared.dev[0xc8]);
+    to_uxn_mem(localTime.tm_isdst > 0, &memory->shared.dev[0xca]);
 }
 
 void Uxn::handleUxnIO() {

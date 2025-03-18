@@ -99,13 +99,12 @@ void POK(uint i, uvec2 j, uint m, int _r, int _2) {
     }
 }
 
-uvec2 PEK(uint i, uvec2 o, uint m, int _r, int _2) {
+void PEK(inout uvec2 o, uint i, uint m, int _r, int _2) {
     o.x = uxn.ram[i];
     if (_2 != 0) {
         o.y = uxn.ram[(i + 1) & m];
     }
     PUT(o,_r,_2);
-    return o;
 }
 
 void GET(inout uvec2 v, int _r, int _2) {
@@ -159,11 +158,11 @@ uvec2 DEI(uint addr, uvec2 o, int _r, int _2) {
 }
 
 // output to device
-void DEO(uint addr, uvec2 v, int _2) {
+uint DEO(uint addr, uvec2 v, int _2) {
 
     // cannot resize screen
-    if (addr == 0x22) return;
-    if (addr == 0x24) return;
+    if (addr == 0x22) return 0;
+    if (addr == 0x24) return 0;
 
     shared_uxn.flags |= DEO_FLAG;
     if (addr == 0x2e) shared_uxn.flags |= DRAW_PIXEL_FLAG;
@@ -174,17 +173,17 @@ void DEO(uint addr, uvec2 v, int _2) {
     shared_uxn.dev[addr] = v.x;
     if (_2 != 0) {
         shared_uxn.dev[addr + 1] = v.y;
+        return 3; // halt code for DEO2
     }
+    return 2; // halt code for DEO
 }
 
-#define DEC uxn.wst[--uxn.pWst]
-
 uint uxn_eval(inout State state) {
-	if((shared_uxn.pc == 0) || (shared_uxn.dev[0x0f] != 0)) return 1;
-	switch(uxn.ram[shared_uxn.pc++]) {
+	if((shared_uxn.pc == 0) || (shared_uxn.dev[0x0f] != 0)) return 5;
+	switch(uxn.ram[shared_uxn.pc++] & 0xff) {
     /* BRK */ case 0x00: return 1;
     /* JCI */ case 0x20:
-                if(DEC != 0) { JMI(state); }
+                if(uxn.wst[--uxn.pWst] != 0) { JMI(state); }
                 else { shared_uxn.pc += 2; }
                 break;
     /* JMI */ case 0x40: JMI(state); break;
@@ -250,19 +249,19 @@ uint uxn_eval(inout State state) {
                   if(_2 != 0) { PUr(state.x.y,_r); })
     /* LDZ */ OPC(0x10,
                   state.a = PO1(_r); ,
-                  state.x = PEK(state.a, state.x, 0xff, _r, _2); )
+                  PEK(state.x, state.a, 0xff, _r, _2); )
     /* STZ */ OPC(0x11,
                   state.a = PO1(_r); GET(state.y,_r,_2); ,
                   POK(state.a, state.y, 0xff, _r, _2); )
     /* LDR */ OPC(0x12,
                   state.a = PO1(_r); ,
-                  state.x = PEK(shared_uxn.pc + state.a, state.x, 0xffff, _r,_2); )
+                  PEK(state.x, shared_uxn.pc + state.a, 0xffff, _r,_2); )
     /* STR */ OPC(0x13,
                   state.a = PO1(_r); GET(state.y,_r,_2); ,
                   POK(shared_uxn.pc + state.a, state.y, 0xffff, _r,_2); )
     /* LDA */ OPC(0x14,
                   state.a = PO2(_r); ,
-                  state.x = PEK(state.a, state.x, 0xffff, _r,_2); )
+                  PEK(state.x, state.a, 0xffff, _r,_2); )
     /* STA */ OPC(0x15,
                   state.a = PO2(_r); GET(state.y,_r,_2); ,
                   POK(state.a, state.y, 0xffff, _r,_2); )
@@ -271,8 +270,7 @@ uint uxn_eval(inout State state) {
                   state.x = DEI(state.a, state.x, _r,_2); )
     /* DEO */ OPC(0x17,
                   state.a = PO1(_r); GET(state.y,_r,_2); ,
-                  DEO(state.a, state.y, _2);
-                  return 2 + _2;)
+                  return DEO(state.a, state.y, _2); ) // DEO: halt code 2 | DEO2: halt code 3
     /* ADD */ OPC(0x18,
                   state.a = POx(_r,_2); state.b = POx(_r,_2); ,
                   PUx(state, state.b + state.a, _r,_2); )
@@ -298,13 +296,9 @@ uint uxn_eval(inout State state) {
     /* SFT */ OPC(0x1f,
                   state.a = PO1(_r); state.b = POx(_r,_2); ,
                   PUx(state, state.b >> (state.a & 0xf) << (state.a >> 4), _r,_2); )
-              default: return 4;
+              default: return 4; // Crash
 	}
-	return 0;
-}
-
-bool mask(uint x, uint mask) {
-    return (x & mask) == mask;
+	return 0; // Continue execution
 }
 
 void main() {
@@ -319,11 +313,10 @@ void main() {
     // 2 - DEO halt
     // 3 - DEO2 halt
     // 4 - opcode not recognised
-    uint halt = 0;
-    while (halt == 0) {
-        halt = uxn_eval(state);
+    while (shared_uxn.halt == 0) {
+        shared_uxn.halt = uxn_eval(state);
     }
-    shared_uxn.halt = halt;
+    shared_uxn.dev[0] = uxn.ram[shared_uxn.pc-1];
 
     // Test memory offsets and strides with this:
     // uxn.ram[0] = 1;
