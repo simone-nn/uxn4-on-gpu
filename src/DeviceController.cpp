@@ -1147,6 +1147,10 @@ private:
     }
 
     void clearImage(VkCommandBuffer cmdBuffer) {
+        bool singleTimeBuffer = cmdBuffer == VK_NULL_HANDLE;
+        if (singleTimeBuffer)
+            cmdBuffer = beginSingleTimeCommands(ctx);
+
         VkImageSubresourceRange subresourceRange{};
         subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         subresourceRange.baseMipLevel = 0;
@@ -1169,6 +1173,9 @@ private:
 
         vkCmdClearColorImage(cmdBuffer, backgroundImageResource.data.image._, VK_IMAGE_LAYOUT_GENERAL, &backgroundColor, 1, &subresourceRange);
         vkCmdClearColorImage(cmdBuffer, foregroundImageResource.data.image._, VK_IMAGE_LAYOUT_GENERAL, &foregroundColor, 1, &subresourceRange);
+
+        if (singleTimeBuffer)
+             endSingleTimeCommands(ctx, cmdBuffer);
     }
 
     /// Transition the images formats to edit mode for the blit shader
@@ -1307,12 +1314,12 @@ private:
         vkQueuePresentKHR(ctx.presentQueue, &presentInfo);
     }
 
-    bool doCallback(uxn_device device, bool do_graphics) {
+    bool doCallback(uxn_device device, bool did_graphics) {
         switch (device) {
             case uxn_device::Console:
                 return console->notEmpty();
             case uxn_device::Screen:
-                return do_graphics;
+                return !did_graphics;
             case uxn_device::Mouse: {
                 bool o = mouse.used;
                 mouse.used = false;
@@ -1329,7 +1336,8 @@ private:
         constexpr std::chrono::milliseconds frame_duration(1000 / target_FPS);
 
         glm::uint halt_code = 0;
-        bool in_vector = true, do_graphics = false, clear_required = false;
+        bool in_vector = true, did_graphics = true;
+        bool cleared = false;
         auto last_frame_time = std::chrono::steady_clock::now();
         auto current_vector = uxn_device::Null;
         int callback_index = 0;
@@ -1338,13 +1346,9 @@ private:
             glfwPollEvents();
 
             if (!in_vector) {
-                // has it been enough time since last frame to draw a new one
-                auto now_time = std::chrono::steady_clock::now();
-                auto elapsed_since_frame = std::chrono::duration_cast<std::chrono::milliseconds>(now_time - last_frame_time);
-                if (elapsed_since_frame >= frame_duration) do_graphics = true;
-
+                // pick a new vector to execute
                 auto callback = CALLBACK_DEVICES[callback_index];
-                if (uxn->deviceCallbackVectors.contains(callback) && doCallback(callback, do_graphics)) {
+                if (uxn->deviceCallbackVectors.contains(callback) && doCallback(callback, did_graphics)) {
                     uxn->prepareCallback(callback);
                     copyHostMemToDevice(uxn->memory);
                     in_vector = true;
@@ -1355,34 +1359,52 @@ private:
 
             if (in_vector) {
                 // compute steps
-                uxnEvalShader(clear_required);
+                uxnEvalShader(false);
+                // when it halts from a uxn eval, we need to figure out whenever or not
+                // to clear the screen before the blit shader
+                // the issue is: we need to clear the screen before we draw to it,
+                // and we should only draw onto the screen if it has been drawn
+                if (!cleared) {
+                    copyDeviceMemToHost(uxn->memory);
+                    if (uxn->maskFlag(DRAW_PIXEL_FLAG) || uxn->maskFlag(DRAW_SPRITE_FLAG)) {
+                        cleared = true;
+                        clearImage(nullptr);
+                    }
+                }
                 blitShader();
                 copyDeviceMemToHost(uxn->memory);
                 uxn->handleUxnIO();
 
                 // decide if the vector is finished
                 halt_code = uxn->memory->shared.halt;
-                std::cout << halt_code << " " << std::hex <<
-                    static_cast<int>(from_uxn_mem(uxn->memory->shared.dev)) << std::dec << std::endl;
+
                 if (halt_code == 1) {
                     in_vector = false;
+                    if (current_vector == uxn_device::Screen) { did_graphics = true; }
 
-                    std::cout << "Vector finished: " << static_cast<int>(current_vector) << ", pc: 0x"
-                        << std::hex << uxn->memory->shared.pc << std::dec
-                        << " last instruction: " << uxn->memory->_private.ram[uxn->memory->shared.pc-1] << std::endl;
+                    // std::cout << "Vector finished: " << static_cast<int>(current_vector)
+                    //     << ", pc: 0x" << std::hex << uxn->memory->shared.pc
+                    //     << " clear_frame: " << clear_frame
+                    //     << " clear_next_frame: " << clear_next_frame << "\n"
+                    //     << " last instructions: " << uxn->memory->_private.ram[uxn->memory->shared.pc-1]
+                    //     << ", " << uxn->memory->_private.ram[uxn->memory->shared.pc-2]
+                    //     << ", " << uxn->memory->_private.ram[uxn->memory->shared.pc-3]
+                    //     << std::dec << std::endl;
                 }
-                if (clear_required) clear_required = false;
             }
 
             // graphics step: only enter if it is time to draw a frame again (60 FPS)
-            if (do_graphics && halt_code == 1) {
+            auto now_time = std::chrono::steady_clock::now();
+            auto elapsed_since_frame = std::chrono::duration_cast<std::chrono::milliseconds>(now_time - last_frame_time);
+            if ((elapsed_since_frame >= frame_duration) && halt_code == 1 && did_graphics) {
                 transitionImagesToReadLayout(nullptr);
                 graphicsStep();
                 transitionImagesToEditLayout(nullptr);
-                if (current_vector == uxn_device::Screen) { clear_required = true; }
-                if (!in_vector) do_graphics = false;
+
                 last_frame_time = std::chrono::steady_clock::now();
                 callback_index = 0;
+                did_graphics = false;
+                cleared = false;
             }
             if (!in_vector)
                 current_vector = uxn_device::Null;

@@ -45,10 +45,10 @@ enum class uxn_device: glm::uint {
     Null = 0xff, // no device selected
 };
 constexpr std::array CALLBACK_DEVICES = {
+    uxn_device::Screen,
     uxn_device::Console,
     uxn_device::Controller,
     uxn_device::Mouse,
-    uxn_device::Screen,
 };
 
 char8_t from_uxn_mem(const glm::uint* p);
