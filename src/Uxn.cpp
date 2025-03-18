@@ -115,11 +115,16 @@ void Uxn::prepareCallback(uxn_device callback) {
     // always copy mouse data
     to_uxn_mem2(mouse.cursor_x, &memory->shared.dev[0x92]);
     to_uxn_mem2(mouse.cursor_y, &memory->shared.dev[0x94]);
-    int uxn_button = 0;
-    if (mouse.mouse1) uxn_button += 1;
-    if (mouse.mouse2) uxn_button += 2;
-    if (mouse.mouse3) uxn_button += 4;
-    to_uxn_mem(uxn_button, &memory->shared.dev[0x96]);
+    if (mouse.used) {
+        int uxn_button = 0;
+        if (mouse.mouse1) uxn_button += 1;
+        if (mouse.mouse2) uxn_button += 2;
+        if (mouse.mouse3) uxn_button += 4;
+        to_uxn_mem(uxn_button, &memory->shared.dev[0x96]);
+        mouse.used = false;
+    } else {
+        to_uxn_mem(0, &memory->shared.dev[0x96]);
+    }
 
     // copy datetime data
     auto now = std::chrono::system_clock::now();

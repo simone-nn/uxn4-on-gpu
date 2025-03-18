@@ -303,7 +303,9 @@ void endSingleTimeCommands(const Context &ctx, VkCommandBuffer commandBuffer) {
 // --- --- GLFW Event Callback Functions --- ---
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
     // button = 0 when left click, button = 1 when right click
+    // todo this function sucks
     mouse.used = true;
+    mouse.mouse1 = false; mouse.mouse2 = false; mouse.mouse3 = false;
     switch (button) {
         case GLFW_MOUSE_BUTTON_LEFT:   mouse.mouse1 = true; break;
         case GLFW_MOUSE_BUTTON_RIGHT:  mouse.mouse2 = true; break;
@@ -314,10 +316,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 
 void cursorPositionCallback(GLFWwindow* window, double x, double y) {
     // values are from 0 to WIDTH, HEIGHT;  0,0 top left
-    mouse.used = true;
-    // mouse.cursor_x = (mouse.cursor_x + static_cast<uint16_t>(x)) % WIDTH;
     mouse.cursor_x = static_cast<uint16_t>(x);
-    // mouse.cursor_y = (mouse.cursor_y + static_cast<uint16_t>(y)) % HEIGHT;
     mouse.cursor_y = static_cast<uint16_t>(y);
 }
 
