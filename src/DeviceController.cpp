@@ -408,9 +408,12 @@ private:
         glfwSetInputMode(ctx.window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
 
         // setting callbacks
-        // glfwSetKeyCallback(ctx.window, keyboardCallback);
+        glfwSetKeyCallback(ctx.window, keyboardPressCallback);
         glfwSetMouseButtonCallback(ctx.window, mouseButtonCallback);
         glfwSetCursorPosCallback(ctx.window, cursorPositionCallback);
+
+        // initialising the keymap
+        keyboardInit();
     }
 
     void initVkInstance() {
@@ -1299,12 +1302,10 @@ private:
                 return console->notEmpty();
             case uxn_device::Screen:
                 return !did_graphics;
-            case uxn_device::Mouse: {
-                bool o = mouse.used;
-                mouse.used = false;
-                return o;
-            }
-            case uxn_device::Controller: //todo
+            case uxn_device::Mouse:
+                return mouse.used;
+            case uxn_device::Controller:
+                return keyboard.used;
             default:
                return false;
         }

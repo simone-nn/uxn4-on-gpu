@@ -14,9 +14,19 @@ inline struct MouseState {
     bool mouse1, mouse2, mouse3;
 } mouse;
 
+inline struct KeyboardState {
+    bool used = false;
+    uint8_t button;
+    char8_t key;
+} keyboard;
+
+void keyboardInit();
+
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 
 void cursorPositionCallback(GLFWwindow* window, double x, double y);
+
+void keyboardPressCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
 void mouseToUxnMemory(UxnMemory* memory);
 
