@@ -41,12 +41,12 @@ struct ImageParams {
 };
 
 
-class DescriptorSet {
+class DescriptorSetWrapper {
 public:
     VkDescriptorSet set;
     VkDescriptorSetLayout layout;
 
-    DescriptorSet() : set(nullptr), layout(nullptr) {}
+    DescriptorSetWrapper() : set(nullptr), layout(nullptr) {}
 
     void initialise(const Context &ctx);
 
@@ -81,7 +81,7 @@ public:
             VkBuffer _;
             VkDeviceMemory memory;
             VkDeviceSize size;
-            DescriptorSet* descriptorSet;
+            DescriptorSetWrapper* descriptorSet;
         } buffer;
         struct ImageData {
             VkImage _;
@@ -89,8 +89,8 @@ public:
             VkImageView view;
             VkSampler sampler;
             uint32_t samplerBinding;
-            DescriptorSet* imageDescriptorSet;
-            DescriptorSet* samplerDescriptorSet;
+            DescriptorSetWrapper* imageDescriptorSet;
+            DescriptorSetWrapper* samplerDescriptorSet;
         } image;
     } data;
 
@@ -101,7 +101,7 @@ public:
     Resource(
         Context &ctx,
         uint32_t binding,
-        DescriptorSet *descriptorSet,
+        DescriptorSetWrapper *descriptorSet,
         size_t bufferSize,
         const void* bufferData,
         bool isSSBO,
@@ -113,8 +113,8 @@ public:
         Context &ctx,
         uint32_t imageBinding,
         uint32_t samplerBinding,
-        DescriptorSet *imageDescriptorSet,
-        DescriptorSet *samplerDescriptorSet,
+        DescriptorSetWrapper *imageDescriptorSet,
+        DescriptorSetWrapper *samplerDescriptorSet,
         ImageParams params
     );
 

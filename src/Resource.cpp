@@ -176,7 +176,7 @@ void copyBufferToImage(const Context &ctx, VkBuffer buffer, VkImage image, uint3
 
 
 // -- Descriptor Set Wrapper --
-void DescriptorSet::initialise(const Context &ctx) {
+void DescriptorSetWrapper::initialise(const Context &ctx) {
     // Descriptor Layout
     std::vector<VkDescriptorSetLayoutBinding> b;
     b.reserve(bindings.size());
@@ -219,12 +219,12 @@ void DescriptorSet::initialise(const Context &ctx) {
         nullptr);
 }
 
-void DescriptorSet::addBinding(const VkDescriptorSetLayoutBinding &bindingLayout) {
+void DescriptorSetWrapper::addBinding(const VkDescriptorSetLayoutBinding &bindingLayout) {
     auto b = new VkDescriptorSetLayoutBinding(bindingLayout);
     bindings.emplace_back(b);
 }
 
-void DescriptorSet::addVertexBufferWrite(VkBuffer buffer, VkDeviceSize bufferRange, uint32_t binding) {
+void DescriptorSetWrapper::addVertexBufferWrite(VkBuffer buffer, VkDeviceSize bufferRange, uint32_t binding) {
     auto* bufferInfo = new VkDescriptorBufferInfo;
     bufferInfo->buffer = buffer;
     bufferInfo->offset = 0;
@@ -243,7 +243,7 @@ void DescriptorSet::addVertexBufferWrite(VkBuffer buffer, VkDeviceSize bufferRan
     writeSets.emplace_back(descriptorWrite);
 }
 
-void DescriptorSet::addSSBOWrite(VkBuffer buffer, VkDeviceSize bufferRange, uint32_t binding) {
+void DescriptorSetWrapper::addSSBOWrite(VkBuffer buffer, VkDeviceSize bufferRange, uint32_t binding) {
     auto* storageBufferInfo = new VkDescriptorBufferInfo;
     storageBufferInfo->buffer = buffer;
     storageBufferInfo->offset = 0;
@@ -262,7 +262,7 @@ void DescriptorSet::addSSBOWrite(VkBuffer buffer, VkDeviceSize bufferRange, uint
     writeSets.emplace_back(descriptorWrite);
 }
 
-void DescriptorSet::addImageWrite(VkImageView imageView, uint32_t binding) {
+void DescriptorSetWrapper::addImageWrite(VkImageView imageView, uint32_t binding) {
     auto* imageInfo = new VkDescriptorImageInfo;
     imageInfo->imageLayout = VK_IMAGE_LAYOUT_GENERAL;
     imageInfo->imageView = imageView;
@@ -280,7 +280,7 @@ void DescriptorSet::addImageWrite(VkImageView imageView, uint32_t binding) {
     writeSets.emplace_back(descriptorWrite);
 }
 
-void DescriptorSet::addSamplerWrite(VkImageView imageView, VkSampler sampler, uint32_t binding) {
+void DescriptorSetWrapper::addSamplerWrite(VkImageView imageView, VkSampler sampler, uint32_t binding) {
     auto* imageInfo = new VkDescriptorImageInfo;
     imageInfo->imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     imageInfo->imageView = imageView;
@@ -299,7 +299,7 @@ void DescriptorSet::addSamplerWrite(VkImageView imageView, VkSampler sampler, ui
     writeSets.emplace_back(descriptorWrite);
 }
 
-void DescriptorSet::destroy(const Context &ctx) const {
+void DescriptorSetWrapper::destroy(const Context &ctx) const {
     vkDestroyDescriptorSetLayout(ctx.device, layout, nullptr);
 }
 
@@ -308,7 +308,7 @@ void DescriptorSet::destroy(const Context &ctx) const {
 Resource::Resource(
     Context &ctx,
     uint32_t binding,
-    DescriptorSet *descriptorSet,
+    DescriptorSetWrapper *descriptorSet,
     size_t bufferSize,
     const void* bufferData,
     bool isSSBO,
@@ -385,8 +385,8 @@ Resource::Resource(
     Context &ctx,
     uint32_t imageBinding,
     uint32_t samplerBinding,
-    DescriptorSet *imageDescriptorSet,
-    DescriptorSet *samplerDescriptorSet,
+    DescriptorSetWrapper *imageDescriptorSet,
+    DescriptorSetWrapper *samplerDescriptorSet,
     ImageParams params
 ) {
     this->type = Image;

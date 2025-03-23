@@ -349,9 +349,9 @@ private:
     VkPipeline blitPipeline;
     VkCommandBuffer computeCommandBuffer;
 
-    DescriptorSet uxnDescriptorSet;
-    DescriptorSet blitDescriptorSet;
-    DescriptorSet graphicsDescriptorSet;
+    DescriptorSetWrapper uxnDescriptorSet;
+    DescriptorSetWrapper blitDescriptorSet;
+    DescriptorSetWrapper graphicsDescriptorSet;
     Resource sharedUxnResource;
     Resource privateUxnResource;
     Resource backgroundImageResource;
@@ -954,9 +954,9 @@ private:
     void initResources() {
         std::cout << "..initResources" << std::endl;
 
-        uxnDescriptorSet = DescriptorSet();
-        blitDescriptorSet = DescriptorSet();
-        graphicsDescriptorSet = DescriptorSet();
+        uxnDescriptorSet = DescriptorSetWrapper();
+        blitDescriptorSet = DescriptorSetWrapper();
+        graphicsDescriptorSet = DescriptorSetWrapper();
 
         // resource creation
         sharedUxnResource = Resource(ctx, SHARED_UXN_BINDING, &uxnDescriptorSet,
