@@ -69,21 +69,21 @@ private:
 
 class Resource {
 public:
-    enum {
+    enum ResourceType {
         Buffer,
         SSBO,
         Image
     } type;
     Context* ctx;
     uint32_t binding;
-    union {
-        struct {
+    union ResourceData {
+        struct BufferData {
             VkBuffer _;
             VkDeviceMemory memory;
             VkDeviceSize size;
             DescriptorSet* descriptorSet;
         } buffer;
-        struct {
+        struct ImageData {
             VkImage _;
             VkDeviceMemory memory;
             VkImageView view;
