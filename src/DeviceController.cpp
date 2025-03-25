@@ -1343,7 +1343,7 @@ private:
             if (in_vector) {
                 // compute steps
                 uxnEvalShader(false);
-                // when it halts from a uxn eval, we need to figure out whenever or not
+                // when it halts from an uxn eval, we need to figure out whenever or not
                 // to clear the screen before the blit shader
                 // the issue is: we need to clear the screen before we draw to it,
                 // and we should only draw onto the screen if it has been drawn
@@ -1364,15 +1364,6 @@ private:
                 if (halt_code == 1) {
                     in_vector = false;
                     if (current_vector == uxn_device::Screen) { did_graphics = true; }
-
-                    // std::cout << "Vector finished: " << static_cast<int>(current_vector)
-                    //     << ", pc: 0x" << std::hex << uxn->memory->shared.pc
-                    //     << " clear_frame: " << clear_frame
-                    //     << " clear_next_frame: " << clear_next_frame << "\n"
-                    //     << " last instructions: " << uxn->memory->_private.ram[uxn->memory->shared.pc-1]
-                    //     << ", " << uxn->memory->_private.ram[uxn->memory->shared.pc-2]
-                    //     << ", " << uxn->memory->_private.ram[uxn->memory->shared.pc-3]
-                    //     << std::dec << std::endl;
                 }
             }
 
@@ -1389,8 +1380,7 @@ private:
                 did_graphics = false;
                 cleared = false;
             }
-            if (!in_vector)
-                current_vector = uxn_device::Null;
+            if (!in_vector) current_vector = uxn_device::Null;
 
             // check if crashed
             if (halt_code == 4) {
