@@ -170,16 +170,26 @@ uint DEO(uint addr, uvec2 v, int _2) {
     if (addr == 0x18) shared_uxn.flags |= DEO_CONSOLE_FLAG;
     if (addr == 0x19) shared_uxn.flags |= DEO_CERROR_FLAG;
 
+    // no need to halt in a lot of cases, i.e. when writting to Screen/X
+    uint halt = 2 + _2; // halt code for DEO/DEO2
+
+    //todo there might be more ports that can be optimised like this
+    if (addr == 0x22 || addr == 0x24 || addr == 0x28 || addr == 0x2a || addr == 0x2c) {
+        halt = 0; // no need to halt
+    }
+
     shared_uxn.dev[addr] = v.x;
     if (_2 != 0) {
         shared_uxn.dev[addr + 1] = v.y;
-        return 3; // halt code for DEO2
+        return halt; // halt code for DEO2
     }
-    return 2; // halt code for DEO
+    return halt; // halt code for DEO
 }
 
-uint uxn_eval(inout State state) {
+uint uxn_eval(State state) {
+    // check for shutdown
 	if((shared_uxn.pc == 0) || (shared_uxn.dev[0x0f] != 0)) return 5;
+	// select instruction
 	switch(uxn.ram[shared_uxn.pc++] & 0xff) {
     /* BRK */ case 0x00: return 1;
     /* JCI */ case 0x20:
@@ -313,6 +323,7 @@ void main() {
     // 2 - DEO halt
     // 3 - DEO2 halt
     // 4 - opcode not recognised
+    // 5 - shutdown
     while (shared_uxn.halt == 0) {
         shared_uxn.halt = uxn_eval(state);
     }
