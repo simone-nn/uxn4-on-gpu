@@ -118,6 +118,10 @@ void Uxn::prepareCallback(uxn_device callback) {
     keyboardToUxnMemory(memory);
 
     // Datetime
+    setDatetime();
+}
+
+void Uxn::setDatetime() const {
     auto now = std::chrono::system_clock::now();
     std::time_t now_c = std::chrono::system_clock::to_time_t(now);
     std::tm localTime = *std::localtime(&now_c);

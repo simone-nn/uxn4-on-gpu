@@ -1025,6 +1025,9 @@ private:
         to_uxn_mem2(static_cast<uint16_t>(uxn_width), &uxn->memory->shared.dev[0x22]);
         to_uxn_mem2(static_cast<uint16_t>(uxn_height), &uxn->memory->shared.dev[0x24]);
 
+        // Datetime
+        uxn->setDatetime();
+
         //todo populate all uxn constants for all devices
         // uxn.dev[0x17] = argc > 2;
     }

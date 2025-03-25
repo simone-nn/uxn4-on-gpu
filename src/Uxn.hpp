@@ -78,6 +78,8 @@ public:
 
     void prepareCallback(uxn_device callback);
 
+    void setDatetime() const;
+
     void handleUxnIO();
 
     void printBuffer();
