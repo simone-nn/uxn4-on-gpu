@@ -6,9 +6,9 @@
 (main program)
 |0100
     ( hi with DEO2 )
-    #68 .Console/write DEO
-    #69 .Console/write DEO
-    #0a .Console/write DEO
+    ( #68 .Console/write DEO )
+    ( #69 .Console/write DEO )
+    ( #0a .Console/write DEO )
 
     ( vector )
     ;on-console .Console/vector DEO2
