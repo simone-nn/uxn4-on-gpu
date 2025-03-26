@@ -1,15 +1,15 @@
 #define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-#include <iostream>
+#include "DeviceController.hpp"
 #include <fstream>
+#include <iostream>
 #include <set>
 #include <string>
 #include <thread>
+#include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
-#include "Resource.hpp"
-#include "DeviceController.hpp"
-#include "IO.hpp"
 #include "Console.hpp"
+#include "Io.hpp"
+#include "Resource.hpp"
 #include "Uxn.hpp"
 
 #define UXN_EMULATOR_PATH "shaders/uxn_emu.spv"
@@ -1181,7 +1181,7 @@ private:
                               cmdBuffer);
     }
 
-    void uxnEvalShader(bool clear_image) {
+    void uxnEvalShader() {
         // --- UXN evaluation submission ---
         vkQueueWaitIdle(ctx.computeQueue);
         vkResetFences(ctx.device, 1, &uxnEvaluationFence);
@@ -1196,9 +1196,6 @@ private:
         vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, uxnEvaluatePipeline);
         vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, uxnEvaluatePipelineLayout,
             0,1, &uxnDescriptorSet.set, 0, nullptr);
-
-        if (clear_image)
-            clearImage(computeCommandBuffer);
 
         vkCmdDispatch(computeCommandBuffer, 1, 1, 1);
 
@@ -1342,7 +1339,7 @@ private:
 
             if (in_vector) {
                 // compute steps
-                uxnEvalShader(false);
+                uxnEvalShader();
                 // when it halts from an uxn eval, we need to figure out whenever or not
                 // to clear the screen before the blit shader
                 // the issue is: we need to clear the screen before we draw to it,
@@ -1364,6 +1361,15 @@ private:
                 if (halt_code == 1) {
                     in_vector = false;
                     if (current_vector == uxn_device::Screen) { did_graphics = true; }
+                    /*
+                    std::cout << "Vector finished: " << static_cast<int>(current_vector)
+                        << ", pc: 0x" << std::hex << uxn->memory->shared.pc - 0x100
+                        << " (real: 0x" << uxn->memory->shared.pc << ")\n"
+                        << " last instructions: " << uxn->memory->_private.ram[uxn->memory->shared.pc-1]
+                        << ", " << uxn->memory->_private.ram[uxn->memory->shared.pc-2]
+                        << ", " << uxn->memory->_private.ram[uxn->memory->shared.pc-3]
+                        << std::dec << std::endl;
+                    */
                 }
             }
 
