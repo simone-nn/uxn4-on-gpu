@@ -330,7 +330,10 @@ public:
     }
 
     void run() {
+        logger.logStart();
         mainLoop();
+        logger.logEnd();
+        logger.printMetrics();
         cleanup();
     }
 private:
@@ -1404,7 +1407,6 @@ private:
             std::cout << "Uxn Program Terminated with exit code: 0x" << std::hex
             << static_cast<int>(from_uxn_mem(&uxn->memory->shared.dev[0x0f])) - 0x80 << std::dec;
         }
-        logger.printMetrics();
     }
 
     void cleanup() {

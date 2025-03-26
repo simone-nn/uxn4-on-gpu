@@ -1,5 +1,13 @@
-#include "FpsLogger.hpp"
+#include "FPSLogger.hpp"
 #include <iostream>
+
+void FPSLogger::logStart() {
+    programStartTime = std::chrono::high_resolution_clock::now();
+}
+
+void FPSLogger::logEnd() {
+    programEndTime = std::chrono::high_resolution_clock::now();
+}
 
 void FPSLogger::logFrame() {
     auto now = std::chrono::high_resolution_clock::now();
@@ -13,6 +21,16 @@ void FPSLogger::logFrame() {
 }
 
 void FPSLogger::printMetrics() const {
+    // Program duration
+    double programDurationMs = 0.0;
+    if (programStartTime.time_since_epoch().count() != 0 &&
+        programEndTime.time_since_epoch().count() != 0) {
+        std::chrono::duration<double, std::milli> duration = programEndTime - programStartTime;
+        programDurationMs = duration.count();
+        }
+
+    std::cout << "Program duration: " << programDurationMs << " ms\n";
+
     if (frameTimes.empty()) {
         std::cout << "Not enough frame data to calculate metrics.\n";
         return;

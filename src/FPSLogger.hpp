@@ -8,10 +8,16 @@
 
 class FPSLogger {
 public:
+    void logStart();
+
+    void logEnd();
+
     void logFrame();
 
     void printMetrics() const;
 private:
+    std::chrono::high_resolution_clock::time_point programStartTime;
+    std::chrono::high_resolution_clock::time_point programEndTime;
     std::chrono::high_resolution_clock::time_point lastFrameTime;
     std::vector<double> frameTimes;
 
