@@ -123,8 +123,13 @@ void JMI(inout State s) {
 }
 
 void JMP(uint i, int _2) {
-    shared_uxn.pc = (_2 != 0) ? i : shared_uxn.pc + i;
-    shared_uxn.pc = shared_uxn.pc % 0x10000; // ensure 16bit overflow behaviour
+    if (_2 == 0) {
+        // byte mode
+        shared_uxn.pc += (i & 0x7f) - (i & 0x80);
+    } else {
+        // short mode
+        shared_uxn.pc = i & 0xffff;
+    }
 }
 
 void REM(int _r, int _2) {
