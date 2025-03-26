@@ -4,6 +4,7 @@
 #include <GLFW/glfw3.h>
 #include <vector>
 
+#define LOG(s) if(debug) std::cout << s << std::endl
 
 typedef struct context {
     GLFWwindow* window;

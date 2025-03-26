@@ -160,7 +160,7 @@ void Uxn::handleUxnIO() {
         for (uxn_device device : CALLBACK_DEVICES) {
             if (uint16_t addr = from_uxn_mem2(&memory->shared.dev[static_cast<glm::uint>(device)])) {
                 if (!deviceCallbackVectors.contains(device)) {
-                    std::cout << "Adding new callback device: " << static_cast<int>(device) << "\n";
+                    LOG("Adding new callback device: " << static_cast<int>(device));
                 }
                 deviceCallbackVectors.insert({device, addr});
                 // start the Console class

@@ -303,7 +303,7 @@ void endSingleTimeCommands(const Context &ctx, VkCommandBuffer commandBuffer) {
 
 class DeviceController {
 public:
-    bool enableValidationLayers;
+    bool debug;
 #define H 1.0
 #define T 1.0
 #define L (-H)
@@ -321,7 +321,7 @@ public:
     std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, "VK_KHR_portability_subset" };
 
     DeviceController(bool enableValidationLayers, Uxn* uxn, Console* console) {
-        this->enableValidationLayers = enableValidationLayers;
+        this->debug = enableValidationLayers;
         this->uxn = uxn;
         uxn->debug = enableValidationLayers;
         this->console = console;
@@ -396,7 +396,7 @@ private:
     }
 
     void initWindow() {
-        std::cout << "..initWindow" << std::endl;
+        LOG("..initWindow");
         glfwInit();
         // Tell GLFW not to use OpenGL.
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -421,13 +421,13 @@ private:
     }
 
     void initVkInstance() {
-        std::cout << "..initVkInstance" << std::endl;
+        LOG("..initVkInstance");
         /// Extensions
         uint32_t glfwExtensionCount = 0;
         const char **glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
         std::vector extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-        if (enableValidationLayers) {
+        if (debug) {
             extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
         }
 
@@ -454,7 +454,7 @@ private:
         createInfo.ppEnabledExtensionNames = extensions.data();
 
         /// Validation Layers
-        if (enableValidationLayers) {
+        if (debug) {
             if (!checkValidationLayerSupport()) {
                 throw std::runtime_error("validation layers requested, but not available!");
             }
@@ -483,13 +483,13 @@ private:
     }
 
     void initSurface() {
-        std::cout << "..initSurface" << std::endl;
+        LOG("..initSurface");
         if (glfwCreateWindowSurface(ctx.instance, ctx.window, nullptr, &ctx.surface) != VK_SUCCESS)
             throw std::runtime_error("failed to create window surface!");
     }
 
     void initPhysicalDevice() {
-        std::cout << "..initPhysicalDevice: ";
+        LOG("..initPhysicalDevice: ");
         uint32_t deviceCount = 0;
         ctx.physicalDevice = VK_NULL_HANDLE;
         vkEnumeratePhysicalDevices(ctx.instance, &deviceCount, nullptr);
@@ -499,7 +499,7 @@ private:
         std::vector<VkPhysicalDevice> devices(deviceCount);
         vkEnumeratePhysicalDevices(ctx.instance, &deviceCount, devices.data());
 
-        std::cout << devices.size() << " devices found.\n";
+        LOG(devices.size() << " devices found.\n");
         for (const auto &p_device: devices) {
             if (isDeviceSuitable(p_device, ctx.surface, deviceExtensions)) {
                 ctx.physicalDevice = p_device;
@@ -512,7 +512,7 @@ private:
     }
 
     void initLogicalDevice() {
-        std::cout << "..initLogicalDevice" << std::endl;
+        LOG("..initLogicalDevice");
         auto [graphicsAndComputeFamily, presentFamily] = findQueueFamilies(ctx.physicalDevice, ctx.surface);
 
         std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
@@ -540,7 +540,7 @@ private:
         createInfo.ppEnabledExtensionNames = deviceExtensions.data();
         createInfo.pNext = nullptr;
 
-        if (enableValidationLayers) {
+        if (debug) {
             createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
             createInfo.ppEnabledLayerNames = validationLayers.data();
         } else {
@@ -557,7 +557,7 @@ private:
     }
 
     void initDebug() {
-        if (enableValidationLayers) {
+        if (debug) {
             std::cout << "..initDebug" << std::endl;
             VkDebugUtilsMessengerCreateInfoEXT createInfo{};
             createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -576,7 +576,7 @@ private:
     }
 
     void initSwapChain() {
-        std::cout << "..initSwapChain";
+        LOG("..initSwapChain");
         auto [capabilities, formats, presentModes] = querySwapChainSupport(ctx.physicalDevice, ctx.surface);
 
         auto [surfaceFormat, surfaceColorSpace] = chooseSwapSurfaceFormat(formats);
@@ -625,11 +625,11 @@ private:
         ctx.swapChainImageFormat = surfaceFormat;
         ctx.swapChainExtent = extent;
 
-        std::cout << ": extent[w:" << ctx.swapChainExtent.width << ", h:" << ctx.swapChainExtent.height << "]\n";
+        LOG(" extent[w:" << ctx.swapChainExtent.width << ", h:" << ctx.swapChainExtent.height << "]\n");
     }
 
     void initImageViews() {
-        std::cout << "..initImageViews" << std::endl;
+        LOG("..initImageViews");
         ctx.swapChainImageViews.resize(ctx.swapChainImages.size());
         for (size_t i = 0; i < ctx.swapChainImages.size(); i++) {
             VkImageViewCreateInfo createInfo{};
@@ -654,7 +654,7 @@ private:
     }
 
     void initRenderPass() {
-        std::cout << "..initRenderPass" << std::endl;
+        LOG("..initRenderPass");
         VkAttachmentDescription colorAttachment{};
         colorAttachment.format = ctx.swapChainImageFormat;
         colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -697,7 +697,7 @@ private:
     }
 
     void initFrameBuffers() {
-        std::cout << "..initFrameBuffers" << std::endl;
+        LOG("..initFrameBuffers");
         ctx.swapChainFramebuffers.resize(ctx.swapChainImageViews.size());
         for (size_t i = 0; i < ctx.swapChainImageViews.size(); i++) {
             VkImageView attachments[] = { ctx.swapChainImageViews[i] };
@@ -717,7 +717,7 @@ private:
     }
 
     void initCommands() {
-        std::cout << "..initCommands" << std::endl;
+        LOG("..initCommands");
         // Command Pool
         auto [graphicsAndComputeFamily, presentFamily] = findQueueFamilies(ctx.physicalDevice, ctx.surface);
 
@@ -745,7 +745,7 @@ private:
     }
 
     void initDescriptorPool() {
-        std::cout << "..initDescriptorPool" << std::endl;
+        LOG("..initDescriptorPool");
 
         // todo figure out what descriptorCount actually means, and why it needs to be set to 2
         std::array<VkDescriptorPoolSize, 4> poolSizes{};
@@ -770,7 +770,7 @@ private:
     }
 
     void initGraphicsPipeline() {
-        std::cout << "..initGraphicsPipeline" << std::endl;
+        LOG("..initGraphicsPipeline");
 
         std::vector<char> vertShaderCode(shaders_shader_vert_spv, shaders_shader_vert_spv + shaders_shader_vert_spv_len);
         std::vector<char> fragShaderCode(shaders_shader_frag_spv, shaders_shader_frag_spv + shaders_shader_frag_spv_len);
@@ -923,7 +923,7 @@ private:
         const VkDescriptorSetLayout *descriptorLayouts,
         int descriptorCount
     ) const {
-        std::cout << "..initPipeline" << std::endl;
+        LOG("..initPipeline");
 
         std::vector<char> compShaderCode(shaderCode, shaderCode + shaderLen);
         VkShaderModule compShaderModule = createShaderModule(compShaderCode, ctx.device);
@@ -955,7 +955,7 @@ private:
     }
 
     void initResources() {
-        std::cout << "..initResources" << std::endl;
+        LOG("..initResources");
 
         uxnDescriptorSet = DescriptorSetWrapper();
         blitDescriptorSet = DescriptorSetWrapper();
@@ -996,7 +996,7 @@ private:
     }
 
     void initSync() {
-        std::cout << "..initSync" << std::endl;
+        LOG("..initSync");
         VkSemaphoreCreateInfo semaphoreInfo{};
         semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -1019,7 +1019,7 @@ private:
     }
 
     void updateUxnConstants() {
-        std::cout << "..updateUxnConstants" << std::endl;
+        LOG("..updateUxnConstants");
 
         uxn_width  = static_cast<uint32_t>(WIDTH * H);
         uxn_height = static_cast<uint32_t>(HEIGHT * H);
@@ -1036,7 +1036,7 @@ private:
     }
 
     void init() {
-        std::cout << "Initialising the Device Controller:" << std::endl;
+        LOG("Initialising the Device Controller:");
         initWindow();
         initVkInstance();
         initSurface();
@@ -1405,7 +1405,7 @@ private:
         }
         if (uxn->programTerminated()) {
             std::cout << "Uxn Program Terminated with exit code: 0x" << std::hex
-            << static_cast<int>(from_uxn_mem(&uxn->memory->shared.dev[0x0f])) - 0x80 << std::dec;
+            << static_cast<int>(from_uxn_mem(&uxn->memory->shared.dev[0x0f])) << std::dec << "\n";
         }
     }
 
@@ -1450,7 +1450,7 @@ private:
         vkDestroySwapchainKHR(ctx.device, ctx.swapChain, nullptr); // before device
         vkDestroyDevice(ctx.device, nullptr);
         // graphics queue is implicitly destroyed with logical device
-        if (enableValidationLayers)
+        if (debug)
             DestroyDebugUtilsMessengerEXT(ctx.instance, ctx.debugMessenger, nullptr);
         vkDestroySurfaceKHR(ctx.instance, ctx.surface, nullptr);
         vkDestroyInstance(ctx.instance, nullptr);
