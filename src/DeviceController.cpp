@@ -12,11 +12,10 @@
 #include "Io.hpp"
 #include "Resource.hpp"
 #include "Uxn.hpp"
-
-#define UXN_EMULATOR_PATH "shaders/uxn_emu.spv"
-#define BLIT_SHADER_PATH  "shaders/blit.spv"
-#define VERT_SHADER_PATH  "shaders/shader.vert.spv"
-#define FRAG_SHADER_PATH  "shaders/shader.frag.spv"
+#include "shaders/vert.h"
+#include "shaders/frag.h"
+#include "shaders/uxn_emu.h"
+#include "shaders/blit.h"
 
 // Window Dimensions
 int WIDTH = 512;
@@ -772,11 +771,9 @@ private:
 
     void initGraphicsPipeline() {
         std::cout << "..initGraphicsPipeline" << std::endl;
-        // "../" needs to be added in front of the paths because CLion puts the executable in cmake-build-debug
-        // will have to be different in a production build
-        // TODO: hard coded path for Debug compilation
-        auto vertShaderCode = readFile(VERT_SHADER_PATH);
-        auto fragShaderCode = readFile(FRAG_SHADER_PATH);
+
+        std::vector<char> vertShaderCode(shaders_shader_vert_spv, shaders_shader_vert_spv + shaders_shader_vert_spv_len);
+        std::vector<char> fragShaderCode(shaders_shader_frag_spv, shaders_shader_frag_spv + shaders_shader_frag_spv_len);
 
         VkShaderModule vertShaderModule = createShaderModule(vertShaderCode, ctx.device);
         VkShaderModule fragShaderModule = createShaderModule(fragShaderCode, ctx.device);
@@ -919,15 +916,16 @@ private:
     }
 
     void initComputePipeline(
-        const char* shaderPath,
+        const unsigned char *shaderCode,
+        unsigned int shaderLen,
         VkPipeline &pipeline,
         VkPipelineLayout &pipelineLayout,
         const VkDescriptorSetLayout *descriptorLayouts,
         int descriptorCount
     ) const {
-        std::cout << "..initPipeline: " << shaderPath << std::endl;
+        std::cout << "..initPipeline" << std::endl;
 
-        auto compShaderCode = readFile(shaderPath);
+        std::vector<char> compShaderCode(shaderCode, shaderCode + shaderLen);
         VkShaderModule compShaderModule = createShaderModule(compShaderCode, ctx.device);
         VkPipelineShaderStageCreateInfo compShaderStageInfo{};
         compShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -1053,8 +1051,10 @@ private:
         updateUxnConstants();
         initResources();
         std::array blitLayouts = {uxnDescriptorSet.layout, blitDescriptorSet.layout};
-        initComputePipeline(UXN_EMULATOR_PATH, uxnEvaluatePipeline, uxnEvaluatePipelineLayout, &uxnDescriptorSet.layout, 1);
-        initComputePipeline(BLIT_SHADER_PATH, blitPipeline, blitPipelineLayout, blitLayouts.data(), blitLayouts.size());
+        initComputePipeline(shaders_uxn_emu_spv, shaders_uxn_emu_spv_len,
+            uxnEvaluatePipeline, uxnEvaluatePipelineLayout, &uxnDescriptorSet.layout, 1);
+        initComputePipeline(shaders_blit_spv, shaders_blit_spv_len,
+            blitPipeline, blitPipelineLayout, blitLayouts.data(), blitLayouts.size());
         initFrameBuffers();
         initGraphicsPipeline();
         initSync();
@@ -1470,7 +1470,7 @@ int main(int nargs, char** args) {
     auto console = new Console;
     auto uxn = new Uxn(filename, console);
 
-    DeviceController app(true, uxn, console);
+    DeviceController app(false, uxn, console);
 
     try {
         app.run();

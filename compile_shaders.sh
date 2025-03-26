@@ -21,7 +21,7 @@ for shader in $UXN_SHADERS; do
   spirv-dis "${shader}".spv -o "${shader}".spv.txt
 
   # Copy shader to binary directory
-  cp "${shader}".spv ../${OUTPUT_DIR}/shaders/"${shader}".spv
+  #cp "${shader}".spv ../${OUTPUT_DIR}/shaders/"${shader}".spv
 done
 
 for shader in $GRAPHICS_SHADERS; do
@@ -30,9 +30,14 @@ for shader in $GRAPHICS_SHADERS; do
   glslangValidator -V --target-env vulkan1.2 "${shader}".glsl -o "${shader}".spv
 
   # Copy shader to binary directory
-  cp "${shader}".spv ../${OUTPUT_DIR}/shaders/"${shader}".spv
+  #cp "${shader}".spv ../${OUTPUT_DIR}/shaders/"${shader}".spv
 done
 
 cd ..
+
+xxd -i shaders/shader.vert.spv > src/shaders/vert.h
+xxd -i shaders/shader.frag.spv > src/shaders/frag.h
+xxd -i shaders/uxn_emu.spv > src/shaders/uxn_emu.h
+xxd -i shaders/blit.spv > src/shaders/blit.h
 
 echo "Shaders compiled successfully!"

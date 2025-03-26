@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 # Shader compilation
 add_custom_command(
-        OUTPUT ${CMAKE_BINARY_DIR}/shaders/uxn_emu.spv
+        OUTPUT ${CMAKE_SOURCE_DIR}/src/shaders/uxn_emu.h
         COMMAND ${CMAKE_SOURCE_DIR}/compile_shaders.sh
         DEPENDS ${CMAKE_SOURCE_DIR}/shaders/uxn_emu.comp
         DEPENDS ${CMAKE_SOURCE_DIR}/shaders/blit.comp
@@ -17,7 +17,7 @@ add_custom_command(
 )
 # Define a target for shader compilation
 add_custom_target(compile_shaders ALL
-        DEPENDS ${CMAKE_BINARY_DIR}/shaders/uxn_emu.spv
+        DEPENDS ${CMAKE_SOURCE_DIR}/src/shaders/uxn_emu.h
 )
 
 # Copy resources folder (No longer used)
@@ -25,6 +25,10 @@ add_custom_target(compile_shaders ALL
 # configure_file(${CMAKE_SOURCE_DIR}/resources/default_foreground.png ${CMAKE_BINARY_DIR}/resources/default_foreground.png COPYONLY)
 
 add_executable(uxn-on-gpu
+        ${CMAKE_SOURCE_DIR}/src/shaders/blit.h
+        ${CMAKE_SOURCE_DIR}/src/shaders/frag.h
+        ${CMAKE_SOURCE_DIR}/src/shaders/uxn_emu.h
+        ${CMAKE_SOURCE_DIR}/src/shaders/vert.h
         ${CMAKE_SOURCE_DIR}/src/Resource.hpp
         ${CMAKE_SOURCE_DIR}/src/DeviceController.hpp
         ${CMAKE_SOURCE_DIR}/src/Uxn.hpp
@@ -35,8 +39,8 @@ add_executable(uxn-on-gpu
         ${CMAKE_SOURCE_DIR}/src/Console.hpp
         ${CMAKE_SOURCE_DIR}/src/Io.cpp
         ${CMAKE_SOURCE_DIR}/src/Io.hpp
-        src/FpsLogger.cpp
-        src/FpsLogger.hpp
+        ${CMAKE_SOURCE_DIR}/src/FpsLogger.cpp
+        ${CMAKE_SOURCE_DIR}/src/FpsLogger.hpp
 )
 
 add_dependencies(uxn-on-gpu compile_shaders)
