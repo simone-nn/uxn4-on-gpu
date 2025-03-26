@@ -1470,7 +1470,7 @@ int main(int nargs, char** args) {
     auto console = new Console;
     auto uxn = new Uxn(filename, console);
 
-    DeviceController app(false, uxn, console);
+    DeviceController app(false, uxn, console); //todo debug mode as command line argument
 
     try {
         app.run();
