@@ -8,6 +8,7 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include "Console.hpp"
+#include "FPSLogger.hpp"
 #include "Io.hpp"
 #include "Resource.hpp"
 #include "Uxn.hpp"
@@ -336,6 +337,7 @@ private:
     Context ctx;
     Uxn *uxn;
     Console *console;
+    FPSLogger logger;
     uint32_t uxn_width, uxn_height;
 
     VkRenderPass renderPass;
@@ -1381,6 +1383,7 @@ private:
                 graphicsStep();
                 transitionImagesToEditLayout(nullptr);
 
+                logger.logFrame();
                 last_frame_time = std::chrono::steady_clock::now();
                 callback_index = 0;
                 did_graphics = false;
@@ -1401,6 +1404,7 @@ private:
             std::cout << "Uxn Program Terminated with exit code: 0x" << std::hex
             << static_cast<int>(from_uxn_mem(&uxn->memory->shared.dev[0x0f])) - 0x80 << std::dec;
         }
+        logger.printMetrics();
     }
 
     void cleanup() {

@@ -35,6 +35,8 @@ add_executable(uxn-on-gpu
         ${CMAKE_SOURCE_DIR}/src/Console.hpp
         ${CMAKE_SOURCE_DIR}/src/Io.cpp
         ${CMAKE_SOURCE_DIR}/src/Io.hpp
+        src/FpsLogger.cpp
+        src/FpsLogger.hpp
 )
 
 add_dependencies(uxn-on-gpu compile_shaders)
