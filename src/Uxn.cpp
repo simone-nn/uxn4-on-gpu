@@ -192,7 +192,7 @@ bool Uxn::maskFlag(glm::uint mask) const {
 
 glm::vec4 Uxn::getBackgroundColor() const {
     constexpr int shift = 12;
-    constexpr float f = 8;
+    constexpr float f = 255.0f;
     auto r = static_cast<float>((from_uxn_mem2(&memory->shared.dev[0x08]) >> shift) & 0xf);
     auto g = static_cast<float>((from_uxn_mem2(&memory->shared.dev[0x0a]) >> shift) & 0xf);
     auto b = static_cast<float>((from_uxn_mem2(&memory->shared.dev[0x0c]) >> shift) & 0xf);
