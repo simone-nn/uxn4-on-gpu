@@ -43,7 +43,9 @@ cmake --build .
 ``uxn-on-gpu [-dm] <filename>``
 
 - `<filename>` - Uxn .rom file you want to run inside the VM. 
-There is a great selection of programs found on the internet in the `/uxntal/` directory.
+There is a great selection of programs found on the internet in the `/uxn-programs/` directory.
 Recommended examples: ``snake.rom`` and ``dvd.rom``.
 - `-d` - enable debug more; additional print-outs for internal operations.
 - `-m` - enable performance metrics; calculates average FPS, minimum and maximum frame time as well as total program duration. 
+
+Make sure you check the README inside `uxn-programs` as not all programs are yet supported by the VM!

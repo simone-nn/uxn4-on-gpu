@@ -1,4 +1,5 @@
-( hello-2bpp-sprite.tal )
+( corners.tal )
+    ( January 2025, Andrei Ghita )
 
 ( devices )
 |00 @System  [ &vector $2 &pad $6 &r $2 &g $2 &b $2 ]

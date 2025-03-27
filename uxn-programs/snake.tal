@@ -1,4 +1,6 @@
-( uxnasm projects/examples/demos/snake.tal bin/snake.rom && uxnemu bin/snake.rom )
+( snake.tal )
+( from https://git.sr.ht/~rabbits/uxn/tree/main/item/projects/examples/demos/snake.tal )
+( discovered in this list https://github.com/hundredrabbits/awesome-uxn )
 
 ( devices )
 
