@@ -304,6 +304,7 @@ void endSingleTimeCommands(const Context &ctx, VkCommandBuffer commandBuffer) {
 class DeviceController {
 public:
     bool debug;
+    bool logMetrics;
 #define H 1.0
 #define T 1.0
 #define L (-H)
@@ -329,10 +330,10 @@ public:
     }
 
     void run() {
-        logger.logStart();
+        if (logMetrics) logger.logStart();
         mainLoop();
-        logger.logEnd();
-        logger.printMetrics();
+        if (logMetrics) logger.logEnd();
+        if (logMetrics) logger.printMetrics();
         cleanup();
     }
 private:
@@ -1386,7 +1387,7 @@ private:
                 graphicsStep();
                 transitionImagesToEditLayout(nullptr);
 
-                logger.logFrame();
+                if (logMetrics) logger.logFrame();
                 last_frame_time = std::chrono::steady_clock::now();
                 callback_index = 0;
                 did_graphics = false;
@@ -1461,16 +1462,45 @@ private:
 };
 
 int main(int nargs, char** args) {
-    // Check if filename is provided
-    if (nargs < 2) {
-        std::cerr << "Usage: " << args[0] << " <filename>\n";
+    bool debug = false;
+    bool logMetrics = false;
+    const char* filename = nullptr;
+
+    for (int i = 1; i < nargs; ++i) {
+        std::string arg = args[i];
+        if (arg[0] == '-' && arg.length() > 1) {
+            for (size_t j = 1; j < arg.length(); ++j) {
+                switch (arg[j]) {
+                    case 'd':
+                        debug = true;
+                    break;
+                    case 'm':
+                        logMetrics = true;
+                    break;
+                    default:
+                        std::cerr << "Unknown flag: -" << arg[j] << "\n";
+                    return EXIT_FAILURE;
+                }
+            }
+        } else {
+            if (!filename) {
+                filename = args[i];
+            } else {
+                std::cerr << "Unexpected extra argument: " << arg << "\n";
+                return EXIT_FAILURE;
+            }
+        }
+    }
+
+    if (!filename) {
+        std::cerr << "Usage: " << args[0] << " [-d] [-m] <filename>\n";
         return EXIT_FAILURE;
     }
-    const char* filename = args[1];
     auto console = new Console;
     auto uxn = new Uxn(filename, console);
 
-    DeviceController app(false, uxn, console); //todo debug mode as command line argument
+    DeviceController app(debug, uxn, console);
+    app.logMetrics = logMetrics;
 
     try {
         app.run();
