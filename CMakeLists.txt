@@ -3,27 +3,41 @@ project(uxn-on-gpu)
 
 set(CMAKE_CXX_STANDARD 20)
 
-#message(STATUS ${CMAKE_BINARY_DIR},${CMAKE_SOURCE_DIR})
+
+# === Shader headers and SPIR-V outputs ===
+set(SHADER_HEADERS
+        ${CMAKE_SOURCE_DIR}/src/shaders/uxn_emu.h
+        ${CMAKE_SOURCE_DIR}/src/shaders/blit.h
+        ${CMAKE_SOURCE_DIR}/src/shaders/vert.h
+        ${CMAKE_SOURCE_DIR}/src/shaders/frag.h
+)
+
+set(SHADER_SPV
+        ${CMAKE_SOURCE_DIR}/shaders/uxn_emu.spv
+        ${CMAKE_SOURCE_DIR}/shaders/blit.spv
+        ${CMAKE_SOURCE_DIR}/shaders/shader.vert.spv
+        ${CMAKE_SOURCE_DIR}/shaders/shader.frag.spv
+)
 
 # Shader compilation
 add_custom_command(
-        OUTPUT ${CMAKE_SOURCE_DIR}/src/shaders/uxn_emu.h
+        OUTPUT ${SHADER_HEADERS} ${SHADER_SPV}
         COMMAND ${CMAKE_SOURCE_DIR}/compile_shaders.sh
-        DEPENDS ${CMAKE_SOURCE_DIR}/shaders/uxn_emu.comp
-        DEPENDS ${CMAKE_SOURCE_DIR}/shaders/blit.comp
-        DEPENDS ${CMAKE_SOURCE_DIR}/shaders/shader.vert.glsl
-        DEPENDS ${CMAKE_SOURCE_DIR}/shaders/shader.frag.glsl
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        DEPENDS
+        ${CMAKE_SOURCE_DIR}/shaders/uxn_emu.comp
+        ${CMAKE_SOURCE_DIR}/shaders/blit.comp
+        ${CMAKE_SOURCE_DIR}/shaders/shader.vert.glsl
+        ${CMAKE_SOURCE_DIR}/shaders/shader.frag.glsl
+        BYPRODUCTS ${SHADER_HEADERS} ${SHADER_SPV}
         COMMENT "Compiling shaders..."
 )
 # Define a target for shader compilation
-add_custom_target(compile_shaders ALL
-        DEPENDS ${CMAKE_SOURCE_DIR}/src/shaders/uxn_emu.h
+add_custom_target(compile_shaders
+        DEPENDS ${SHADER_HEADERS} ${SHADER_SPV}
 )
 
-# Copy resources folder (No longer used)
-# configure_file(${CMAKE_SOURCE_DIR}/resources/default_background.png ${CMAKE_BINARY_DIR}/resources/default_background.png COPYONLY)
-# configure_file(${CMAKE_SOURCE_DIR}/resources/default_foreground.png ${CMAKE_BINARY_DIR}/resources/default_foreground.png COPYONLY)
-
+# === Main executable ===
 add_executable(uxn-on-gpu
         ${CMAKE_SOURCE_DIR}/src/shaders/blit.h
         ${CMAKE_SOURCE_DIR}/src/shaders/frag.h
@@ -45,42 +59,19 @@ add_executable(uxn-on-gpu
 
 add_dependencies(uxn-on-gpu compile_shaders)
 
-# CLion fix
-# set(CMAKE_OSX_SYSROOT /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk)
+# === Vulkan (portable detection) ===
+find_package(Vulkan REQUIRED)
+target_link_libraries(uxn-on-gpu PRIVATE Vulkan::Vulkan)
 
-# Vulkan
-set(VK_ICD_FILENAMES /Users/andrei/libs/VulkanSDK/macOS/share/vulkan/icd.d/MoltenVK_icd.json)
-set(VK_LAYER_PATH    /Users/andrei/libs/VulkanSDK/macOS/share/vulkan/explicit_layer.d)
-set(VULKAN_DIR         /Users/andrei/libs/VulkanSDK/macOS/)
-set(VULKAN_INCLUDE_DIR ${VULKAN_DIR}include/)
-set(VULKAN_LIBRARY     ${VULKAN_DIR}lib/)
-
-target_include_directories(uxn-on-gpu PRIVATE ${VULKAN_INCLUDE_DIR})
-target_link_libraries(uxn-on-gpu PRIVATE ${VULKAN_LIBRARY}libvulkan.dylib ${VULKAN_LIBRARY}libvulkan.1.3.290.dylib)
-
-# GLFW
+# === GLFW ===
 find_package(glfw3 3.4 REQUIRED)
 target_link_libraries(uxn-on-gpu PRIVATE glfw)
 
-# GLM
+# === GLM ===
 find_package(glm REQUIRED)
 target_link_libraries(uxn-on-gpu PRIVATE glm)
 
-# vulkan bootstrap: this might be useful
-#include(FetchContent)
-#FetchContent_Declare(
-#        fetch_vk_bootstrap
-#        GIT_REPOSITORY https://github.com/charles-lunarg/vk-bootstrap
-#        GIT_TAG        "v1.3.301"
-#)
-#FetchContent_MakeAvailable(fetch_vk_bootstrap)
-#target_link_libraries(uxn-on-gpu PRIVATE vk-bootstrap::vk-bootstrap)
-
-# STB
-set(STB_INCLUDE_PATH ${CMAKE_SOURCE_DIR}/external/stb/)
-target_include_directories(uxn-on-gpu PUBLIC ${STB_INCLUDE_PATH})
-
-# output directories
+# === Output dirs ===
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
