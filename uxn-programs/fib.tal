@@ -8,8 +8,10 @@
 &iterate
 	#0000 INC2k ADD2k
 	&loop
+	(
 		( print ) DUP2 ,print JSR
 		( linebreak ) #0a18 DEO
+		)
 		ADD2k LTH2k ,&loop JCN
 
  
@@ -18,6 +20,8 @@ POP2
 ORA ,&cleanup JCN
 
 INC2 GTH2k ,&iterate JCN
+		( print ) ,print JSR
+		( linebreak ) #0a18 DEO
 
 	( halt ) #010f DEO
 
