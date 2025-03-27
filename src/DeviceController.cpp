@@ -331,6 +331,7 @@ public:
 
     void run() {
         if (logMetrics) logger.logStart();
+        LOG("Starting VM execution:");
         mainLoop();
         if (logMetrics) logger.logEnd();
         if (logMetrics) logger.printMetrics();
@@ -1367,16 +1368,17 @@ private:
                 if (halt_code == 1) {
                     in_vector = false;
                     if (current_vector == uxn_device::Screen) { did_graphics = true; }
-                    /*
-                    std::cout << "Vector finished: " << static_cast<int>(current_vector)
-                        << ", pc: 0x" << std::hex << uxn->memory->shared.pc - 0x100
-                        << " (real: 0x" << uxn->memory->shared.pc << ")\n"
-                        << " last instructions: " << uxn->memory->_private.ram[uxn->memory->shared.pc-1]
-                        << ", " << uxn->memory->_private.ram[uxn->memory->shared.pc-2]
-                        << ", " << uxn->memory->_private.ram[uxn->memory->shared.pc-3]
-                        << std::dec << std::endl;
-                    */
                 }
+
+                LOG("VM halted: halt_code=" << halt_code
+                    << ", current_vector=0x" << std::hex << static_cast<int>(current_vector)
+                    << ", pc=0x" << uxn->memory->shared.pc - 0x100
+                    << " (real=0x" << uxn->memory->shared.pc << ")\n"
+                    << " top stack value=" << uxn->memory->shared.dev[0] << "\n"
+                    << " last instructions: " << uxn->memory->_private.ram[uxn->memory->shared.pc-1]
+                    << ", " << uxn->memory->_private.ram[uxn->memory->shared.pc-2]
+                    << ", " << uxn->memory->_private.ram[uxn->memory->shared.pc-3]
+                    << std::dec);
             }
 
             // graphics step: only enter if it is time to draw a frame again (60 FPS)

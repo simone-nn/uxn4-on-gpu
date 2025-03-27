@@ -4,6 +4,11 @@
 // Based on the UXN emulator from https://wiki.xxiivv.com/site/uxn.html
 //
 
+// how many instructions should the VM do before halting
+// think of this as a soft timeout
+// uncomment this line if you are getting VK_TIMEOUT errors
+//#define MAX_STEPS 100000
+
 layout(std140, binding = 0) buffer Shared_UXN_Buffer {
     uint pc;
     uint dev[256];  // device data
@@ -77,11 +82,11 @@ void PU1(uint i, int _r) {
 
 void PUx(inout State s, uint i, int _r, int _2) {
     if (_2 != 0) {
-        s.c = i;
+        s.c = i & 0xffff;
         PU1(s.c >> 8, _r);
         PU1(s.c, _r);
     } else {
-        PU1(i, _r);
+        PU1(i % 0xff, _r);
     }
 }
 
@@ -329,18 +334,14 @@ void main() {
     // 3 - DEO2 halt
     // 4 - opcode not recognised
     // 5 - shutdown
+    uint steps = 0;
+#ifdef MAX_STEPS
+    while (shared_uxn.halt == 0 && steps < 1000) {
+#else
     while (shared_uxn.halt == 0) {
+#endif
         shared_uxn.halt = uxn_eval(state);
+        steps++;
     }
-    shared_uxn.dev[0] = uxn.ram[shared_uxn.pc-1];
-
-    // Test memory offsets and strides with this:
-    // uxn.ram[0] = 1;
-    // uxn.ram[65535] = 1;
-    // uxn.wst[0] = 1;
-    // uxn.wst[255] = 1;
-    // uxn.rst[0] = 1;
-    // uxn.rst[255] = 0xffffffff;
-    // shared_uxn.dev[0] = 0xffffffff;
-    // shared_uxn.dev[255] = 0xffffffff;
+    shared_uxn.dev[0] = uxn.wst[uxn.pWst-1];
 }
