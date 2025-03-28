@@ -1,6 +1,6 @@
 # Uxn VM on GPU
 
-This project is an implementation of the [Uxn](https://wiki.xxiivv.com/site/uxn.html] virtual) 
+This project is an implementation of the [Uxn](https://wiki.xxiivv.com/site/uxn.html) virtual 
 machine that runs almost completely on the GPU! 
 
 More precisely, the main Uxn runtime runs on a compute shader which communicates directly with 
