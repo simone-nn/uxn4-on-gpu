@@ -3,6 +3,7 @@
 #include <atomic>
 #include <thread>
 #include <optional>
+#include <queue>
 
 
 class Console {

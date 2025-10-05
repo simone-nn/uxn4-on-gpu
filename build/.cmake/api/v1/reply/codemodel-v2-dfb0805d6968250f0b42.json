@@ -1,0 +1,69 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"jsonFile" : "directory-.-Debug-f5ebdc15457944623624.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.29"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "uxn-on-gpu",
+					"targetIndexes" : 
+					[
+						0,
+						1
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "compile_shaders::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-compile_shaders-Debug-2ce8908fb76c46c297ec.json",
+					"name" : "compile_shaders",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "uxn-on-gpu::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-uxn-on-gpu-Debug-0fed5b3ff1e3af01e6d4.json",
+					"name" : "uxn-on-gpu",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/Users/mac/Documents/UofG/IP5/uxn4-on-gpu/build",
+		"source" : "/Users/mac/Documents/UofG/IP5/uxn4-on-gpu"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 8
+	}
+}

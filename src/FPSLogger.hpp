@@ -5,6 +5,7 @@
 #ifndef FPSLOGGER_HPP
 #define FPSLOGGER_HPP
 #include <chrono>
+#include <vector>
 
 class FPSLogger {
 public:

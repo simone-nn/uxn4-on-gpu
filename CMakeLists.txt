@@ -69,7 +69,7 @@ target_link_libraries(uxn-on-gpu PRIVATE glfw)
 
 # === GLM ===
 find_package(glm REQUIRED)
-target_link_libraries(uxn-on-gpu PRIVATE glm)
+target_link_libraries(uxn-on-gpu PRIVATE glm::glm)
 
 # === Output dirs ===
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)

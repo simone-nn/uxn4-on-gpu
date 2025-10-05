@@ -234,8 +234,7 @@ bool isDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface, std::vector
         swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
     }
 
-    return indices.isComplete() && extensionsSupported && swapChainAdequate
-           && deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
+    return indices.isComplete() && extensionsSupported && swapChainAdequate;
 }
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
