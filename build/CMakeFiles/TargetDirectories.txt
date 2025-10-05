@@ -1,4 +1,0 @@
-/Users/mac/Documents/UofG/IP5/uxn4-on-gpu/build/CMakeFiles/compile_shaders.dir
-/Users/mac/Documents/UofG/IP5/uxn4-on-gpu/build/CMakeFiles/uxn-on-gpu.dir
-/Users/mac/Documents/UofG/IP5/uxn4-on-gpu/build/CMakeFiles/edit_cache.dir
-/Users/mac/Documents/UofG/IP5/uxn4-on-gpu/build/CMakeFiles/rebuild_cache.dir
