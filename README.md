@@ -1,10 +1,13 @@
-# Uxn VM on GPU
+# uxn4-on-gpu
 
-This project is an implementation of the [Uxn](https://wiki.xxiivv.com/site/uxn.html) virtual 
-machine that runs almost completely on the GPU! 
+This project is built on top of [uxn-on-gpu](https://github.com/AndreiGhita2002/uxn-on-gpu.git), a successful implementation for [Uxn](https://wiki.xxiivv.com/site/uxn.html) virtual 
+machine that runs on almost entirely on the GPU.
 
-More precisely, the main Uxn runtime runs on a compute shader which communicates directly with 
-the graphical pipeline.
+This project aims to optimise and extend the original implementation, focusing on:
+1. Optimising event passing mechanism to achieve better performance
+2. Implementing multi-threaded VM execution
+
+Working logs and development checklists will be added soon.
 
 ## Compilation
 
@@ -26,8 +29,8 @@ You will need the following installed on your system:
 
 ```bash
 # Clone the repo
-git clone https://github.com/yourusername/uxn-on-gpu.git
-cd uxn-on-gpu
+git clone https://github.com/simone-nn/uxn4-on-gpu.git
+cd uxn4-on-gpu
 
 # Create a build directory
 mkdir build && cd build
