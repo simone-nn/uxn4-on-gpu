@@ -7,7 +7,7 @@ This project aims to optimise and extend the original implementation, focusing o
 1. Optimising event passing mechanism to achieve better performance
 2. Implementing multi-threaded VM execution
 
-Working logs and development checklists will be added soon.
+Weekly plans and complete tasks are updated in [Progress](https://github.com/simone-nn/uxn4-on-gpu/blob/main/Progress.md).
 
 ## Compilation
 

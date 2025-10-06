@@ -26,7 +26,7 @@
 - [x] Set up Git repo
 
 ### Week 3 (10.7-10.13): Event Passing - Analyis 🔄 
-- [ ] thoroughly study original uxn codebase
+- [ ] Thoroughly study original uxn codebase
 - [ ] Analyse uxn-on-gpu architecture
 - [ ] Initial proposals for event passing optimisation
 
