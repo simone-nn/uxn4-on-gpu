@@ -10,6 +10,7 @@
 
 ### Optional Objectives
 - [ ] **Goal 3**: Window resizing
+- [ ] **Goal 3**: Study the colour difference problem
 
 ---
 
@@ -25,13 +26,14 @@
 - [x] Learn Vulkan fundamentals
 - [x] Set up Git repo
 
-#### Week 3 (10.7-10.13): Event Passing - Analyis 🔄 
-- [ ] Thoroughly study original uxn codebase
+#### Week 3 (10.7-10.13): Event Passing - Analyis ✅
+- [x] Thoroughly study original uxn codebase
 - [ ] Analyse uxn-on-gpu architecture
 - [ ] Initial proposals for event passing optimisation
 
-#### Week 4 (10.14-10.20): Event Passing - 
-- [ ] TBD
+#### Week 4 (10.14-10.20): Event Passing - 🔄 
+- [ ] Analyse uxn-on-gpu architecture
+- [ ] Initial proposals for event passing optimisation
 
 #### Week 5 (10.21-10.27): Event Passing - 
 - [ ] TBD
