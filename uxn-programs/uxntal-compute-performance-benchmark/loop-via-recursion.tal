@@ -1,0 +1,15 @@
+( Plain loop doing nothing )
+|0100 ( -> ) 
+
+#ffff #0000
+iterate
+
+( halt ) #010f DEO 
+
+BRK
+@iterate
+INC2 LTH2k ?&done
+iterate
+&done
+JMP2r
+

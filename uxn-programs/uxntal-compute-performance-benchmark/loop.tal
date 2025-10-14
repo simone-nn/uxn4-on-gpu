@@ -1,0 +1,11 @@
+( Plain loop doing nothing )
+|0100 ( -> ) 
+
+#ffff #0000
+&iterate
+INC2 GTH2k ,&iterate JCN
+
+( halt ) #010f DEO
+
+BRK
+
