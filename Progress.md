@@ -31,12 +31,14 @@
 - [ ] Analyse uxn-on-gpu architecture
 - [ ] Initial proposals for event passing optimisation
 
-#### Week 4 (10.14-10.20): Event Passing - 🔄 
+#### Week 4 (10.14-10.20): Event Passing - ✅
+- [x] Run more cli performance benchmarks and compare the results
 - [ ] Analyse uxn-on-gpu architecture
 - [ ] Initial proposals for event passing optimisation
 
-#### Week 5 (10.21-10.27): Event Passing - 
-- [ ] TBD
+#### Week 5 (10.21-10.27): Event Passing - 🔄 
+- [ ] Analyse uxn-on-gpu architecture
+- [ ] Initial proposals for event passing optimisation
 
 #### Week 6 (10.28-11.3): Event Passing - Wrapping Up
 - [ ] Performance benchmarking
