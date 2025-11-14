@@ -147,12 +147,14 @@ void REM(int _r, int _2) {
 
 /* Devices */
 // Flags
-#define DEO_FLAG         0x001
-#define DEO_CONSOLE_FLAG 0x002
-#define DEO_CERROR_FLAG  0x004
-#define DEI_CONSOLE_FLAG 0x010
-#define DRAW_PIXEL_FLAG  0x100
-#define DRAW_SPRITE_FLAG 0x200
+#define DEO_FLAG          0x001
+#define DEO_CONSOLE_FLAG  0x002
+#define DEO_CERROR_FLAG   0x004
+#define DEO_SCREENW_FLAG  0x008
+#define DEO_SCREENH_FLAG  0x010
+#define DEI_CONSOLE_FLAG  0x020
+#define DRAW_PIXEL_FLAG   0x100
+#define DRAW_SPRITE_FLAG  0x200
 
 // input from device
 uvec2 DEI(uint addr, uvec2 o, int _r, int _2) {
@@ -171,10 +173,14 @@ uvec2 DEI(uint addr, uvec2 o, int _r, int _2) {
 uint DEO(uint addr, uvec2 v, int _2) {
 
     // cannot resize screen
-    if (addr == 0x22) return 0;
-    if (addr == 0x24) return 0;
+    // if (addr == 0x22) return 0;
+    // if (addr == 0x24) return 0;
+
+    // updated support for screen resize
 
     shared_uxn.flags |= DEO_FLAG;
+    if (addr == 0x22) shared_uxn.flags |= DEO_SCREENW_FLAG;
+    if (addr == 0x24) shared_uxn.flags |= DEO_SCREENH_FLAG;
     if (addr == 0x2e) shared_uxn.flags |= DRAW_PIXEL_FLAG;
     if (addr == 0x2f) shared_uxn.flags |= DRAW_SPRITE_FLAG;
     if (addr == 0x18) shared_uxn.flags |= DEO_CONSOLE_FLAG;
@@ -184,7 +190,7 @@ uint DEO(uint addr, uvec2 v, int _2) {
     uint halt = 2 + _2; // halt code for DEO/DEO2
 
     //todo there might be more ports that can be optimised like this
-    if (addr == 0x22 || addr == 0x24 || addr == 0x28 || addr == 0x2a || addr == 0x2c) {
+    if (addr == 0x28 || addr == 0x2a || addr == 0x2c) {
         halt = 0; // no need to halt
     }
 

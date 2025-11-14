@@ -71,3 +71,6 @@ Thumbs.db
 # UXN compiled files
 *.rom
 *.rom.sym
+
+# Clangformat
+.clang-format

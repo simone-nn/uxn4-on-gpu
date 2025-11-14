@@ -24,10 +24,11 @@ void to_uxn_mem2(char16_t c, glm::uint* p) {
 
 uxn_memory::uxn_memory() = default;
 
-Uxn::Uxn(const char *program_path, Console *console) {
+Uxn::Uxn(const char *program_path, Console *console, EventQueue *gpuEventQueue) {
     this->console = console;
     this->program_path = std::string(program_path);
     this->program_rom = readFile(program_path);
+    this->gpuEventQueue = gpuEventQueue;
 
     if (program_rom.size() + 0x0100 * sizeof(glm::uint) > UXN_RAM_SIZE) {
         throw std::runtime_error("uxn program is bigger than uxn ram!");
@@ -153,6 +154,20 @@ void Uxn::handleUxnIO() {
             std::cerr << "[ERROR] " << cerror_buffer;
             cerror_buffer.clear();
         }
+        return;
+    }
+    if (maskFlag(DEO_SCREENW_FLAG)) {
+        // screen resize
+        char16_t w = from_uxn_mem2(&memory->shared.dev[0x22]);
+        gpuEventQueue->push({GPUEventType::Resize, ResizeData{true, static_cast<int>(w)}});
+        LOG("\nuxn requested width: " << static_cast<int>(w));
+        return;
+    }
+    if (maskFlag(DEO_SCREENH_FLAG)) {
+        // screen resize
+        char16_t h = from_uxn_mem2(&memory->shared.dev[0x24]);
+        gpuEventQueue->push({GPUEventType::Resize, ResizeData{false, static_cast<int>(h)}});
+        LOG("\nuxn requested height: " << static_cast<int>(h));
         return;
     }
     // callbacks

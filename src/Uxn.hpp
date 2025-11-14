@@ -3,6 +3,7 @@
 #include <glm/glm.hpp>
 #include "Resource.hpp"
 #include "Console.hpp"
+#include "EventQueue.hpp"
 
 // Uxn sizes
 #define UXN_RAM_SIZE 65536
@@ -12,7 +13,9 @@
 #define DEO_FLAG         0x001
 #define DEO_CONSOLE_FLAG 0x002
 #define DEO_CERROR_FLAG  0x004
-#define DEI_CONSOLE_FLAG 0x010
+#define DEO_SCREENW_FLAG 0x008
+#define DEO_SCREENH_FLAG 0x010
+#define DEI_CONSOLE_FLAG 0x020
 #define DRAW_PIXEL_FLAG  0x100
 #define DRAW_SPRITE_FLAG 0x200
 
@@ -68,7 +71,7 @@ public:
     std::unordered_map<uxn_device,uint16_t> deviceCallbackVectors;
     bool debug{false};
 
-    explicit Uxn(const char* program_path, Console *console);
+    explicit Uxn(const char* program_path, Console *console, EventQueue *gpuEventQueue);
 
     ~Uxn();
 
@@ -98,6 +101,7 @@ private:
     std::vector<char> program_rom;
     std::string console_buffer;
     std::string cerror_buffer;
+    EventQueue *gpuEventQueue;
 };
 
 #endif //UXN_H

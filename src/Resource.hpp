@@ -60,6 +60,10 @@ public:
 
     void addSamplerWrite(VkImageView imageView, VkSampler sampler, uint32_t binding);
 
+    void updateImageWrite(const Context &ctx, VkImageView imageView, uint32_t binding);
+
+    void updateSamplerWrite(const Context &ctx, VkImageView imageView, VkSampler sampler, uint32_t binding);
+
     void destroy(const Context &ctx) const;
 
 private:

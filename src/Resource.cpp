@@ -299,6 +299,42 @@ void DescriptorSetWrapper::addSamplerWrite(VkImageView imageView, VkSampler samp
     writeSets.emplace_back(descriptorWrite);
 }
 
+void DescriptorSetWrapper::updateImageWrite(const Context &ctx, VkImageView imageView, uint32_t binding) {
+    // Find the existing write for this binding
+    for (auto* writeSet : writeSets) {
+        if (writeSet->dstBinding == binding && 
+            writeSet->descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) {
+            // Update the image view in the existing VkDescriptorImageInfo
+            auto* imageInfo = const_cast<VkDescriptorImageInfo*>(writeSet->pImageInfo);
+            imageInfo->imageView = imageView;
+            
+            // Apply the update to the actual descriptor set
+            vkUpdateDescriptorSets(ctx.device, 1, writeSet, 0, nullptr);
+            return;
+        }
+    }
+    throw std::runtime_error("Image write binding not found");
+}
+
+void DescriptorSetWrapper::updateSamplerWrite(const Context &ctx, VkImageView imageView, VkSampler sampler,
+                                              uint32_t binding) {
+    // Find the existing write for this binding
+    for (auto *writeSet : writeSets) {
+        if (writeSet->dstBinding == binding && 
+            writeSet->descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
+            // Update both image view and sampler
+            auto* imageInfo = const_cast<VkDescriptorImageInfo*>(writeSet->pImageInfo);
+            imageInfo->imageView = imageView;
+            imageInfo->sampler = sampler;
+            
+            // Apply the update to the actual descriptor set
+            vkUpdateDescriptorSets(ctx.device, 1, writeSet, 0, nullptr);
+            return;
+        }
+    }
+    throw std::runtime_error("Sampler write binding not found");
+}
+
 void DescriptorSetWrapper::destroy(const Context &ctx) const {
     vkDestroyDescriptorSetLayout(ctx.device, layout, nullptr);
 }

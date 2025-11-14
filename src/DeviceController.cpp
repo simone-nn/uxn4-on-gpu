@@ -8,6 +8,7 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include "Console.hpp"
+#include "EventQueue.hpp"
 #include "FPSLogger.hpp"
 #include "Io.hpp"
 #include "Resource.hpp"
@@ -17,9 +18,9 @@
 #include "shaders/uxn_emu.h"
 #include "shaders/blit.h"
 
-// Window Dimensions
+// Window Dimensions that matches uxn default
 int WIDTH = 512;
-int HEIGHT = 512;
+int HEIGHT = 320;
 
 // -- Bindings --
 #define SHARED_UXN_BINDING          0
@@ -154,20 +155,24 @@ VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& avai
     return VK_PRESENT_MODE_FIFO_KHR;
 }
 
-VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities, GLFWwindow* window) {
-    if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
-        return capabilities.currentExtent;
+VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities, GLFWwindow *window,
+                            std::optional<int> width = std::nullopt, std::optional<int> height = std::nullopt) {
+    // if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
+    //     return capabilities.currentExtent;
+    // }
+
+    int w, h;
+    if (width && height) {
+        w = *width;
+        h = *height;
+    } else {
+        glfwGetFramebufferSize(window, &w, &h);
     }
-    int width, height;
-    glfwGetFramebufferSize(window, &width, &height);
 
-    VkExtent2D actualExtent = {
-        static_cast<uint32_t>(width),
-        static_cast<uint32_t>(height)
-    };
+    w = std::clamp(static_cast<uint32_t>(w), capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
+    h = std::clamp(static_cast<uint32_t>(h), capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
 
-    actualExtent.width = std::clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
-    actualExtent.height = std::clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+    VkExtent2D actualExtent = {static_cast<uint32_t>(w), static_cast<uint32_t>(h)};
 
     return actualExtent;
 }
@@ -320,11 +325,12 @@ public:
     std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
     std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, "VK_KHR_portability_subset" };
 
-    DeviceController(bool enableValidationLayers, Uxn* uxn, Console* console) {
+    DeviceController(bool enableValidationLayers, Uxn* uxn, Console* console, EventQueue* gpuEventQueue){
         this->debug = enableValidationLayers;
         this->uxn = uxn;
         uxn->debug = enableValidationLayers;
         this->console = console;
+        this->gpuEventQueue = gpuEventQueue;
         init();
     }
 
@@ -342,6 +348,7 @@ private:
     Console *console;
     FPSLogger logger;
     uint32_t uxn_width, uxn_height;
+    EventQueue *gpuEventQueue;
 
     VkRenderPass renderPass;
     VkPipelineLayout graphicsPipelineLayout;
@@ -405,6 +412,8 @@ private:
         glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
         // Disables Retina Displays
         glfwWindowHint(GLFW_SCALE_FRAMEBUFFER, GLFW_FALSE);
+        // Make window invisible at the start by default
+        glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 
         // Creating the window
         ctx.window = glfwCreateWindow(WIDTH, HEIGHT, "UXN on GPU", nullptr, nullptr);
@@ -576,13 +585,14 @@ private:
         }
     }
 
-    void initSwapChain() {
+    void initSwapChain(std::optional<int> width = std::nullopt, 
+                     std::optional<int> height = std::nullopt) {
         LOG("..initSwapChain");
         auto [capabilities, formats, presentModes] = querySwapChainSupport(ctx.physicalDevice, ctx.surface);
 
         auto [surfaceFormat, surfaceColorSpace] = chooseSwapSurfaceFormat(formats);
         VkPresentModeKHR presentMode = chooseSwapPresentMode(presentModes);
-        VkExtent2D extent = chooseSwapExtent(capabilities, ctx.window);
+        VkExtent2D extent = chooseSwapExtent(capabilities, ctx.window, width, height);
 
         uint32_t imageCount = capabilities.minImageCount + 1;
         if (capabilities.maxImageCount > 0 && imageCount > capabilities.maxImageCount) {
@@ -602,7 +612,6 @@ private:
         createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
         createInfo.presentMode = presentMode;
         createInfo.clipped = VK_TRUE;
-        createInfo.oldSwapchain = VK_NULL_HANDLE;
 
         auto [graphicsAndComputeFamily, presentFamily] = findQueueFamilies(ctx.physicalDevice, ctx.surface);
         uint32_t queueFamilyIndices[] = {graphicsAndComputeFamily.value(), presentFamily.value()};
@@ -626,7 +635,7 @@ private:
         ctx.swapChainImageFormat = surfaceFormat;
         ctx.swapChainExtent = extent;
 
-        LOG(" extent[w:" << ctx.swapChainExtent.width << ", h:" << ctx.swapChainExtent.height << "]\n");
+        LOG(" extent[w:" << ctx.swapChainExtent.width << ", h:" << ctx.swapChainExtent.height << "]");
     }
 
     void initImageViews() {
@@ -699,6 +708,7 @@ private:
 
     void initFrameBuffers() {
         LOG("..initFrameBuffers");
+        ctx.swapChainFramebuffers.clear();
         ctx.swapChainFramebuffers.resize(ctx.swapChainImageViews.size());
         for (size_t i = 0; i < ctx.swapChainImageViews.size(); i++) {
             VkImageView attachments[] = { ctx.swapChainImageViews[i] };
@@ -970,10 +980,7 @@ private:
             sizeof(UxnMemory::_private), &uxn->memory->_private,
             true, false, false);
 
-        backgroundImageResource = Resource(ctx, BACKGROUND_IMAGE_BINDING, BACKGROUND_SAMPLER_BINDING,
-            &blitDescriptorSet, &graphicsDescriptorSet, {uxn_width, uxn_height, 0});
-        foregroundImageResource = Resource(ctx, FOREGROUND_IMAGE_BINDING, FOREGROUND_SAMPLER_BINDING,
-            &blitDescriptorSet, &graphicsDescriptorSet, {uxn_width, uxn_height, 0});
+        initImageResources(uxn_width, uxn_height);
         vertexResource = Resource(ctx, VERTEX_LOCATION, &graphicsDescriptorSet,
             VERTICES_SIZE, vertices.data(),
             false, true, false);
@@ -994,6 +1001,13 @@ private:
         if (vkMapMemory(ctx.device, hostSrcMemory, 0, sizeof(UxnMemory::shared), 0, &hostSrcP) != VK_SUCCESS) {
             std::cerr << "Failed to map memory!" << std::endl;
         }
+    }
+
+    void initImageResources(uint32_t width, uint32_t height) {
+        backgroundImageResource = Resource(ctx, BACKGROUND_IMAGE_BINDING, BACKGROUND_SAMPLER_BINDING,
+                                           &blitDescriptorSet, &graphicsDescriptorSet, {width, height, 0});
+        foregroundImageResource = Resource(ctx, FOREGROUND_IMAGE_BINDING, FOREGROUND_SAMPLER_BINDING,
+                                           &blitDescriptorSet, &graphicsDescriptorSet, {width, height, 0});
     }
 
     void initSync() {
@@ -1317,6 +1331,74 @@ private:
         }
     }
 
+    void recreateImageResources(uint32_t width, uint32_t height){
+        // Recreate image resources
+        initImageResources(width, height);
+
+        // Update descriptor sets with new handles
+        for (auto r : {foregroundImageResource, backgroundImageResource}) {
+            r.data.image.imageDescriptorSet->updateImageWrite(ctx, r.data.image.view, r.binding);
+            r.data.image.samplerDescriptorSet->updateSamplerWrite(ctx, r.data.image.view, r.data.image.sampler,
+                                                                   r.data.image.samplerBinding);
+        }
+    }
+
+    void cleanupOnResize() {
+        for (auto framebuffer : ctx.swapChainFramebuffers) {
+            vkDestroyFramebuffer(ctx.device, framebuffer, nullptr);
+        }
+        for (auto imageView : ctx.swapChainImageViews) {
+            vkDestroyImageView(ctx.device, imageView, nullptr);
+        }
+        ctx.swapChainImageViews.clear();
+        vkDestroySwapchainKHR(ctx.device, ctx.swapChain, nullptr);
+        ctx.swapChain = nullptr;
+        backgroundImageResource.destroy();
+        foregroundImageResource.destroy();
+    }
+
+    void centreWindow() {
+        GLFWmonitor *monitor = glfwGetPrimaryMonitor();
+        const GLFWvidmode *mode = glfwGetVideoMode(monitor);
+
+        int xpos = (mode->width - uxn_width) / 2;
+        int ypos = (mode->height - uxn_height) / 2;
+        glfwSetWindowPos(ctx.window, xpos, ypos);
+    }
+
+    void recreateOnResize(uint32_t width, uint32_t height) {
+        LOG("..recreating resources on window resize");
+        vkDeviceWaitIdle(ctx.device);
+
+        cleanupOnResize();
+
+        initSwapChain(width, height);
+        initImageViews();
+        initFrameBuffers();
+        recreateImageResources(width, height);
+        glfwSetWindowSize(ctx.window, width, height);
+
+        centreWindow();
+        LOG("..resize complete\n");
+    }
+
+    void HandleGpuEvent(GPUEvent event) {
+        switch (event.type) {
+        case GPUEventType::Resize: {
+            auto &data = std::get<ResizeData>(event.data);
+            if (data.isWidth){
+                recreateOnResize(data.value, uxn_height);
+                uxn_width = data.value;
+            }
+            else {
+                recreateOnResize(uxn_width, data.value);
+                uxn_height = data.value;
+            }
+            break;
+        }
+        }
+    }
+
     void mainLoop() {
         constexpr int target_FPS = 60;
         constexpr std::chrono::milliseconds frame_duration(1000 / target_FPS);
@@ -1327,6 +1409,7 @@ private:
         auto last_frame_time = std::chrono::steady_clock::now();
         auto current_vector = uxn_device::Null;
         int callback_index = 0;
+        bool show_window = false;
 
         while (!glfwWindowShouldClose(ctx.window) && !uxn->programTerminated()) {
             glfwPollEvents();
@@ -1360,6 +1443,7 @@ private:
                 blitShader();
                 copyDeviceMemToHost(uxn->memory);
                 uxn->handleUxnIO();
+                while (auto event = gpuEventQueue->pop()) HandleGpuEvent(*event);
 
                 // decide if the vector is finished
                 halt_code = uxn->memory->shared.halt;
@@ -1384,6 +1468,7 @@ private:
             auto now_time = std::chrono::steady_clock::now();
             auto elapsed_since_frame = std::chrono::duration_cast<std::chrono::milliseconds>(now_time - last_frame_time);
             if ((elapsed_since_frame >= frame_duration) && halt_code == 1 && did_graphics) {
+                if (!show_window) glfwShowWindow(ctx.window);
                 transitionImagesToReadLayout(nullptr);
                 graphicsStep();
                 transitionImagesToEditLayout(nullptr);
@@ -1498,9 +1583,10 @@ int main(int nargs, char** args) {
         return EXIT_FAILURE;
     }
     auto console = new Console;
-    auto uxn = new Uxn(filename, console);
+    EventQueue gpuEventQueue;
+    auto uxn = new Uxn(filename, console, &gpuEventQueue);
 
-    DeviceController app(debug, uxn, console);
+    DeviceController app(debug, uxn, console, &gpuEventQueue);
     app.logMetrics = logMetrics;
 
     try {
