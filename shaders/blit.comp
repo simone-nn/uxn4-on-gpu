@@ -72,7 +72,7 @@ vec4 get_colour(uint colour_i) {
         uint g = (get_short(SYS_G) >> shift) & 0xF;
         uint b = (get_short(SYS_B) >> shift) & 0xF;
         uvec3 sys_colours = uvec3(r, g, b);
-        return vec4(sys_colours.xyz / 16.0, 1.0);
+        return vec4(sys_colours.xyz / 15.0, 1.0); // max 0xF
     }
     return vec4(1.0, 0.0, 0.0, 1.0);
 }
