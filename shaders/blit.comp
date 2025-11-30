@@ -1,4 +1,16 @@
 #version 450
+//
+// Created by Andrei Ghita
+// Based on the UXN emulator from https://wiki.xxiivv.com/site/uxn.html
+//
+
+// how many instructions should the VM do before halting
+// think of this as a soft timeout
+// uncomment this line if you are getting VK_TIMEOUT errors
+//#define MAX_STEPS 100000
+
+
+// ----------------------  UXN Emu -----------------------------
 
 layout(std140, set = 0, binding = 0) buffer Shared_UXN_Buffer {
     uint pc;
@@ -15,10 +27,30 @@ layout(std140, set = 0, binding = 1) buffer Private_UXN_Buffer {
     uint pRst;
 } uxn;
 
+// layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout (local_size_x = 1) in; // single threaded temporarily
+
+/* VM Registry State */
+struct State {
+    uint a, b, c;
+    uvec2 x, y, z;
+};
+
+/* Unroll */
+#define OPC(opc, init, body) \
+	case 0x00|opc: {const int _2=0,_r=0;init body;} break;\
+	case 0x20|opc: {const int _2=1,_r=0;init body;} break;\
+	case 0x40|opc: {const int _2=0,_r=1;init body;} break;\
+	case 0x60|opc: {const int _2=1,_r=1;init body;} break;\
+	case 0x80|opc: {const int _2=0,_r=0;uint k=uxn.pWst;init uxn.pWst=k;body;} break;\
+	case 0xa0|opc: {const int _2=1,_r=0;uint k=uxn.pWst;init uxn.pWst=k;body;} break;\
+	case 0xc0|opc: {const int _2=0,_r=1;uint k=uxn.pRst;init uxn.pRst=k;body;} break;\
+	case 0xe0|opc: {const int _2=1,_r=1;uint k=uxn.pRst;init uxn.pRst=k;body;} break;\
+
+// ---------------------- Blit -----------------------------
+
 layout(set = 1, binding = 2, rgba8) uniform image2D background;
 layout(set = 1, binding = 3, rgba8) uniform image2D foreground;
-
-layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 // System Device Addresses
 #define SYS_R 0x08
@@ -47,6 +79,8 @@ const uint blending[4][16] = uint[4][16](
     uint[16](1, 2, 3, 1, 1, 2, 3, 1, 1, 2, 3, 1, 1, 2, 3, 1),
     uint[16](2, 3, 1, 2, 2, 3, 1, 2, 2, 3, 1, 2, 2, 3, 1, 2)
 );
+
+// ---------------------- Blit Funcs -----------------------------
 
 uint get_byte(uint addr) {
     return shared_uxn.dev[addr];
@@ -82,7 +116,7 @@ vec4 colour_2bpp(uint sprite_low, uvec2 offset, ivec2 auto_xy, int auto_i) {
     uint addr = get_short(SCREEN_ADDR) + offset.y + (auto_xy.y * auto_i * 8);
     uint ch1 = uxn.ram[addr];
     uint ch2 = uxn.ram[addr + 8];
-    uint pixel_value = ((ch1 >> offset.x) & 1) | (((ch2 >> offset.x) & 1) << 1);
+    uint pixel_value = ((ch1 >> (7 - offset.x)) & 1) | (((ch2 >> (7 - offset.x)) & 1) << 1);
     
     uint opaque = sprite_low % 5;
     uint palette_index = blending[pixel_value][sprite_low];
@@ -97,7 +131,7 @@ vec4 colour_1bpp(uint sprite_low, uvec2 offset, ivec2 auto_xy, int auto_i) {
     // ---------------------- 1 bpp --------------------------------
     uint addr = get_short(SCREEN_ADDR) + offset.y + (auto_xy.y * auto_i * 8);
     uint row = uxn.ram[addr];
-    uint pixel_bit = (row >> offset.x) & 0x1;
+    uint pixel_bit = (row >> (7 - offset.x)) & 0x1;
     
     uint opaque = sprite_low % 5; // for 0, 5, a, f, off bits are left as is
     uint palette_index = blending[pixel_bit][sprite_low];
@@ -108,117 +142,456 @@ vec4 colour_1bpp(uint sprite_low, uvec2 offset, ivec2 auto_xy, int auto_i) {
     return vec4(0, 0, 0, 0);
 }
 
-void main() {
-    uvec2 offset = uvec2(gl_GlobalInvocationID);
-    // pixel requested
-    if (mask(shared_uxn.flags, DRAW_PIXEL_FLAG)) {
+void drawPixel() {
+    uint pixel = get_byte(SCREEN_PIXEL);
+    
+    // Fill mode (bit 7 = 0x80)
+    // if ((pixel & 0x80) == 0 && (offset == uvec2(0, 0))) {
+    if ((pixel & 0x80) == 0 ) {
+        // ---------------------- pixel --------------------------------
+        // coordinates
+        uint x = get_short(SCREEN_X);
+        uint y = get_short(SCREEN_Y);
+        ivec2 coords = ivec2(x, y);
+
+        // colour
         uint pixel = get_byte(SCREEN_PIXEL);
+        vec4 colour = get_colour(pixel & 0x0f);
 
-        if ((pixel & 0x80) == 0 && (offset == uvec2(0, 0))) {
-            // ---------------------- pixel --------------------------------
-            // coordinates
-            uint x = get_short(SCREEN_X);
-            uint y = get_short(SCREEN_Y);
-            ivec2 coords = ivec2(x, y);
+        // editing the image
+        if (pixel / 0x10 == 0x0) {
+            imageStore(background, coords, colour);
+        }
+        if (pixel / 0x10 == 0x4) {
+            imageStore(foreground, coords, colour);
+        }
+    } else {
+        // ---------------------- fill mode -----------------------------
+        bool layer_fg = (pixel & 0x40) != 0;
+        vec4 colour = get_colour(pixel & 0x03);
+        
+        // Calculate fill region based on bits 4 (x range) and 5 (y range)
+        uint x = get_short(SCREEN_X);
+        uint y = get_short(SCREEN_Y);
+        uint width = get_short(SCREEN_WIDTH);
+        uint height = get_short(SCREEN_HEIGHT);
+        
+        uint x1 = ((pixel & 0x10) != 0) ? 0 : x;
+        uint x2 = ((pixel & 0x10) != 0) ? x : width;
+        uint y1 = ((pixel & 0x20) != 0) ? 0 : y;
+        uint y2 = ((pixel & 0x20) != 0) ? y : height;
 
-            // colour
-            uint pixel = get_byte(SCREEN_PIXEL);
-            vec4 colour = get_colour(pixel & 0x0f);
+        // multi-thread version
+        // uvec2 thread_coord = gl_GlobalInvocationID.xy; // (0-7, 0-7)
 
-            // editing the image
-            if (pixel / 0x10 == 0x0) {
-                imageStore(background, coords, colour);
-            }
-            if (pixel / 0x10 == 0x4) {
-                imageStore(foreground, coords, colour);
-            }
-        } else if ((pixel & 0x80) != 0) {
-            // ---------------------- fill mode -----------------------------
-            // layer & colour
-            bool layer_fg = (pixel & 0x40) != 0;
-            vec4 colour = get_colour(pixel & 0x03);
-            
-            // calculate fill region based on screen width and height
-            uint x = get_short(SCREEN_X);
-            uint y = get_short(SCREEN_Y);
-            uint width = get_short(SCREEN_WIDTH);
-            uint height = get_short(SCREEN_HEIGHT);
-            
-            uint x1 = ((pixel & 0x10) != 0) ? 0 : x;
-            uint x2 = ((pixel & 0x10) != 0) ? x : width;
-            uint y1 = ((pixel & 0x20) != 0) ? 0 : y;
-            uint y2 = ((pixel & 0x20) != 0) ? y : height;
+        // // Each thread handles every 8th pixel in x and y
+        // for (uint py = y1 + thread_coord.y; py < y2; py += 8) {
+        //     for (uint px = x1 + thread_coord.x; px < x2; px += 8) {
+        //         if (layer_fg) {
+        //             imageStore(foreground, ivec2(px, py), colour);
+        //         } else {
+        //             imageStore(background, ivec2(px, py), colour);
+        //         }
+        //     }
+        // }
 
-            uvec2 thread_coord = offset.xy; // (0-7, 0-7)
-
-            // each thread handles every 8th pixel in x and y
-            for (uint py = y1 + thread_coord.y; py < y2; py += 8) {
-                for (uint px = x1 + thread_coord.x; px < x2; px += 8) {
-                    if (layer_fg) {
-                        imageStore(foreground, ivec2(px, py), colour);
-                    } else {
-                        imageStore(background, ivec2(px, py), colour);
-                    }
+        // single thread version
+        for (uint py = y1; py < y2; py++) {
+            for (uint px = x1; px < x2; px++) {
+                if (layer_fg) {
+                    imageStore(foreground, ivec2(px, py), colour);
+                } else {
+                    imageStore(background, ivec2(px, py), colour);
                 }
             }
         }
     }
-    // sprite requested
-    else if (mask(shared_uxn.flags, DRAW_SPRITE_FLAG)) {
-        uint sprite = get_byte(SCREEN_SPRITE);
-        uint sprite_low = sprite & 0xf;
-        vec4 v_colour;
+}
+void drawSprite() {
+    uint sprite = get_byte(SCREEN_SPRITE);
+    uint sprite_low = sprite & 0xf;
+    vec4 v_colour;
 
-        // flipped, modes and layer
-        bool mode_is_2bpp = ((sprite >> 7) & 1) != 0; // bit 7 for BPP mode
-        bool layer_is_foreground = ((sprite >> 6) & 1) != 0; // bit 6 for layer
+    // flipped, modes and layer
+    bool mode_is_2bpp = ((sprite >> 7) & 1) != 0;
+    bool layer_is_foreground = ((sprite >> 6) & 1) != 0;
 
-        // coordinates
-        uint x = get_short(SCREEN_X);
-        uint y = get_short(SCREEN_Y);
-        bool y_flipped = ((sprite >> 5) & 1) == 1; // bit 5 for flip-y
-        bool x_flipped = ((sprite >> 4) & 1) == 1; // bit 4 for flip-x
-        ivec2 coords;
+    // coordinates
+    uint x = get_short(SCREEN_X);
+    uint y = get_short(SCREEN_Y);
+    bool y_flipped = ((sprite >> 5) & 1) == 1;
+    bool x_flipped = ((sprite >> 4) & 1) == 1;
+    ivec2 coords = ivec2(x, y);
 
-        coords.x = int(x + (x_flipped ? offset.x : (7 - offset.x)));
-        coords.y = int(y + (y_flipped ? (7 - offset.y) : offset.y));
+    // auto
+    uint auto_byte = get_byte(SCREEN_AUTO);
+    uint auto_length = ((auto_byte >> 4) & 0xf);
+    ivec2 auto_xy = ivec2(auto_byte & 1, (auto_byte >> 1) & 1);
+    auto_xy.x = x_flipped ? (-auto_xy.x) : auto_xy.x;
+    auto_xy.y = y_flipped ? (-auto_xy.y) : auto_xy.y;
+    bool auto_addr = ((auto_byte >> 2) & 1) != 0;
 
-        // auto
-        uint auto_byte = get_byte(SCREEN_AUTO);
-        uint auto_length = ((auto_byte >> 4) & 0xf);
-        ivec2 auto_xy = ivec2(auto_byte & 1, (auto_byte >> 1) & 1);
-        auto_xy.x = x_flipped ? (-auto_xy.x) : auto_xy.x;
-        auto_xy.y = y_flipped ? (-auto_xy.y) : auto_xy.y;
-        //if auto addr bit is set, then the addr needs to be incremented like the coords
-        bool auto_addr = ((auto_byte >> 2) & 1) != 0;
+    // multi-thread version
+    // for (int i = 0; i < auto_length; i ++) {
+    //     ivec2 o = (i * 8) * auto_xy.yx;
 
-        // drawing
-        for (int i = 0; i < auto_length + 1; i ++) {
+    //     // choosing the bpp mode
+    //     vec4 v_colour = mode_is_2bpp ? colour_2bpp(sprite_low, offset, auto_xy, auto_addr ? i : 0)
+    //                                  : colour_1bpp(sprite_low, offset, auto_xy, auto_addr ? i : 0);
 
-            // TODO: fix sprite address increment in multi-thread dispatch
+    //     // if(v_colour == vec4(0, 0, 0, 0)) { continue; }
 
-            ivec2 o = (i * 8) * auto_xy.yx;
+    //     if (layer_is_foreground) {
+    //         imageStore(foreground, coords + o, v_colour);
+    //     } else {
+    //         imageStore(background, coords + o, v_colour);
+    //     }
+    // }
 
-            // choosing the bpp mode
-            vec4 v_colour = mode_is_2bpp ? colour_2bpp(sprite_low, offset, auto_xy, auto_addr ? i : 0)
-                                         : colour_1bpp(sprite_low, offset, auto_xy, auto_addr ? i : 0);
-
-            if (layer_is_foreground) {
-                imageStore(foreground, coords + o, v_colour);
-            } else {
-                imageStore(background, coords + o, v_colour);
+    // single thread version
+    // drawing
+    for (int i = 0; i < auto_length+1; i++) {
+        ivec2 sprite_base = coords + (i * 8) * auto_xy.yx;
+        
+        // Loop through all 8x8 pixels of this sprite
+        for (int py = 0; py < 8; py++) {
+            for (int px = 0; px < 8; px++) {
+                ivec2 pixel_offset = ivec2(px, py);
+                
+                vec4 v_colour = mode_is_2bpp 
+                    ? colour_2bpp(sprite_low, pixel_offset, auto_xy, auto_addr ? i : 0)
+                    : colour_1bpp(sprite_low, pixel_offset, auto_xy, auto_addr ? i : 0);
+                
+                ivec2 write_pos = sprite_base + ivec2(
+                    x_flipped ? (7 - px) : px,
+                    y_flipped ? (7 - py) : py
+                );
+                
+                if (layer_is_foreground) {
+                    imageStore(foreground, write_pos, v_colour);
+                } else {
+                    imageStore(background, write_pos, v_colour);
+                }
             }
         }
 
-        // incrementing the ports
-        memoryBarrier();
-        barrier();
-        if (gl_LocalInvocationIndex == 0) {
-            to_short(x + auto_xy.x * 8, SCREEN_X);
-            to_short(y + auto_xy.y * 8, SCREEN_Y);
-            uint addr = get_short(SCREEN_ADDR);
-            uint s = auto_addr ? (mode_is_2bpp ? 16 : 8) : 0;
-            to_short(addr + s * auto_length, SCREEN_ADDR);
-        }
+        to_short(x + auto_xy.x * 8, SCREEN_X);
+        to_short(y + auto_xy.y * 8, SCREEN_Y);
+        uint addr = get_short(SCREEN_ADDR);
+        uint s = auto_addr ? (mode_is_2bpp ? 16 : 8) : 0;
+        to_short(addr + s * auto_length, SCREEN_ADDR);
     }
+}
+
+// ---------------------- UXN Funcs -----------------------------
+
+/* Microcode */
+void push_wst(uint i) { uxn.wst[uxn.pWst] = i; uxn.pWst++; }
+
+void push_rst(uint i) { uxn.rst[uxn.pRst] = i; uxn.pRst++; }
+
+uint pop_wst() { uxn.pWst--; return uxn.wst[uxn.pWst]; }
+
+uint pop_rst() { uxn.pRst--; return uxn.rst[uxn.pRst]; }
+
+void PUr(uint i, int _r) {
+    if(_r != 0) {
+        push_wst(i);
+    } else {
+        push_rst(i);
+    }
+}
+
+uint PO1(int _r) {
+    return (_r != 0) ? pop_rst() : pop_wst();
+}
+
+uint PO2(int _r) {
+    return (_r != 0) ? pop_rst() | pop_rst() << 8 : pop_wst() | pop_wst() << 8;
+}
+
+uint POx(int _r, int _2) {
+    return (_2 != 0) ? PO2(_r) : PO1(_r);
+}
+
+void PU1(uint i, int _r) {
+    if(_r != 0) {
+        push_rst(i);
+    } else {
+        push_wst(i);
+    }
+}
+
+void PUx(inout State s, uint i, int _r, int _2) {
+    if (_2 != 0) {
+        s.c = i & 0xffff;
+        PU1(s.c >> 8, _r);
+        PU1(s.c, _r);
+    } else {
+        PU1(i % 0xff, _r);
+    }
+}
+
+void PUT(uvec2 i, int _r, int _2) {
+    PU1(i.x, _r);
+    if (_2 != 0) {
+        PU1(i.y, _r);
+    }
+}
+
+void POK(uint i, uvec2 j, uint m, int _r, int _2) {
+    uxn.ram[i] = j.x;
+    if(_2 != 0) {
+        uxn.ram[(i + 1) & m] = j.y;
+    }
+}
+
+void PEK(inout uvec2 o, uint i, uint m, int _r, int _2) {
+    o.x = uxn.ram[i];
+    if (_2 != 0) {
+        o.y = uxn.ram[(i + 1) & m];
+    }
+    PUT(o,_r,_2);
+}
+
+void GET(inout uvec2 v, int _r, int _2) {
+    if(_2 != 0) {
+        v.y = PO1(_r);
+        v.x = PO1(_r);
+    } else {
+        v.x = PO1(_r);
+    }
+}
+
+void JMI(inout State s) {
+    s.a = ((uxn.ram[shared_uxn.pc] & 0xff) << 8) | (uxn.ram[shared_uxn.pc + 1] & 0xff);
+    shared_uxn.pc += 2 + s.a; // 2 comes from the size of the jumpto label
+    shared_uxn.pc = shared_uxn.pc % 0x10000; // ensure 16bit overflow behaviour
+}
+
+void JMP(uint i, int _2) {
+    if (_2 == 0) {
+        // byte mode
+        shared_uxn.pc += (i & 0x7f) - (i & 0x80);
+    } else {
+        // short mode
+        shared_uxn.pc = i & 0xffff;
+    }
+}
+
+void REM(int _r, int _2) {
+    if(_r != 0) {
+        uxn.pRst -= 1 + _2;
+    } else {
+        uxn.pWst -= 1 + _2;
+    }
+}
+
+/* Devices */
+// Flags
+#define DEO_FLAG          0x001
+#define DEO_CONSOLE_FLAG  0x002
+#define DEO_CERROR_FLAG   0x004
+#define DEO_SCREENW_FLAG  0x008
+#define DEO_SCREENH_FLAG  0x010
+#define DEI_CONSOLE_FLAG  0x020
+#define DRAW_PIXEL_FLAG   0x100
+#define DRAW_SPRITE_FLAG  0x200
+
+// input from device
+uvec2 DEI(uint addr, uvec2 o, int _r, int _2) {
+
+    if (addr == 0x12) shared_uxn.flags = DEI_CONSOLE_FLAG;
+
+    o.x = shared_uxn.dev[addr];
+    if (_2 != 0) {
+        o.y = shared_uxn.dev[addr + 1];
+    }
+    PUT(o,_r,_2);
+    return o;
+}
+
+// output to device
+uint DEO(uint addr, uvec2 v, int _2) {
+
+    // cannot resize screen
+    // if (addr == 0x22) return 0;
+    // if (addr == 0x24) return 0;
+
+    // updated support for screen resize
+
+    shared_uxn.dev[addr] = v.x;
+    if (_2 != 0) {
+        shared_uxn.dev[addr + 1] = v.y;
+    }
+
+    shared_uxn.flags |= DEO_FLAG;
+    if (addr == 0x22) shared_uxn.flags |= DEO_SCREENW_FLAG;
+    if (addr == 0x24) shared_uxn.flags |= DEO_SCREENH_FLAG;
+    if (addr == 0x2e) drawPixel();
+    if (addr == 0x2f) drawSprite();
+    if (addr == 0x18) shared_uxn.flags |= DEO_CONSOLE_FLAG;
+    if (addr == 0x19) shared_uxn.flags |= DEO_CERROR_FLAG;
+
+    // no need to halt in a lot of cases, i.e. when writting to Screen/X
+    uint halt = 2 + _2; // halt code for DEO/DEO2
+
+    //todo there might be more ports that can be optimised like this
+    if (addr == 0x26 || addr == 0x28 || addr == 0x2a || addr == 0x2c || addr == 0x2e || addr == 0x2f) {
+        halt = 0; // no need to halt
+    }
+
+    return halt; // halt code for DEO
+}
+
+uint uxn_eval(State state) {
+    // check for shutdown
+	if((shared_uxn.pc == 0) || (shared_uxn.dev[0x0f] != 0)) return 5;
+	// select instruction
+	switch(uxn.ram[shared_uxn.pc++] & 0xff) {
+    /* BRK */ case 0x00: return 1;
+    /* JCI */ case 0x20:
+                if(uxn.wst[--uxn.pWst] != 0) { JMI(state); }
+                else { shared_uxn.pc += 2; }
+                break;
+    /* JMI */ case 0x40: JMI(state); break;
+    /* JSI */ case 0x60:
+                state.c = shared_uxn.pc + 2;
+                push_rst((state.c >> 8) & 0xff);
+                push_rst(state.c & 0xff);
+                JMI(state); break;
+    /* LI2 */ case 0xa0: push_wst(uxn.ram[shared_uxn.pc++]); /* fall-through */
+    /* LIT */ case 0x80: push_wst(uxn.ram[shared_uxn.pc++]); break;
+    /* L2r */ case 0xe0: push_rst(uxn.ram[shared_uxn.pc++]); /* fall-through */
+    /* LIr */ case 0xc0: push_rst(uxn.ram[shared_uxn.pc++]); break;
+    /* INC */ OPC(0x01, state.a = POx(_r, _2);, PUx(state, state.a + 1, _r, _2);)
+    /* POP */ OPC(0x02, REM(_r, _2);, {})
+    /* NIP */ OPC(0x03,
+                  GET(state.x, _r, _2); REM(_r, _2); ,
+                  PUT(state.x, _r, _2); )
+    /* SWP */ OPC(0x04,
+                  GET(state.x, _r, _2); GET(state.y, _r, _2); ,
+                  PUT(state.x, _r, _2); PUT(state.y, _r, _2); )
+    /* ROT */ OPC(0x05,
+                  GET(state.x,_r,_2);
+                  GET(state.y,_r,_2);
+                  GET(state.z,_r,_2); ,
+                  PUT(state.y,_r,_2);
+                  PUT(state.x,_r,_2);
+                  PUT(state.z,_r,_2); )
+    /* DUP */ OPC(0x06,
+                  GET(state.x,_r,_2); ,
+                  PUT(state.x,_r,_2);
+                  PUT(state.x,_r,_2); )
+    /* OVR */ OPC(0x07,
+                  GET(state.x,_r,_2); GET(state.y,_r,_2); ,
+                  PUT(state.y,_r,_2); PUT(state.x,_r,_2); PUT(state.y,_r,_2); )
+    /* EQU */ OPC(0x08,
+                  state.a = POx(_r,_2); state.b = POx(_r,_2); ,
+                  if (state.b == state.a) { PU1(1,_r); }
+                  else { PU1(0,_r); })
+    /* NEQ */ OPC(0x09,
+                  state.a = POx(_r,_2); state.b = POx(_r,_2); ,
+                  if (state.b != state.a) { PU1(1,_r); }
+                  else { PU1(0,_r); })
+    /* GTH */ OPC(0x0a,
+                  state.a = POx(_r,_2); state.b = POx(_r,_2); ,
+                  if (state.b > state.a) { PU1(1,_r); }
+                  else { PU1(0,_r); })
+    /* LTH */ OPC(0x0b,
+                  state.a = POx(_r,_2); state.b = POx(_r,_2); ,
+                  if (state.b < state.a) { PU1(1,_r); }
+                  else { PU1(0,_r); })
+    /* JMP */ OPC(0x0c,
+                  state.a = POx(_r,_2); ,
+                  JMP(state.a, _2); )
+    /* JCN */ OPC(0x0d,
+                  state.a = POx(_r,_2); state.b = PO1(_r); ,
+                  if(state.b != 0) { JMP(state.a, _2); })
+    /* JSR */ OPC(0x0e,
+                  state.a = POx(_r,_2); ,
+                  PUr(shared_uxn.pc >> 8,_r); PUr(shared_uxn.pc,_r); JMP(state.a, _2); )
+    /* STH */ OPC(0x0f,
+                  GET(state.x,_r,_2); ,
+                  PUr(state.x.x,_r);
+                  if(_2 != 0) { PUr(state.x.y,_r); })
+    /* LDZ */ OPC(0x10,
+                  state.a = PO1(_r); ,
+                  PEK(state.x, state.a, 0xff, _r, _2); )
+    /* STZ */ OPC(0x11,
+                  state.a = PO1(_r); GET(state.y,_r,_2); ,
+                  POK(state.a, state.y, 0xff, _r, _2); )
+    /* LDR */ OPC(0x12,
+                  state.a = PO1(_r); ,
+                  PEK(state.x, shared_uxn.pc+ (state.a & 0x7f) - (state.a & 0x80), 0xffff, _r,_2); )
+    /* STR */ OPC(0x13,
+                  state.a = PO1(_r); GET(state.y,_r,_2); ,
+                  POK(shared_uxn.pc+ (state.a & 0x7f) - (state.a & 0x80), state.y, 0xffff, _r,_2); )
+    /* LDA */ OPC(0x14,
+                  state.a = PO2(_r); ,
+                  PEK(state.x, state.a, 0xffff, _r,_2); )
+    /* STA */ OPC(0x15,
+                  state.a = PO2(_r); GET(state.y,_r,_2); ,
+                  POK(state.a, state.y, 0xffff, _r,_2); )
+    /* DEI */ OPC(0x16,
+                  state.a = PO1(_r); ,
+                  state.x = DEI(state.a, state.x, _r,_2); )
+    /* DEO */ OPC(0x17,
+                  state.a = PO1(_r); GET(state.y,_r,_2); ,
+                  return DEO(state.a, state.y, _2); ) // DEO: halt code 2 | DEO2: halt code 3
+    /* ADD */ OPC(0x18,
+                  state.a = POx(_r,_2); state.b = POx(_r,_2); ,
+                  PUx(state, state.b + state.a, _r,_2); )
+    /* SUB */ OPC(0x19,
+                  state.a = POx(_r,_2); state.b = POx(_r,_2); ,
+                  PUx(state, state.b - state.a, _r,_2); )
+    /* MUL */ OPC(0x1a,
+                  state.a = POx(_r,_2); state.b = POx(_r,_2); ,
+                  PUx(state, state.b * state.a, _r,_2); )
+    /* DIV */ OPC(0x1b,
+                  state.a = POx(_r,_2); state.b = POx(_r,_2); ,
+                  if (state.a == 0) { PUx(state, 0, _r,_2); }
+                  else { PUx(state, state.b / state.a, _r,_2); } )
+    /* AND */ OPC(0x1c,
+                  state.a = POx(_r,_2); state.b = POx(_r,_2); ,
+                  PUx(state, state.a & state.b, _r,_2); )
+    /* ORA */ OPC(0x1d,
+                  state.a = POx(_r,_2); state.b = POx(_r,_2); ,
+                  PUx(state, state.a | state.b, _r,_2); )
+    /* EOR */ OPC(0x1e,
+                  state.a = POx(_r,_2); state.b = POx(_r,_2); ,
+                  PUx(state, state.a ^ state.b, _r,_2); )
+    /* SFT */ OPC(0x1f,
+                  state.a = PO1(_r); state.b = POx(_r,_2); ,
+                  PUx(state, state.b >> (state.a & 0xf) << (state.a >> 4), _r,_2); )
+              default: return 4; // Crash
+	}
+	return 0; // Continue execution
+}
+
+// ---------------------- Main -----------------------------
+
+void main() {
+    State state = {0, 0, 0, uvec2(0,0), uvec2(0,0), uvec2(0,0)};
+    shared_uxn.flags = 0;
+    shared_uxn.halt = 0;
+
+    // Run the next Uxn instruction
+    // possible halt codes:
+    // 0 - halt not needed; continue evaluation
+    // 1 - BRK encountered
+    // 2 - DEO halt
+    // 3 - DEO2 halt
+    // 4 - opcode not recognised
+    // 5 - shutdown
+    uint steps = 0;
+#ifdef MAX_STEPS
+    while (shared_uxn.halt == 0 && steps < 1000) {
+#else
+    while (shared_uxn.halt == 0) {
+#endif
+        shared_uxn.halt = uxn_eval(state);
+        steps++;
+    }
+    shared_uxn.dev[0] = uxn.wst[uxn.pWst-1];
 }

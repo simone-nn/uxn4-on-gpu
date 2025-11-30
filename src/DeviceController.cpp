@@ -1427,8 +1427,7 @@ private:
 
             if (in_vector) {
                 // compute steps
-                uxnEvalShader();
-                blitShader();
+                blitShader(); // Combined uxn + blit shader
                 copyDeviceMemToHost(uxn->memory);
                 uxn->handleUxnIO();
                 while (auto event = gpuEventQueue->pop()) HandleGpuEvent(*event);
