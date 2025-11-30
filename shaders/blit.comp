@@ -121,34 +121,67 @@ vec4 colour_1bpp(uint sprite_low, uvec2 offset, ivec2 auto_xy, int auto_i) {
 void main() {
     uvec2 offset = uvec2(gl_GlobalInvocationID);
     // pixel requested
-    if (mask(shared_uxn.flags, DRAW_PIXEL_FLAG) && (offset == uvec2(0, 0))) {
-        // ---------------------- pixel --------------------------------
-        // coordinates
-        uint x = get_short(SCREEN_X);
-        uint y = get_short(SCREEN_Y);
-        ivec2 coords = ivec2(x, y);
-
-        // colour
+    if (mask(shared_uxn.flags, DRAW_PIXEL_FLAG)) {
         uint pixel = get_byte(SCREEN_PIXEL);
-        vec4 colour = get_colour(pixel & 0x0f);
 
-        // editing the image
-        if (pixel / 0x10 == 0x0) {
-            imageStore(background, coords, colour);
-        }
-        if (pixel / 0x10 == 0x4) {
-            imageStore(foreground, coords, colour);
+        if ((pixel & 0x80) == 0 && (offset == uvec2(0, 0))) {
+            // ---------------------- pixel --------------------------------
+            // coordinates
+            uint x = get_short(SCREEN_X);
+            uint y = get_short(SCREEN_Y);
+            ivec2 coords = ivec2(x, y);
+
+            // colour
+            uint pixel = get_byte(SCREEN_PIXEL);
+            vec4 colour = get_colour(pixel & 0x0f);
+
+            // editing the image
+            if (pixel / 0x10 == 0x0) {
+                imageStore(background, coords, colour);
+            }
+            if (pixel / 0x10 == 0x4) {
+                imageStore(foreground, coords, colour);
+            }
+        } else if ((pixel & 0x80) != 0) {
+            // ---------------------- fill mode -----------------------------
+            // layer & colour
+            bool layer_fg = (pixel & 0x40) != 0;
+            vec4 colour = get_colour(pixel & 0x03);
+            
+            // calculate fill region based on screen width and height
+            uint x = get_short(SCREEN_X);
+            uint y = get_short(SCREEN_Y);
+            uint width = get_short(SCREEN_WIDTH);
+            uint height = get_short(SCREEN_HEIGHT);
+            
+            uint x1 = ((pixel & 0x10) != 0) ? 0 : x;
+            uint x2 = ((pixel & 0x10) != 0) ? x : width;
+            uint y1 = ((pixel & 0x20) != 0) ? 0 : y;
+            uint y2 = ((pixel & 0x20) != 0) ? y : height;
+
+            uvec2 thread_coord = offset.xy; // (0-7, 0-7)
+
+            // each thread handles every 8th pixel in x and y
+            for (uint py = y1 + thread_coord.y; py < y2; py += 8) {
+                for (uint px = x1 + thread_coord.x; px < x2; px += 8) {
+                    if (layer_fg) {
+                        imageStore(foreground, ivec2(px, py), colour);
+                    } else {
+                        imageStore(background, ivec2(px, py), colour);
+                    }
+                }
+            }
         }
     }
     // sprite requested
-    if (mask(shared_uxn.flags, DRAW_SPRITE_FLAG)) {
+    else if (mask(shared_uxn.flags, DRAW_SPRITE_FLAG)) {
         uint sprite = get_byte(SCREEN_SPRITE);
         uint sprite_low = sprite & 0xf;
         vec4 v_colour;
 
         // flipped, modes and layer
         bool mode_is_2bpp = ((sprite >> 11) & 1) != 0;
-        bool layer_is_foreground = ((sprite >> 10) & 1) != 0;
+        bool layer_is_foreground = ((sprite >> 6) & 1) != 0; // bit 6 for layer
 
         // coordinates
         uint x = get_short(SCREEN_X);
@@ -176,8 +209,6 @@ void main() {
             // choosing the bpp mode
             vec4 v_colour = mode_is_2bpp ? colour_2bpp(sprite_low, offset, auto_xy, auto_addr ? i : 0)
                                          : colour_1bpp(sprite_low, offset, auto_xy, auto_addr ? i : 0);
-
-            if(v_colour == vec4(0, 0, 0, 0)) { continue; }
 
             if (layer_is_foreground) {
                 imageStore(foreground, coords + o, v_colour);

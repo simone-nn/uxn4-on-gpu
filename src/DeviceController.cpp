@@ -1405,7 +1405,6 @@ private:
 
         glm::uint halt_code = 0;
         bool in_vector = true, did_graphics = true;
-        bool cleared = false;
         auto last_frame_time = std::chrono::steady_clock::now();
         auto current_vector = uxn_device::Null;
         int callback_index = 0;
@@ -1429,17 +1428,6 @@ private:
             if (in_vector) {
                 // compute steps
                 uxnEvalShader();
-                // when it halts from an uxn eval, we need to figure out whenever or not
-                // to clear the screen before the blit shader
-                // the issue is: we need to clear the screen before we draw to it,
-                // and we should only draw onto the screen if it has been drawn
-                if (!cleared) {
-                    copyDeviceMemToHost(uxn->memory);
-                    if (uxn->maskFlag(DRAW_PIXEL_FLAG) || uxn->maskFlag(DRAW_SPRITE_FLAG)) {
-                        cleared = true;
-                        clearImage(nullptr);
-                    }
-                }
                 blitShader();
                 copyDeviceMemToHost(uxn->memory);
                 uxn->handleUxnIO();
@@ -1477,7 +1465,6 @@ private:
                 last_frame_time = std::chrono::steady_clock::now();
                 callback_index = 0;
                 did_graphics = false;
-                cleared = false;
             }
             if (!in_vector) current_vector = uxn_device::Null;
 
