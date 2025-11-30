@@ -281,10 +281,10 @@ uint uxn_eval(State state) {
                   POK(state.a, state.y, 0xff, _r, _2); )
     /* LDR */ OPC(0x12,
                   state.a = PO1(_r); ,
-                  PEK(state.x, shared_uxn.pc + state.a, 0xffff, _r,_2); )
+                  PEK(state.x, shared_uxn.pc+ (state.a & 0x7f) - (state.a & 0x80), 0xffff, _r,_2); )
     /* STR */ OPC(0x13,
                   state.a = PO1(_r); GET(state.y,_r,_2); ,
-                  POK(shared_uxn.pc + state.a, state.y, 0xffff, _r,_2); )
+                  POK(shared_uxn.pc+ (state.a & 0x7f) - (state.a & 0x80), state.y, 0xffff, _r,_2); )
     /* LDA */ OPC(0x14,
                   state.a = PO2(_r); ,
                   PEK(state.x, state.a, 0xffff, _r,_2); )
