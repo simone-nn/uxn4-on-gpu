@@ -1445,6 +1445,12 @@ private:
                     << ", pc=0x" << uxn->memory->shared.pc - 0x100
                     << " (real=0x" << uxn->memory->shared.pc << ")\n"
                     << " top stack value=" << uxn->memory->shared.dev[0] << "\n"
+                    << " para ctrl=" << uxn->memory->shared.dev[0xd0] << "\n"
+                    << " para lower=" << uxn->memory->shared.dev[0xd2] << "\n"
+                    << " para upper=" << uxn->memory->shared.dev[0xd4] << "\n"
+                    << " para comm=" << uxn->memory->shared.dev[0xd5] << "\n"
+                    << " para comm1=" << uxn->memory->shared.dev[0xd6] << "\n"
+                    << " para comm2=" << uxn->memory->shared.dev[0xd7] << "\n"
                     << " last instructions: " << uxn->memory->_private.ram[uxn->memory->shared.pc-1]
                     << ", " << uxn->memory->_private.ram[uxn->memory->shared.pc-2]
                     << ", " << uxn->memory->_private.ram[uxn->memory->shared.pc-3]

@@ -12,14 +12,14 @@
 
 // ----------------------  UXN Emu -----------------------------
 
-layout(std140, set = 0, binding = 0) buffer Shared_UXN_Buffer {
+layout(std430, set = 0, binding = 0) buffer Shared_UXN_Buffer {
     uint pc;
     uint dev[256];  // device data
     uint flags;
     uint halt;
 } shared_uxn;
 
-layout(std140, set = 0, binding = 1) buffer Private_UXN_Buffer {
+layout(std430, set = 0, binding = 1) buffer Private_UXN_Buffer {
     uint ram[65536];
     uint wst[256];  // working stack
     uint pWst;
@@ -27,14 +27,23 @@ layout(std140, set = 0, binding = 1) buffer Private_UXN_Buffer {
     uint pRst;
 } uxn;
 
-// layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
-layout (local_size_x = 1) in; // single threaded temporarily
+layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
+// layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in; // single threaded temporarily
 
 /* VM Registry State */
 struct State {
     uint a, b, c;
     uvec2 x, y, z;
 };
+
+// Invocation-local variables
+uint local_wst[256];
+uint local_rst[256];
+uint local_pWst = 0;
+uint local_pRst;
+uint local_pc;
+uint local_dev[16];
+bool lastWorker;
 
 /* Unroll */
 #define OPC(opc, init, body) \
@@ -47,10 +56,23 @@ struct State {
 	case 0xc0|opc: {const int _2=0,_r=1;uint k=uxn.pRst;init uxn.pRst=k;body;} break;\
 	case 0xe0|opc: {const int _2=1,_r=1;uint k=uxn.pRst;init uxn.pRst=k;body;} break;\
 
+/* Local OPC */
+#define OPC_LOCAL(opc, init, body) \
+	case 0x00|opc: {const int _2=0,_r=0;init body;} break;\
+	case 0x20|opc: {const int _2=1,_r=0;init body;} break;\
+	case 0x40|opc: {const int _2=0,_r=1;init body;} break;\
+	case 0x60|opc: {const int _2=1,_r=1;init body;} break;\
+	case 0x80|opc: {const int _2=0,_r=0;uint k=local_pWst;init local_pWst=k;body;} break;\
+	case 0xa0|opc: {const int _2=1,_r=0;uint k=local_pWst;init local_pWst=k;body;} break;\
+	case 0xc0|opc: {const int _2=0,_r=1;uint k=local_pRst;init local_pRst=k;body;} break;\
+	case 0xe0|opc: {const int _2=1,_r=1;uint k=local_pRst;init local_pRst=k;body;} break;\
+
 // ---------------------- Blit -----------------------------
 
 layout(set = 1, binding = 2, rgba8) uniform image2D background;
 layout(set = 1, binding = 3, rgba8) uniform image2D foreground;
+
+shared bool workerFlag;
 
 // System Device Addresses
 #define SYS_R 0x08
@@ -66,6 +88,11 @@ layout(set = 1, binding = 3, rgba8) uniform image2D foreground;
 #define SCREEN_ADDR     0x2c
 #define SCREEN_PIXEL    0x2e
 #define SCREEN_SPRITE   0x2f
+// Paralleliser Device Addresses
+#define PARA_CTRL       0xd0
+#define PARA_LOW        0xd1
+#define PARA_UP         0xd3
+#define PARA_COMM       0xd5
 // Flags
 #define DRAW_PIXEL_FLAG  0x100
 #define DRAW_SPRITE_FLAG 0x200
@@ -283,6 +310,168 @@ void drawSprite() {
     }
 }
 
+
+// ---------------------- Blit Funcs (Local) -----------------------------
+
+uint get_byte_local(uint addr) {
+    return local_dev[addr & 0x0f];
+}
+
+uint get_short_local(uint addr) {
+    uint index = addr & 0x0f;
+    return (local_dev[index] << 8) | local_dev[index + 1];
+}
+
+void to_short_local(uint v, uint addr) {
+    uint index = addr & 0x0f;
+    local_dev[index]     = (v >> 8) & 0xff;
+    local_dev[index + 1] =  v       & 0xff;
+}
+
+vec4 colour_2bpp_local(uint sprite_low, uvec2 offset, ivec2 auto_xy, int auto_i) {
+    uint addr = get_short_local(SCREEN_ADDR) + offset.y + (auto_xy.y * auto_i * 8);
+    uint ch1 = uxn.ram[addr];
+    uint ch2 = uxn.ram[addr + 8];
+    uint pixel_value = ((ch1 >> (7 - offset.x)) & 1) | (((ch2 >> (7 - offset.x)) & 1) << 1);
+    
+    uint opaque = sprite_low % 5;
+    uint palette_index = blending[pixel_value][sprite_low];
+    
+    if (opaque != 0 || pixel_value != 0) {
+        return get_colour(palette_index);
+    }
+    return vec4(0, 0, 0, 0);
+}
+
+vec4 colour_1bpp_local(uint sprite_low, uvec2 offset, ivec2 auto_xy, int auto_i) {
+    uint addr = get_short_local(SCREEN_ADDR) + offset.y + (auto_xy.y * auto_i * 8);
+    uint row = uxn.ram[addr];
+    uint pixel_bit = (row >> (7 - offset.x)) & 0x1;
+    
+    uint opaque = sprite_low % 5;
+    uint palette_index = blending[pixel_bit][sprite_low];
+    
+    if (opaque != 0 || pixel_bit != 0) {
+        return get_colour(palette_index);
+    }
+    return vec4(0, 0, 0, 0);
+}
+
+void drawPixel_local() {
+    uint pixel = get_byte_local(SCREEN_PIXEL);
+    
+    if ((pixel & 0x80) == 0) {
+        uint x = get_short_local(SCREEN_X);
+        uint y = get_short_local(SCREEN_Y);
+        ivec2 coords = ivec2(x, y);
+
+        vec4 colour = get_colour(pixel & 0x0f);
+
+        if (pixel / 0x10 == 0x0) {
+            imageStore(background, coords, colour);
+        }
+        if (pixel / 0x10 == 0x4) {
+            imageStore(foreground, coords, colour);
+        }
+    } else {
+        bool layer_fg = (pixel & 0x40) != 0;
+        vec4 colour = get_colour(pixel & 0x03);
+        
+        uint x = get_short_local(SCREEN_X);
+        uint y = get_short_local(SCREEN_Y);
+        uint width = get_short_local(SCREEN_WIDTH);
+        uint height = get_short_local(SCREEN_HEIGHT);
+        
+        uint x1 = ((pixel & 0x10) != 0) ? 0 : x;
+        uint x2 = ((pixel & 0x10) != 0) ? x : width;
+        uint y1 = ((pixel & 0x20) != 0) ? 0 : y;
+        uint y2 = ((pixel & 0x20) != 0) ? y : height;
+
+        for (uint py = y1; py < y2; py++) {
+            for (uint px = x1; px < x2; px++) {
+                if (layer_fg) {
+                    imageStore(foreground, ivec2(px, py), colour);
+                } else {
+                    imageStore(background, ivec2(px, py), colour);
+                }
+            }
+        }
+    }
+}
+
+void drawSprite_local() {
+    uint sprite = get_byte_local(SCREEN_SPRITE);
+    uint sprite_low = sprite & 0xf;
+
+    bool mode_is_2bpp = ((sprite >> 7) & 1) != 0;
+    bool layer_is_foreground = ((sprite >> 6) & 1) != 0;
+
+    uint x = get_short_local(SCREEN_X);
+    uint y = get_short_local(SCREEN_Y);
+    bool y_flipped = ((sprite >> 5) & 1) == 1;
+    bool x_flipped = ((sprite >> 4) & 1) == 1;
+    ivec2 coords = ivec2(x, y);
+
+    uint auto_byte = get_byte_local(SCREEN_AUTO);
+    uint auto_length = ((auto_byte >> 4) & 0xf);
+    ivec2 auto_xy = ivec2(auto_byte & 1, (auto_byte >> 1) & 1);
+    auto_xy.x = x_flipped ? (-auto_xy.x) : auto_xy.x;
+    auto_xy.y = y_flipped ? (-auto_xy.y) : auto_xy.y;
+    bool auto_addr = ((auto_byte >> 2) & 1) != 0;
+
+    for (int i = 0; i < auto_length + 1; i++) {
+        ivec2 sprite_base = coords + (i * 8) * auto_xy.yx;
+        
+        for (int py = 0; py < 8; py++) {
+            for (int px = 0; px < 8; px++) {
+                ivec2 pixel_offset = ivec2(px, py);
+                
+                vec4 v_colour = mode_is_2bpp 
+                    ? colour_2bpp_local(sprite_low, pixel_offset, auto_xy, auto_addr ? i : 0)
+                    : colour_1bpp_local(sprite_low, pixel_offset, auto_xy, auto_addr ? i : 0);
+                
+                ivec2 write_pos = sprite_base + ivec2(
+                    x_flipped ? (7 - px) : px,
+                    y_flipped ? (7 - py) : py
+                );
+                
+                if (layer_is_foreground) {
+                    imageStore(foreground, write_pos, v_colour);
+                } else {
+                    imageStore(background, write_pos, v_colour);
+                }
+            }
+        }
+
+        to_short_local(x + auto_xy.x * 8, SCREEN_X);
+        to_short_local(y + auto_xy.y * 8, SCREEN_Y);
+        uint addr = get_short_local(SCREEN_ADDR);
+        uint s = auto_addr ? (mode_is_2bpp ? 16 : 8) : 0;
+        to_short_local(addr + s * auto_length, SCREEN_ADDR);
+    }
+}
+
+// ---------------------- Parallel Funcs -----------------------------
+
+void parallel_loop(){
+    uint ctr = get_byte(PARA_CTRL);
+    if (ctr == 1) workerFlag = true;
+}
+
+uint end_parallel_loop(uint addr, uvec2 v, int _2){
+    if (lastWorker) {
+        shared_uxn.pc = local_pc;
+        shared_uxn.dev[addr] = v.x; // Para Crtl
+        if (_2 != 0) {
+            shared_uxn.dev[addr + 1] = v.y;
+            }
+        for (uint i = 0; i < 16; i++) {
+            shared_uxn.dev[0x20 + i] = local_dev[i];
+        }
+    }
+    return 2;
+}
+
 // ---------------------- UXN Funcs -----------------------------
 
 /* Microcode */
@@ -432,12 +621,13 @@ uint DEO(uint addr, uvec2 v, int _2) {
     if (addr == 0x2f) drawSprite();
     if (addr == 0x18) shared_uxn.flags |= DEO_CONSOLE_FLAG;
     if (addr == 0x19) shared_uxn.flags |= DEO_CERROR_FLAG;
+    if (addr == 0xd0) parallel_loop();
 
     // no need to halt in a lot of cases, i.e. when writting to Screen/X
     uint halt = 2 + _2; // halt code for DEO/DEO2
 
     //todo there might be more ports that can be optimised like this
-    if (addr == 0x26 || addr == 0x28 || addr == 0x2a || addr == 0x2c || addr == 0x2e || addr == 0x2f) {
+    if (addr == 0x26 || addr == 0x28 || addr == 0x2a || addr == 0x2c || addr == 0x2e || addr == 0x2f || (addr & 0xf0) == 0xd0){
         halt = 0; // no need to halt
     }
 
@@ -569,10 +759,277 @@ uint uxn_eval(State state) {
 	return 0; // Continue execution
 }
 
+
+// ---------------------- UXN Funcs (LOCAL) -----------------------------
+
+/* Microcode */
+void push_wst_local(uint i) { local_wst[local_pWst] = i; local_pWst++; }
+
+void push_rst_local(uint i) { local_rst[local_pRst] = i; local_pRst++; }
+
+uint pop_wst_local() { local_pWst--; return local_wst[local_pWst]; }
+
+uint pop_rst_local() { local_pRst--; return local_rst[local_pRst]; }
+
+void PUr_local(uint i, int _r) {
+    if(_r != 0) {
+        push_wst_local(i);
+    } else {
+        push_rst_local(i);
+    }
+}
+
+uint PO1_local(int _r) {
+    return (_r != 0) ? pop_rst_local() : pop_wst_local();
+}
+
+uint PO2_local(int _r) {
+    return (_r != 0) ? pop_rst_local() | pop_rst_local() << 8 : pop_wst_local() | pop_wst_local() << 8;
+}
+
+uint POx_local(int _r, int _2) {
+    return (_2 != 0) ? PO2_local(_r) : PO1_local(_r);
+}
+
+void PU1_local(uint i, int _r) {
+    if(_r != 0) {
+        push_rst_local(i);
+    } else {
+        push_wst_local(i);
+    }
+}
+
+void PUx_local(inout State s, uint i, int _r, int _2) {
+    if (_2 != 0) {
+        s.c = i & 0xffff;
+        PU1_local(s.c >> 8, _r);
+        PU1_local(s.c, _r);
+    } else {
+        PU1_local(i % 0xff, _r);
+    }
+}
+
+void PUT_local(uvec2 i, int _r, int _2) {
+    PU1_local(i.x, _r);
+    if (_2 != 0) {
+        PU1_local(i.y, _r);
+    }
+}
+
+void POK_local(uint i, uvec2 j, uint m, int _r, int _2) {
+    uxn.ram[i] = j.x;
+    if(_2 != 0) {
+        uxn.ram[(i + 1) & m] = j.y;
+    }
+}
+
+void PEK_local(inout uvec2 o, uint i, uint m, int _r, int _2) {
+    o.x = uxn.ram[i];
+    if (_2 != 0) {
+        o.y = uxn.ram[(i + 1) & m];
+    }
+    PUT_local(o,_r,_2);
+}
+
+void GET_local(inout uvec2 v, int _r, int _2) {
+    if(_2 != 0) {
+        v.y = PO1_local(_r);
+        v.x = PO1_local(_r);
+    } else {
+        v.x = PO1_local(_r);
+    }
+}
+
+void JMI_local(inout State s) {
+    s.a = ((uxn.ram[local_pc] & 0xff) << 8) | (uxn.ram[local_pc + 1] & 0xff);
+    local_pc += 2 + s.a;
+    local_pc = local_pc % 0x10000;
+}
+
+void JMP_local(uint i, int _2) {
+    if (_2 == 0) {
+        local_pc += (i & 0x7f) - (i & 0x80);
+    } else {
+        local_pc = i & 0xffff;
+    }
+}
+
+void REM_local(int _r, int _2) {
+    if(_r != 0) {
+        local_pRst -= 1 + _2;
+    } else {
+        local_pWst -= 1 + _2;
+    }
+}
+
+/* Devices */
+uvec2 DEI_local(uint addr, uvec2 o, int _r, int _2) {
+    // Workers use local device page for screen (0x20-0x2f)
+    if (addr >= 0x20 && addr < 0x30) {
+        o.x = local_dev[addr - 0x20];
+        if (_2 != 0) {
+            o.y = local_dev[addr - 0x20 + 1];
+        }
+    } else {
+        o.x = shared_uxn.dev[addr];
+        if (_2 != 0) {
+            o.y = shared_uxn.dev[addr + 1];
+        }
+    }
+    PUT_local(o,_r,_2);
+    return o;
+}
+
+uint DEO_local(uint addr, uvec2 v, int _2) {
+    // Parallel device check
+    if (addr == 0xd0) {
+        return end_parallel_loop(addr, v, _2);
+    }
+    
+    // Screen ports
+    if ((addr & 0xf0) == 0x20) {
+        uint index = addr & 0x0f;
+        local_dev[index] = v.x;
+        if (_2 != 0) {
+            local_dev[index + 1] = v.y;
+        }
+        
+        if (addr == 0x2e) drawPixel_local();
+        if (addr == 0x2f) drawSprite_local();
+    }
+    
+    return 0;  // Workers don't halt on screen DEO
+}
+
+uint uxn_eval_local(State state) {
+    if(local_pc > 0xffff) return 5;
+    switch(uxn.ram[local_pc++] & 0xff) {
+    case 0x00: return 1;
+    case 0x20:
+                if(local_wst[--local_pWst] != 0) { JMI_local(state); }
+                else { local_pc += 2; }
+                break;
+    case 0x40: JMI_local(state); break;
+    case 0x60:
+                state.c = local_pc + 2;
+                push_rst_local((state.c >> 8) & 0xff);
+                push_rst_local(state.c & 0xff);
+                JMI_local(state); break;
+    case 0xa0: push_wst_local(uxn.ram[local_pc++]);
+    case 0x80: push_wst_local(uxn.ram[local_pc++]); break;
+    case 0xe0: push_rst_local(uxn.ram[local_pc++]);
+    case 0xc0: push_rst_local(uxn.ram[local_pc++]); break;
+    OPC_LOCAL(0x01, state.a = POx_local(_r, _2);, PUx_local(state, state.a + 1, _r, _2);)
+    OPC_LOCAL(0x02, REM_local(_r, _2);, {})
+    OPC_LOCAL(0x03,
+                  GET_local(state.x, _r, _2); REM_local(_r, _2); ,
+                  PUT_local(state.x, _r, _2); )
+    OPC_LOCAL(0x04,
+                  GET_local(state.x, _r, _2); GET_local(state.y, _r, _2); ,
+                  PUT_local(state.x, _r, _2); PUT_local(state.y, _r, _2); )
+    OPC_LOCAL(0x05,
+                  GET_local(state.x,_r,_2);
+                  GET_local(state.y,_r,_2);
+                  GET_local(state.z,_r,_2); ,
+                  PUT_local(state.y,_r,_2);
+                  PUT_local(state.x,_r,_2);
+                  PUT_local(state.z,_r,_2); )
+    OPC_LOCAL(0x06,
+                  GET_local(state.x,_r,_2); ,
+                  PUT_local(state.x,_r,_2);
+                  PUT_local(state.x,_r,_2); )
+    OPC_LOCAL(0x07,
+                  GET_local(state.x,_r,_2); GET_local(state.y,_r,_2); ,
+                  PUT_local(state.y,_r,_2); PUT_local(state.x,_r,_2); PUT_local(state.y,_r,_2); )
+    OPC_LOCAL(0x08,
+                  state.a = POx_local(_r,_2); state.b = POx_local(_r,_2); ,
+                  if (state.b == state.a) { PU1_local(1,_r); }
+                  else { PU1_local(0,_r); })
+    OPC_LOCAL(0x09,
+                  state.a = POx_local(_r,_2); state.b = POx_local(_r,_2); ,
+                  if (state.b != state.a) { PU1_local(1,_r); }
+                  else { PU1_local(0,_r); })
+    OPC_LOCAL(0x0a,
+                  state.a = POx_local(_r,_2); state.b = POx_local(_r,_2); ,
+                  if (state.b > state.a) { PU1_local(1,_r); }
+                  else { PU1_local(0,_r); })
+    OPC_LOCAL(0x0b,
+                  state.a = POx_local(_r,_2); state.b = POx_local(_r,_2); ,
+                  if (state.b < state.a) { PU1_local(1,_r); }
+                  else { PU1_local(0,_r); })
+    OPC_LOCAL(0x0c,
+                  state.a = POx_local(_r,_2); ,
+                  JMP_local(state.a, _2); )
+    OPC_LOCAL(0x0d,
+                  state.a = POx_local(_r,_2); state.b = PO1_local(_r); ,
+                  if(state.b != 0) { JMP_local(state.a, _2); })
+    OPC_LOCAL(0x0e,
+                  state.a = POx_local(_r,_2); ,
+                  PUr_local(local_pc >> 8,_r); PUr_local(local_pc,_r); JMP_local(state.a, _2); )
+    OPC_LOCAL(0x0f,
+                  GET_local(state.x,_r,_2); ,
+                  PUr_local(state.x.x,_r);
+                  if(_2 != 0) { PUr_local(state.x.y,_r); })
+    OPC_LOCAL(0x10,
+                  state.a = PO1_local(_r); ,
+                  PEK_local(state.x, state.a, 0xff, _r, _2); )
+    OPC_LOCAL(0x11,
+                  state.a = PO1_local(_r); GET_local(state.y,_r,_2); ,
+                  POK_local(state.a, state.y, 0xff, _r, _2); )
+    OPC_LOCAL(0x12,
+                  state.a = PO1_local(_r); ,
+                  PEK_local(state.x, local_pc+ (state.a & 0x7f) - (state.a & 0x80), 0xffff, _r,_2); )
+    OPC_LOCAL(0x13,
+                  state.a = PO1_local(_r); GET_local(state.y,_r,_2); ,
+                  POK_local(local_pc+ (state.a & 0x7f) - (state.a & 0x80), state.y, 0xffff, _r,_2); )
+    OPC_LOCAL(0x14,
+                  state.a = PO2_local(_r); ,
+                  PEK_local(state.x, state.a, 0xffff, _r,_2); )
+    OPC_LOCAL(0x15,
+                  state.a = PO2_local(_r); GET_local(state.y,_r,_2); ,
+                  POK_local(state.a, state.y, 0xffff, _r,_2); )
+    OPC_LOCAL(0x16,
+                  state.a = PO1_local(_r); ,
+                  state.x = DEI_local(state.a, state.x, _r,_2); )
+    OPC_LOCAL(0x17,
+                  state.a = PO1_local(_r); GET_local(state.y,_r,_2); ,
+                  return DEO_local(state.a, state.y, _2); )
+    OPC_LOCAL(0x18,
+                  state.a = POx_local(_r,_2); state.b = POx_local(_r,_2); ,
+                  PUx_local(state, state.b + state.a, _r,_2); )
+    OPC_LOCAL(0x19,
+                  state.a = POx_local(_r,_2); state.b = POx_local(_r,_2); ,
+                  PUx_local(state, state.b - state.a, _r,_2); )
+    OPC_LOCAL(0x1a,
+                  state.a = POx_local(_r,_2); state.b = POx_local(_r,_2); ,
+                  PUx_local(state, state.b * state.a, _r,_2); )
+    OPC_LOCAL(0x1b,
+                  state.a = POx_local(_r,_2); state.b = POx_local(_r,_2); ,
+                  if (state.a == 0) { PUx_local(state, 0, _r,_2); }
+                  else { PUx_local(state, state.b / state.a, _r,_2); } )
+    OPC_LOCAL(0x1c,
+                  state.a = POx_local(_r,_2); state.b = POx_local(_r,_2); ,
+                  PUx_local(state, state.a & state.b, _r,_2); )
+    OPC_LOCAL(0x1d,
+                  state.a = POx_local(_r,_2); state.b = POx_local(_r,_2); ,
+                  PUx_local(state, state.a | state.b, _r,_2); )
+    OPC_LOCAL(0x1e,
+                  state.a = POx_local(_r,_2); state.b = POx_local(_r,_2); ,
+                  PUx_local(state, state.a ^ state.b, _r,_2); )
+    OPC_LOCAL(0x1f,
+                  state.a = PO1_local(_r); state.b = POx_local(_r,_2); ,
+                  PUx_local(state, state.b >> (state.a & 0xf) << (state.a >> 4), _r,_2); )
+              default: return 4;
+	}
+	return 0;
+}
+
 // ---------------------- Main -----------------------------
 
 void main() {
+    uint tid = gl_GlobalInvocationID.x;
     State state = {0, 0, 0, uvec2(0,0), uvec2(0,0), uvec2(0,0)};
+    // Main thread
     shared_uxn.flags = 0;
     shared_uxn.halt = 0;
 
@@ -590,8 +1047,62 @@ void main() {
 #else
     while (shared_uxn.halt == 0) {
 #endif
-        shared_uxn.halt = uxn_eval(state);
-        steps++;
+    if (tid == 0){ // Main invocation
+            workerFlag = false;
+            shared_uxn.halt = uxn_eval(state);
+            steps++;
+    }
+    barrier();
+    if (tid > 0 && workerFlag == true) { // Worker invocations
+
+        // Calculate interation range, exit if the current invocation is not needed
+        uint numWorkers = gl_WorkGroupSize.x - 1;
+        uint workerId = tid - 1;
+        uint lower = get_short(PARA_LOW);
+        uint upper = get_short(PARA_UP);
+        uint num_iter = upper - lower;
+
+        if (workerId >= num_iter) continue;
+
+        uint chunkSize = (num_iter + numWorkers - 1) / numWorkers;
+        uint start = lower + workerId * chunkSize;
+        uint end = min(start + chunkSize, upper);
+
+        if (start >= end) continue;
+
+        // Initialise local variables
+        uint work_finished = 0;
+
+        local_pRst = local_pWst = 0;
+        lastWorker = false;
+
+        // Clear local stack
+        for (int i = 0; i < 256; i++) {
+            local_wst[i] = 0;
+            local_rst[i] = 0;
+        }
+
+        // Copy data from the SSBO
+        local_pc = shared_uxn.pc;
+        for (uint i = 0; i < 16; i++) {
+            local_dev[i] = shared_uxn.dev[0x20 + i];
+        }
+
+        // Populate stack
+        push_wst_local(end >> 8);
+        push_wst_local(end);
+        push_wst_local(start >> 8);
+        push_wst_local(start);
+
+        if (end == upper) lastWorker = true;
+
+        // Worker local evaluation loop
+        while (work_finished == 0) {
+            work_finished = uxn_eval_local(state);
+        }
+
+    }  
+    barrier();  // Signal worker completion
     }
     shared_uxn.dev[0] = uxn.wst[uxn.pWst-1];
 }
