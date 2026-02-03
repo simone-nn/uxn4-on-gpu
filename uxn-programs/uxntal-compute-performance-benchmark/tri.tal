@@ -1,0 +1,143 @@
+( triangle routines by gustav25 )
+
+|00 @System &vector $2 &pad $6 &r $2 &g $2 &b $2
+|10 @Console &vector $2 &read $1 &pad $5 &write $1 &error $1
+|20 @Screen &vector $2 &width $2 &height $2 &auto $1 &pad $1 &x $2 &y $2 &addr $2 &pixel $1 &sprite $1
+|90 @Mouse &vector $2 &x $2 &y $2 &state $5 &scrolly &scrolly-hb $1 &scrolly-lb $1
+|c0 @DateTime &year $2 &month $1 &day $1 &hour $1 &minute $1 &second $1 &dotw $1 &doty $2 &isdst $1
+|0020 @TRI_COUNT
+|001f @TRI_SIZE
+|0190 @WIDTH
+|00f0 @HEIGHT
+
+|100
+
+@on-reset ( -> )
+	#f07f .System/r DEO2
+	#f0d6 .System/g DEO2
+	#f0b2 .System/b DEO2
+	;WIDTH .Screen/width DEO2
+	;HEIGHT .Screen/height DEO2
+	random/<init>
+	;on-frame .Screen/vector DEO2
+
+
+	BRK
+
+@on-frame ( -> )
+	scene/<draw>
+	BRK
+
+(
+@|Scene )
+
+%ISNEG2 ( v* -- bool ) {
+	POP #80 AND }
+
+%MOD2 ( a* b* -- a%b ) {
+	DIV2k MUL2 SUB2 }
+
+%MIN2 ( a* b* -- min* ) {
+	LTH2k [ JMP SWP2 ] POP2 }
+
+%MAX2 ( a* b* -- max* ) {
+	GTH2k [ JMP SWP2 ] POP2 }
+
+%MAXMIN ( a* b* c* -- max* min* ) {
+	ROT2k MIN2 MIN2 STH2
+	MAX2 MAX2 STH2r }
+
+@scene/<draw> ( -- )
+	;TRI_COUNT #0000
+	&>loop
+		random/generate ADD #03 AND ;triangle/color STA
+		( | tri random )
+		( ) random/generate ;WIDTH MOD2
+		( ) random/generate ;HEIGHT MOD2
+		( ) random/generate ;WIDTH MOD2
+		( ) random/generate ;HEIGHT MOD2
+		( ) random/generate ;WIDTH MOD2
+		( ) random/generate ;HEIGHT MOD2 triangle/<draw>
+		INC2 NEQ2k ?&>loop
+	POP2 POP2 JMP2r
+
+(
+@|Random )
+
+@random/<init> ( -- )
+	( ) [ LIT2 00 -DateTime/second ] DEI
+	( ) [ LIT2 00 -DateTime/minute ] DEI #60 SFT2 EOR2
+	( ) [ LIT2 00 -DateTime/hour ] DEI #c0 SFT2 EOR2 ,&x STR2
+	( ) [ LIT2 00 -DateTime/hour ] DEI #04 SFT2
+	( ) [ LIT2 00 -DateTime/day ] DEI DUP2 ADD2 EOR2
+	( ) [ LIT2 00 -DateTime/month ] DEI #60 SFT2 EOR2
+	( ) .DateTime/year DEI2 #a0 SFT2 EOR2 ,&y STR2
+	JMP2r
+
+@random/generate ( -- number* )
+	( ) [ LIT2 &x $2 ]
+	( ) DUP2 #50 SFT2 EOR2
+	( ) DUP2 #03 SFT2 EOR2
+	( ) [ LIT2 &y $2 ] DUP2 ,&x STR2
+	( ) DUP2 #01 SFT2 EOR2 EOR2
+	( ) ,&y STR2k POP JMP2r
+
+@triangle/<draw> ( x0* y0* x1* y1* x2* y2* -- )
+	[ LIT2 01 -Screen/auto ] DEO
+	;&y2 STA2
+	;&x2 STA2
+	;&y1 STA2
+	;&x1 STA2
+	;&y0 STA2
+	;&x0 STA2
+	( | compute dx = y[i] - y[i+1] , dy = x[i+1] - x[i] )
+	( dy0 ) ;&x1 LDA2 ;&x0 LDA2 SUB2 DUP2 ;&dy0 STA2
+	( dx2 ) ;&y2 LDA2 ;&y0 LDA2 SUB2 DUP2 ;&dx2 STA2
+	MUL2
+	( dx0 ) ;&y0 LDA2 ;&y1 LDA2 SUB2 DUP2 ;&dx0 STA2
+	( dy2 ) ;&x0 LDA2 ;&x2 LDA2 SUB2 DUP2 ;&dy2 STA2
+	MUL2
+	( | backface culling )
+	( | dy0*dx2 - dx0*dy2 = triangle area * 2 )
+	SUB2 ISNEG2 ?{
+		;&x2 LDA2 ;&x1 LDA2 SUB2 ;&dy1 STA2
+		;&y1 LDA2 ;&y2 LDA2 SUB2 ;&dx1 STA2
+		( | compute start edge functions )
+		,&x0 LDR2 ,&y1 LDR2 MUL2 ,&y0 LDR2 ,&x1 LDR2 MUL2 SUB2 STH2
+		,&x1 LDR2 ,&y2 LDR2 MUL2 ,&y1 LDR2 ,&x2 LDR2 MUL2 SUB2 STH2
+		,&x2 LDR2 ,&y0 LDR2 MUL2 ,&y2 LDR2 ,&x0 LDR2 MUL2 SUB2 STH2
+		( | push maxy, miny )
+		[ LIT2 &y0 $2 LIT2 &y1 $2 LIT2 &y2 $2 ] MAXMIN
+		( 2 ) DUP2 ;&dy2 LDA2 MUL2 [ STH2 ADD2r ROT2r ]
+		( 0 ) DUP2 ;&dy0 LDA2 MUL2 [ STH2 ADD2r ROT2r ]
+		( 1 ) DUP2 ;&dy1 LDA2 MUL2 [ STH2 ADD2r ]
+		( | wst: maxx, maxy )
+		[ LIT2 &x0 $2 LIT2 &x1 $2 LIT2 &x2 $2 ] MAXMIN
+		( 1 ) DUP2 ;&dx1 LDA2 MUL2 STH2r ADD2 ,&edgefn1 STR2
+		( 0 ) DUP2 ;&dx0 LDA2 MUL2 STH2r ADD2 ,&edgefn0 STR2
+		( 2 ) DUP2 ;&dx2 LDA2 MUL2 STH2r ADD2 ,&edgefn2 STR2
+		( | rst: minx, maxx )
+		STH2
+		STH2
+		&>loop-y
+			DUP2 .Screen/y DEO2
+			OVR2r
+			( | increment temporary edgefns )
+			[ LIT2 &edgefn0 $2 ] DUP2 [ LIT2 &dy0 $2 ] ADD2 ,&edgefn0 STR2
+			[ LIT2 &edgefn1 $2 ] DUP2 [ LIT2 &dy1 $2 ] ADD2 ,&edgefn1 STR2
+			[ LIT2 &edgefn2 $2 ] DUP2 [ LIT2 &dy2 $2 ] ADD2 ,&edgefn2 STR2
+			[ LIT2 00 _&first ] STR
+			&>loop-x
+				( edgefn2 ) ROT2k ORA2 ORA2 ISNEG2 ?{
+					( | only assign x at the first pixel )
+					[ LIT &first $1 ] ?{
+						DUP2r [ LITr -Screen/x ] DEO2r
+						[ LIT2 ff _&first ] STR }
+					[ LIT2 &color 03 -Screen/pixel ] DEO }
+				( edgefn2 dx2 + ) [ LIT2 &dx2 $2 ] ADD2 ROT2
+				( edgefn0 dx0 + ) [ LIT2 &dx0 $2 ] ADD2 ROT2
+				( edgefn1 dx1 + ) [ LIT2 &dx1 $2 ] ADD2 ROT2 INC2r GTH2kr STHr ?&>loop-x
+			POP2 POP2 POP2 POP2r INC2 GTH2k ?&>loop-y
+		( miny maxy ) POP2 POP2
+		( minx maxx ) POP2r POP2r }
+	JMP2r

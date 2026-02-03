@@ -51,34 +51,30 @@ JMP2r
 
 @stencil
   #0000 ;&t STA2
-  #0002 ;&te STA2 ( repeat 256 times )
+  #00fe ;&te STA2 ( repeat 256 times )
 #2a18 DEO 
 #0a18 DEO 
   &loop_t
-    #0000 ;&k STA2
-    #000f ;&kp STA2 ( k = 0 .. 15 )
-    &loop_k
-      #0000 ;&j STA2
-      #000f ;&jp STA2 ( j = 0 .. 15 )
-      &loop_j
-        #0000 ;&i STA2
-        #000f ;&ip STA2 ( i = 0 .. 15 )
-        &loop_i                     
+  	#0fff #0000
+      #d1 DEO2 #d3 DEO2 
+      #01 #d0 DEO
+      ;&li STA2 ( i = 0 .. 4096 )
+      ;&lip STA2
+        &loop_ijk                    
           ( i+16*j+256*k )
+          ( separate out i,j,k for stenticl calculation )
+
+          ;&li LDA2
+          DUP2 #000f AND2 ;&i STA2
+          DUP2 #0004 SFT2 #000f AND2 ;&j STA2
+          DUP2 #0008 SFT2 ;&k STA2
+
           ;&k LDA2 hput
-          #0100 MUL2
           ;&j LDA2 hput
-          ( DUP2 NIP 
-          DUP DUP #30 ADD SWP #0a LTH MUL SWP DUP #37 ADD SWP #09 GTH MUL ADD
-          #18 DEO )
-          #0010 MUL2
-          ADD2
           ;&i LDA2 hput
-          ( DUP2 NIP
-          DUP DUP #30 ADD SWP #0a LTH MUL SWP DUP #37 ADD SWP #09 GTH MUL ADD
-          #18 DEO )
+
           #0a18 DEO
-          ADD2 
+
           ;p ADD2
           ( DUP2 print 
           #0a18 DEO )
@@ -126,14 +122,9 @@ JMP2r
           #01 SFT2
 
           ;&idx LDA2 STA2
-          ;&i LDA2 INC2k ;&i STA2  
-          ;&ip LDA2 LTH2 ?&loop_i ( i+1<ip )
-
-        ;&j LDA2 INC2k ;&j STA2 
-        ;&jp LDA2 LTH2 ?&loop_j 
-
-      ;&k LDA2 INC2k ;&k STA2 
-      ;&kp LDA2 LTH2 ?&loop_k
+          ;&li LDA2 INC2k ;&li STA2  
+          ;&lip LDA2 LTH2 ?&loop_ijk ( i+1<ip )
+          #00 #d0 DEO
 
     ;&t LDA2 
 
@@ -147,9 +138,8 @@ JMP2r
   ;&t LDA2
 JMP2r
 &t $2 &te $2
-&i $2 &ip $2
-&j $2 &jp $2
-&k $2 &kp $2
+&li $2 &lip $2
+&i $2 &j $2 &k $2 
 &idx 0000
 
 @hput

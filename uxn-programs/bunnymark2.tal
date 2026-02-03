@@ -36,7 +36,7 @@
 	( | seed prng )
 	prng-init
 	( | populate bunnies )
-	#00f0 #0000
+	#0100 #0000
 
 	&loop ( -- )
 		EQU2k ?&bail
