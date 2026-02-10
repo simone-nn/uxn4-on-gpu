@@ -328,7 +328,7 @@ void PUx(inout State s, uint i, int _r, int _2) {
         PU1(s.c >> 8, _r);
         PU1(s.c, _r);
     } else {
-        PU1(i % 0xff, _r);
+        PU1(i & 0xff, _r);
     }
 }
 
@@ -540,18 +540,18 @@ uint uxn_eval(State state) {
                   state.a = PO1(_r); GET(state.y,_r,_2); ,
                   return DEO(state.a, state.y, _2); ) // DEO: halt code 2 | DEO2: halt code 3
     /* ADD */ OPC(0x18,
-                  state.a = POx(_r,_2); state.b = POx(_r,_2); ,
-                  PUx(state, state.b + state.a, _r,_2); )
+                state.a = POx(_r,_2); state.b = POx(_r,_2); ,
+                PUx(state, (state.b + state.a) & ((_2) != 0 ? 0xffff : 0xff), _r,_2); )
     /* SUB */ OPC(0x19,
-                  state.a = POx(_r,_2); state.b = POx(_r,_2); ,
-                  PUx(state, state.b - state.a, _r,_2); )
+                state.a = POx(_r,_2); state.b = POx(_r,_2); ,
+                PUx(state, (state.b - state.a) & ((_2) != 0 ? 0xffff : 0xff), _r,_2); )
     /* MUL */ OPC(0x1a,
-                  state.a = POx(_r,_2); state.b = POx(_r,_2); ,
-                  PUx(state, state.b * state.a, _r,_2); )
+                state.a = POx(_r,_2); state.b = POx(_r,_2); ,
+                PUx(state, (state.b * state.a) & ((_2) != 0 ? 0xffff : 0xff), _r,_2); )
     /* DIV */ OPC(0x1b,
-                  state.a = POx(_r,_2); state.b = POx(_r,_2); ,
-                  if (state.a == 0) { PUx(state, 0, _r,_2); }
-                  else { PUx(state, state.b / state.a, _r,_2); } )
+                state.a = POx(_r,_2); state.b = POx(_r,_2); ,
+                if (state.a == 0) { PUx(state, 0, _r,_2); }
+                else { PUx(state, (state.b / state.a) & ((_2) != 0? 0xffff : 0xff), _r,_2); } )
     /* AND */ OPC(0x1c,
                   state.a = POx(_r,_2); state.b = POx(_r,_2); ,
                   PUx(state, state.a & state.b, _r,_2); )
