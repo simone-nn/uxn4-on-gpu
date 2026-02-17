@@ -22,14 +22,18 @@ set(SHADER_SPV
 # Shader compilation
 add_custom_command(
         OUTPUT ${SHADER_HEADERS} ${SHADER_SPV}
+        if (WIN32)
+        COMMAND bash ${CMAKE_SOURCE_DIR}/compile_shaders.sh
+        else()
         COMMAND ${CMAKE_SOURCE_DIR}/compile_shaders.sh
+        endif()
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
         DEPENDS
         ${CMAKE_SOURCE_DIR}/shaders/uxn_emu.comp
         ${CMAKE_SOURCE_DIR}/shaders/blit.comp
         ${CMAKE_SOURCE_DIR}/shaders/shader.vert.glsl
         ${CMAKE_SOURCE_DIR}/shaders/shader.frag.glsl
-        BYPRODUCTS ${SHADER_HEADERS} ${SHADER_SPV}
+        # BYPRODUCTS ${SHADER_HEADERS} ${SHADER_SPV}
         COMMENT "Compiling shaders..."
 )
 # Define a target for shader compilation
@@ -39,10 +43,10 @@ add_custom_target(compile_shaders
 
 # === Main executable ===
 add_executable(uxn-on-gpu
-        ${CMAKE_SOURCE_DIR}/src/shaders/blit.h
-        ${CMAKE_SOURCE_DIR}/src/shaders/frag.h
-        ${CMAKE_SOURCE_DIR}/src/shaders/uxn_emu.h
-        ${CMAKE_SOURCE_DIR}/src/shaders/vert.h
+        # ${CMAKE_SOURCE_DIR}/src/shaders/blit.h
+        # ${CMAKE_SOURCE_DIR}/src/shaders/frag.h
+        # ${CMAKE_SOURCE_DIR}/src/shaders/uxn_emu.h
+        # ${CMAKE_SOURCE_DIR}/src/shaders/vert.h
         ${CMAKE_SOURCE_DIR}/src/Resource.hpp
         ${CMAKE_SOURCE_DIR}/src/DeviceController.hpp
         ${CMAKE_SOURCE_DIR}/src/Uxn.hpp

@@ -323,7 +323,12 @@ public:
     };
     const size_t VERTICES_SIZE = sizeof(Vertex) * vertices.size();
     std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
-    std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, "VK_KHR_portability_subset" };
+
+    #ifdef __APPLE__
+        std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, "VK_KHR_portability_subset" };
+    #else
+        std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+    #endif
 
     DeviceController(bool enableValidationLayers, Uxn* uxn, Console* console, EventQueue* gpuEventQueue){
         this->debug = enableValidationLayers;
@@ -1411,6 +1416,7 @@ private:
         bool show_window = false;
 
         while (!glfwWindowShouldClose(ctx.window) && !uxn->programTerminated()) {
+            std::cerr << "mainLoop iteration" << std::endl;
             glfwPollEvents();
 
             if (!in_vector) {
@@ -1534,6 +1540,7 @@ private:
 };
 
 int main(int nargs, char** args) {
+    std::cerr << "Starting main" << std::endl;
     bool debug = false;
     bool logMetrics = false;
     const char* filename = nullptr;
@@ -1568,13 +1575,17 @@ int main(int nargs, char** args) {
         std::cerr << "Usage: " << args[0] << " [-d] [-m] <filename>\n";
         return EXIT_FAILURE;
     }
+    std::cerr << "Retireved file" << std::endl;
     auto console = new Console;
     EventQueue gpuEventQueue;
     auto uxn = new Uxn(filename, console, &gpuEventQueue);
 
+    std::cerr << "Uxn and Console" << std::endl;
     DeviceController app(debug, uxn, console, &gpuEventQueue);
     app.logMetrics = logMetrics;
 
+
+    std::cerr << "DC created" << std::endl;
     try {
         app.run();
     } catch (const std::exception& e) {

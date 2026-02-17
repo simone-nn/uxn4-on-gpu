@@ -12,14 +12,14 @@
 
 // ----------------------  UXN Emu -----------------------------
 
-layout(std140, set = 0, binding = 0) buffer Shared_UXN_Buffer {
+layout(std430, set = 0, binding = 0) buffer Shared_UXN_Buffer {
     uint pc;
     uint dev[256];  // device data
     uint flags;
     uint halt;
 } shared_uxn;
 
-layout(std140, set = 0, binding = 1) buffer Private_UXN_Buffer {
+layout(std430, set = 0, binding = 1) buffer Private_UXN_Buffer {
     uint ram[65536];
     uint wst[256];  // working stack
     uint pWst;
