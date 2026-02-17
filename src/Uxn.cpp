@@ -25,12 +25,9 @@ void to_uxn_mem2(char16_t c, glm::uint* p) {
 uxn_memory::uxn_memory() = default;
 
 Uxn::Uxn(const char *program_path, Console *console, EventQueue *gpuEventQueue) {
-    std::cerr << "Uxn: constructor start" << std::endl;
     this->console = console;
     this->program_path = std::string(program_path);
-    std::cerr << "Uxn: reading file: " << program_path << std::endl;
     this->program_rom = readFile(program_path);
-    std::cerr << "Uxn: read " << program_rom.size() << " bytes" << std::endl;
     this->gpuEventQueue = gpuEventQueue;
 
     if (program_rom.size() + 0x0100 * sizeof(glm::uint) > UXN_RAM_SIZE) {

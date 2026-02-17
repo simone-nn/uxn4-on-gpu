@@ -1416,7 +1416,6 @@ private:
         bool show_window = false;
 
         while (!glfwWindowShouldClose(ctx.window) && !uxn->programTerminated()) {
-            std::cerr << "mainLoop iteration" << std::endl;
             glfwPollEvents();
 
             if (!in_vector) {
@@ -1540,7 +1539,6 @@ private:
 };
 
 int main(int nargs, char** args) {
-    std::cerr << "Starting main" << std::endl;
     bool debug = false;
     bool logMetrics = false;
     const char* filename = nullptr;
@@ -1575,17 +1573,13 @@ int main(int nargs, char** args) {
         std::cerr << "Usage: " << args[0] << " [-d] [-m] <filename>\n";
         return EXIT_FAILURE;
     }
-    std::cerr << "Retireved file" << std::endl;
     auto console = new Console;
     EventQueue gpuEventQueue;
     auto uxn = new Uxn(filename, console, &gpuEventQueue);
 
-    std::cerr << "Uxn and Console" << std::endl;
     DeviceController app(debug, uxn, console, &gpuEventQueue);
     app.logMetrics = logMetrics;
 
-
-    std::cerr << "DC created" << std::endl;
     try {
         app.run();
     } catch (const std::exception& e) {
