@@ -317,9 +317,12 @@ int main() {
 
     vkQueueWaitIdle(computeQueue);
 
-    uint64_t timestamps[2];
-    vkGetQueryPoolResults(device, queryPool, 0, 2, sizeof(timestamps), timestamps,
+    uint64_t timestamps[2] = {0, 0};
+    VkResult qResult = vkGetQueryPoolResults(device, queryPool, 0, 2, sizeof(timestamps), timestamps,
                         sizeof(uint64_t), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+    if (qResult != VK_SUCCESS) {
+        std::cerr << "Timestamp query failed: " << qResult << "\n";
+    }
 
     double gpuTimeMs = (timestamps[1] - timestamps[0]) * timestampPeriod / 1e6;
     std::cout << "GPU Time: " << gpuTimeMs << " ms\n";
