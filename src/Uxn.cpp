@@ -41,12 +41,14 @@ Uxn::Uxn(const char *program_path, Console *console, EventQueue *gpuEventQueue) 
     }
 
     this->memory = new UxnMemory();
+    memset(memory, 0, sizeof(UxnMemory));
     // copy the program into memory
     memcpy(memory->_private.ram + 0x0100, program.data(), program.size() * sizeof(glm::uint));
     // set the program counter to where the program starts from
     memory->shared.pc = 0x0100;
 
     this->original_memory = new UxnMemory();
+    memset(original_memory, 0, sizeof(UxnMemory));
     memcpy(original_memory, memory, sizeof(UxnMemory));
 }
 

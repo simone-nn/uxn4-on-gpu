@@ -7,7 +7,11 @@
 
   The p array is 16*16*16 = 4K shorts
 
+
 )
+
+|d0 @Parallel &ctrl $1 &lower $2 &upper $2 &id $2
+
 |0100 @main
   fill
   stencil
@@ -31,9 +35,9 @@ BRK
           ;&j LDA2 #0010 MUL2
           ;&i LDA2 
           ADD2
-          ADD2 
-          DUP2 
-          ;p ADD2 STA2
+          ADD2
+          DUP2 #0002 MUL2
+          ;p_old ADD2 STA2
 
           ;&i LDA2 INC2k ;&i STA2  
           ;&ip LDA2 LTH2 ?&loop_i
@@ -43,104 +47,128 @@ BRK
 
       ;&k LDA2 INC2k ;&k STA2 
       ;&kp LDA2 LTH2 ?&loop_k
+
+    ( Print populated p array )
+    ( ;p_old ;&ptr STA2
+    ;p_old #2000 ADD2 ;&end STA2 ( 4096 shorts = 8192 bytes )
+    &print_loop
+        ;&ptr LDA2 LDA2 print
+        #2018 DEO ( space )
+        ;&ptr LDA2 #0002 ADD2 DUP2 ;&ptr STA2
+        ;&end LDA2 LTH2 ?&print_loop )
+
   
 JMP2r
 &i $2 &ip $2
 &j $2 &jp $2
 &k $2 &kp $2
+&ptr $2 &end $2
+
 
 @stencil
+  ;p_old ;&read_ptr STA2
+  ;p_new ;&write_ptr STA2
   #0000 ;&t STA2
-  #00fe ;&te STA2 ( repeat 256 times )
+  #00ff ;&te STA2 ( repeat 256 times )
 #2a18 DEO 
 #0a18 DEO 
   &loop_t
-  	#0fff #0000
-      #d1 DEO2 #d3 DEO2 
-      #01 #d0 DEO
-      ;&li STA2 ( i = 0 .. 4096 )
-      ;&lip STA2
-        &loop_ijk                    
-          ( i+16*j+256*k )
-          ( separate out i,j,k for stenticl calculation )
+    #0fff #0000 #0000 ( Simulate behaviour of parallel device )
+    #000e MUL2 ;var ADD2 ( Start of struct ) STH2k
+    #000a ADD2 STA2 STH2kr #000c ADD2 STA2
+    ( #0000 ;&l_idx STA2 #0fff ;&l_tgt STA2 )
+    &loop_i
+        STH2kr #000a ADD2 LDA2 DUP2 ADD2 ;&read_ptr LDA2 ADD2 STH2kr #0006 ADD2 STA2 ( idx_o = p + l_idx*2 )
+        STH2kr #000a ADD2 LDA2 DUP2 ADD2 ;&write_ptr LDA2 ADD2 STH2kr #0008 ADD2 STA2 ( idx_n = p + l_idx*2 )
+        
+        ( Extract i,j,k coordinates from linear index )
+        STH2kr #000a ADD2 LDA2 #000f AND2 STH2kr STA2 ( i = l_idx & 0xf )
+        STH2kr #000a ADD2 LDA2 #04 SFT2 #000f AND2 STH2kr #0002 ADD2 STA2 ( j = (l_idx >> 4) & 0xf )
+        STH2kr #000a ADD2 LDA2 #08 SFT2 STH2kr #0004 ADD2 STA2 ( k = l_idx >> 8 )
+        
+        ( Load neighbors with boundary checks )
+        STH2kr #0006 ADD2 LDA2
+        STH2kr LDA2 #000e GTH2 ?&skip_x_pos
+        #0002 ADD2 
+        &skip_x_pos
+        LDA2 ( p[i+1] )
+        
+        STH2kr #0006 ADD2 LDA2
+        STH2kr LDA2 #0000 EQU2 ?&skip_x_neg
+        #0002 SUB2
+        &skip_x_neg
+        LDA2 ( p[i-1] )
+        ADD2
+        
+        STH2kr #0006 ADD2 LDA2
+        STH2kr #0002 ADD2 LDA2 #000e GTH2 ?&skip_y_pos
+        #0020 ADD2
+        &skip_y_pos
+        LDA2 ADD2
+        
+        STH2kr #0006 ADD2 LDA2
+        STH2kr #0002 ADD2 LDA2 #0000 EQU2 ?&skip_y_neg
+        #0020 SUB2
+        &skip_y_neg
+        LDA2
+        ADD2
+        
+        STH2kr #0006 ADD2 LDA2
+        STH2kr #0004 ADD2 LDA2 #000e GTH2 ?&skip_z_pos
+        #0200 ADD2
+        &skip_z_pos
+        LDA2 ADD2
+        
+        STH2kr #0006 ADD2 LDA2
+        STH2kr #0004 ADD2 LDA2 #0000 EQU2 ?&skip_z_neg
+        #0200 SUB2
+        &skip_z_neg
+        LDA2
+        ADD2
+        
+        ( Compute stencil: (sum/6 + current)/2 )
+        #01 SFT2 #0003 DIV2
+        STH2kr #0006 ADD2 LDA2 LDA2 ADD2
+        #01 SFT2
+        STH2kr #0008 ADD2 LDA2 STA2
+        
+        STH2kr #000a ADD2 DUP2 LDA2 INC2k ROT2 STA2
+        STH2kr #000c ADD2 LDA2 LTH2 ?&loop_i
 
-          ;&li LDA2
-          DUP2 #000f AND2 ;&i STA2
-          DUP2 #0004 SFT2 #000f AND2 ;&j STA2
-          DUP2 #0008 SFT2 ;&k STA2
+        POP2r
 
-          ;&k LDA2 hput
-          ;&j LDA2 hput
-          ;&i LDA2 hput
-
-          #0a18 DEO
-
-          ;p ADD2
-          ( DUP2 print 
-          #0a18 DEO )
-          ;&idx STA2 ( idx = pointer to p at i+16*j+256*k = &p(i,j,k) )
-
-          ;&idx LDA2 
-          ;&i LDA2 #000e GTH2 ?&skip_x_pos
-          #0001 ADD2 
-          &skip_x_pos
-          LDA2 ( p(i+1,j,k) ) ( OK if i<15 )
-          ;&idx LDA2 ( p(i,j,k) )
-          DUP2 ;p #0001 ADD2 LTH2 ?&skip_x ( if  p(i,j,k) >= p+1 then p(i,j,k) else p(i-1,j,k) )
-          ( if idx>p+256 )
-          #0001 SUB2 
-          &skip_x
-          LDA2 ( p(i-1,j,k) if i>=1 )
-          ADD2 ( p(i+1,j,k) + p(i-1,j,k) )
-          ;&idx LDA2 
-          ;&j LDA2 #000e GTH2 ?&skip_y_pos
-          #0010 ADD2 
-          &skip_y_pos
-          LDA2 ( p(i,j+1,k) )
-          ;&idx LDA2 DUP2 ;p #0010 ADD2 LTH2 ?&skip_y ( if  p(i,j,k) >= p+16 then  p(i,j-1,k) else p(i,j,k) )
-          #0010 SUB2
-          &skip_y
-          LDA2 ( p(i,j-1,k) if j>=1 )
-          ADD2 ( p(i,j+1,k) + p(i,j-1,k) )
-          ADD2
-          ;&idx LDA2 
-          ;&k LDA2 #000e GTH2 ?&skip_z_pos
-          #0100 ADD2 
-          &skip_z_pos
-          LDA2 ( p(i,j,k+1) )
-          ;&idx LDA2 DUP2 ;p #0100 ADD2 LTH2 ?&skip_z
-          #0100 SUB2
-          &skip_z
-          LDA2
-          ADD2 
-          ADD2
-          #01 SFT2
-          #0003 DIV2 
-
-          ;&idx LDA2 LDA2 
-          ADD2
-          #01 SFT2
-
-          ;&idx LDA2 STA2
-          ;&li LDA2 INC2k ;&li STA2  
-          ;&lip LDA2 LTH2 ?&loop_ijk ( i+1<ip )
-          #00 #d0 DEO
+    ( Swap read and write pointers )
+    ;&read_ptr LDA2 ;&tmp STA2
+    ;&write_ptr LDA2 ;&read_ptr STA2
+    ;&tmp LDA2 ;&write_ptr STA2
 
     ;&t LDA2 
 
- DUP2 print 
- #0a18 DEO 
+ ( DUP2 print 
+ #0a18 DEO  )
 ( #2a18 DEO )
 
     INC2k ;&t STA2
     ;&te LDA2 LTH2 ?&loop_t
 
-  ;&t LDA2
+    ( Print final results from read_ptr )
+    ;&read_ptr LDA2 ;&ptr STA2
+    ;&read_ptr LDA2 #2000 ADD2 ;&end STA2
+    &print_loop
+        ;&ptr LDA2 LDA2 print
+        #2018 DEO
+        ;&ptr LDA2 #0002 ADD2 DUP2 ;&ptr STA2
+        ;&end LDA2 LTH2 ?&print_loop
+    
 JMP2r
 &t $2 &te $2
-&li $2 &lip $2
-&i $2 &j $2 &k $2 
-&idx 0000
+( &i $2 &j $2 &k $2
+&idx_o $2 &idx_n $2
+&l_idx $2 &l_tgt $2 )
+&read_ptr $2 &write_ptr $2
+&tmp $2
+&ptr $2 &end $2
+
 
 @hput
   DUP2 NIP
@@ -157,4 +185,7 @@ JMP2r
         
 
 ( |0300 )
-@p $1000
+@p_old $2000
+@p_new $2000
+( &i $2 &j $2 &k $2 &idx_o $2 &idx_n $2 &l_idx $2 &l_tgt $2 )
+@var $1000

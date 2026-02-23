@@ -37,7 +37,7 @@ void copyBufferToImage(const Context &ctx, VkBuffer buffer, VkImage image, uint3
 struct ImageParams {
     uint32_t width;
     uint32_t height;
-    int color;
+    uint32_t color;
 };
 
 

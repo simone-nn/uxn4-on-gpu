@@ -4,6 +4,9 @@
 #include "Resource.hpp"
 #include "Console.hpp"
 #include "EventQueue.hpp"
+#include <string>
+#include <array>
+#include <chrono>
 
 // Uxn sizes
 #define UXN_RAM_SIZE 65536

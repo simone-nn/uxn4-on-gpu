@@ -7,7 +7,7 @@ layout(set = 0, binding = 5) uniform sampler2D foreground;
 
 void main() {
     vec4 foregroundColor = texture(foreground, fragUV);
-    if (foregroundColor.z != 0.0) {
+    if (foregroundColor.a != 0.0) {
         outColor = foregroundColor;
     } else {
         outColor = texture(background, fragUV);

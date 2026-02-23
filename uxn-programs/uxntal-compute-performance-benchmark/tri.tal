@@ -100,7 +100,7 @@
 	( | backface culling )
 	( | dy0*dx2 - dx0*dy2 = triangle area * 2 )
 	SUB2 ISNEG2 ?{
-		;&x2 LDA2 ;&x1 LDA2 SUB2 ;&dy1 STA2
+		;&x2 LDA2 ;&x1 LDA2 SUB2 ;&dy1 STA2å
 		;&y1 LDA2 ;&y2 LDA2 SUB2 ;&dx1 STA2
 		( | compute start edge functions )
 		,&x0 LDR2 ,&y1 LDR2 MUL2 ,&y0 LDR2 ,&x1 LDR2 MUL2 SUB2 STH2
@@ -133,7 +133,7 @@
 					[ LIT &first $1 ] ?{
 						DUP2r [ LITr -Screen/x ] DEO2r
 						[ LIT2 ff _&first ] STR }
-					[ LIT2 &color 03 -Screen/pixel ] DEO }
+					[ LIT2 &color 02 -Screen/pixel ] DEO }
 				( edgefn2 dx2 + ) [ LIT2 &dx2 $2 ] ADD2 ROT2
 				( edgefn0 dx0 + ) [ LIT2 &dx0 $2 ] ADD2 ROT2
 				( edgefn1 dx1 + ) [ LIT2 &dx1 $2 ] ADD2 ROT2 INC2r GTH2kr STHr ?&>loop-x
