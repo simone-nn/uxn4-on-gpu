@@ -1,0 +1,44 @@
+#version 450
+
+
+// ----------------------  UXN Emu -----------------------------
+
+layout(std430, set = 0, binding = 0) buffer Shared_UXN_Buffer {
+    uint pc;
+    uint dev[256];  // device data
+    uint flags;
+    uint halt;
+} shared_uxn;
+
+layout(std430, set = 0, binding = 1) buffer Private_UXN_Buffer {
+    uint ram[65536];
+    uint wst[256];  // working stack
+    uint pWst;
+    uint rst[256];  // return stack
+    uint pRst;
+} uxn;
+
+layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+void main() {
+    int temp;
+
+    const uint K = 100;
+    const uint J = 1000;
+    const uint INNER = 1000;
+
+    for (uint k = 0; k < K; k++) {
+        for (uint j = 0; j < J; j++) {
+            temp = 0;
+            for (uint i = 0; i < INNER; i++) {
+                temp += int((i * j) ^ (i + j));
+                temp = (temp * 1103515245 + 12345) & 0x7FFFFFFF;
+            }
+        }
+    }
+        // Prevent optimization
+    atomicAdd(shared_uxn.pc, uint(temp));
+
+    shared_uxn.halt = 1;
+    shared_uxn.dev[0x0f] = 1;
+}

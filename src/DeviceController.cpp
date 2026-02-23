@@ -1010,7 +1010,7 @@ private:
 
     void initImageResources(uint32_t width, uint32_t height) {
         backgroundImageResource = Resource(ctx, BACKGROUND_IMAGE_BINDING, BACKGROUND_SAMPLER_BINDING,
-                                           &blitDescriptorSet, &graphicsDescriptorSet, {width, height, 0});
+                                           &blitDescriptorSet, &graphicsDescriptorSet, {width, height, 0xFFFFFFFF});
         foregroundImageResource = Resource(ctx, FOREGROUND_IMAGE_BINDING, FOREGROUND_SAMPLER_BINDING,
                                            &blitDescriptorSet, &graphicsDescriptorSet, {width, height, 0});
     }
@@ -1428,6 +1428,11 @@ private:
                     current_vector = callback;
                 }
                 callback_index = (callback_index + 1) % static_cast<int>(CALLBACK_DEVICES.size());
+
+                // // If no device vectors, exit
+                // if (uxn->deviceCallbackVectors.empty()) {
+                //     break; 
+                // }
             }
 
             if (in_vector) {
@@ -1444,12 +1449,21 @@ private:
                     in_vector = false;
                     if (current_vector == uxn_device::Screen) { did_graphics = true; }
                 }
+                if (halt_code == 5) {
+                    break;
+                }
 
                 LOG("VM halted: halt_code=" << halt_code
                     << ", current_vector=0x" << std::hex << static_cast<int>(current_vector)
                     << ", pc=0x" << uxn->memory->shared.pc - 0x100
                     << " (real=0x" << uxn->memory->shared.pc << ")\n"
                     << " top stack value=" << uxn->memory->shared.dev[0] << "\n"
+                    << " para ctrl=" << uxn->memory->shared.dev[0xd0] << "\n"
+                    << " para lower=" << uxn->memory->shared.dev[0xd2] << "\n"
+                    << " para upper=" << uxn->memory->shared.dev[0xd4] << "\n"
+                    << " para comm=" << uxn->memory->shared.dev[0xd7] << "\n"
+                    << " para comm1=" << uxn->memory->shared.dev[0xd8] << "\n"
+                    << " para comm2=" << uxn->memory->shared.dev[0xd9] << "\n"
                     << " last instructions: " << uxn->memory->_private.ram[uxn->memory->shared.pc-1]
                     << ", " << uxn->memory->_private.ram[uxn->memory->shared.pc-2]
                     << ", " << uxn->memory->_private.ram[uxn->memory->shared.pc-3]
