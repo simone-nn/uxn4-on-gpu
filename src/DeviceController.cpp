@@ -29,6 +29,7 @@ int HEIGHT = 320;
 #define BACKGROUND_SAMPLER_BINDING  4
 #define FOREGROUND_IMAGE_BINDING    3
 #define FOREGROUND_SAMPLER_BINDING  5
+#define ROM_Binding                 7
 
 #define VERTEX_BINDING 0
 #define VERTEX_LOCATION 6
@@ -239,7 +240,14 @@ bool isDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface, std::vector
         swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
     }
 
-    return indices.isComplete() && extensionsSupported && swapChainAdequate;
+    VkPhysicalDeviceVulkan12Features vk12Features{};
+    vk12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+    VkPhysicalDeviceFeatures2 features2{};
+    features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    features2.pNext = &vk12Features;
+    vkGetPhysicalDeviceFeatures2(device, &features2);
+
+    return indices.isComplete() && extensionsSupported && swapChainAdequate && vk12Features.uniformBufferStandardLayout;
 }
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
@@ -366,6 +374,7 @@ private:
     DescriptorSetWrapper graphicsDescriptorSet;
     Resource sharedUxnResource;
     Resource privateUxnResource;
+    Resource privateRomResource;
     Resource backgroundImageResource;
     Resource foregroundImageResource;
     Resource vertexResource;
@@ -538,18 +547,22 @@ private:
         }
 
         // Specify used device features
-        VkPhysicalDeviceFeatures deviceFeatures{};
+        VkPhysicalDeviceVulkan12Features vk12Features{};
+        vk12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+        vk12Features.uniformBufferStandardLayout = VK_TRUE;
+
+        VkPhysicalDeviceFeatures2 deviceFeatures2{};
+        deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+        deviceFeatures2.pNext = &vk12Features;
 
         VkDeviceCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
         createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
         createInfo.pQueueCreateInfos = queueCreateInfos.data();
-        createInfo.queueCreateInfoCount = 1;
-        createInfo.pEnabledFeatures = &deviceFeatures;
+        createInfo.pEnabledFeatures = nullptr; // Use pNext chain instead
         createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
         createInfo.ppEnabledExtensionNames = deviceExtensions.data();
-        createInfo.pNext = nullptr;
-
+        createInfo.pNext = &deviceFeatures2; 
         if (debug) {
             createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
             createInfo.ppEnabledLayerNames = validationLayers.data();
@@ -975,15 +988,18 @@ private:
         // resource creation
         sharedUxnResource = Resource(ctx, SHARED_UXN_BINDING, &uxnDescriptorSet,
             sizeof(UxnMemory::shared), &uxn->memory->shared,
-            true, false, true);
+            Resource::ResourceType::SSBO, true);
         privateUxnResource = Resource(ctx, PRIVATE_UXN_BINDING, &uxnDescriptorSet,
             sizeof(UxnMemory::_private), &uxn->memory->_private,
-            true, false, false);
+            Resource::ResourceType::SSBO, false);
+        privateRomResource = Resource(ctx, ROM_Binding, &uxnDescriptorSet,
+            sizeof(UxnMemory::_private::ram), &uxn->memory->_private.ram,
+            Resource::ResourceType::UBO, false);
 
         initImageResources(uxn_width, uxn_height);
         vertexResource = Resource(ctx, VERTEX_LOCATION, &graphicsDescriptorSet,
             VERTICES_SIZE, vertices.data(),
-            false, true, false);
+            Resource::ResourceType::VertexBuffer, false);
 
         uxnDescriptorSet.initialise(ctx);
         blitDescriptorSet.initialise(ctx);
@@ -1508,6 +1524,7 @@ private:
         vkDestroyFence(ctx.device, blitFence, nullptr);
         sharedUxnResource.destroy();
         privateUxnResource.destroy();
+        privateRomResource.destroy();
         backgroundImageResource.destroy();
         foregroundImageResource.destroy();
         vertexResource.destroy();

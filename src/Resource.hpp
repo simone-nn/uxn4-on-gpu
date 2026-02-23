@@ -56,6 +56,8 @@ public:
 
     void addSSBOWrite(VkBuffer buffer, VkDeviceSize bufferRange, uint32_t binding);
 
+    void addUBOWrite(VkBuffer buffer, VkDeviceSize bufferRange, uint32_t binding);
+
     void addImageWrite(VkImageView imageView, uint32_t binding);
 
     void addSamplerWrite(VkImageView imageView, VkSampler sampler, uint32_t binding);
@@ -74,7 +76,8 @@ private:
 class Resource {
 public:
     enum ResourceType {
-        Buffer,
+        VertexBuffer,
+        UBO,
         SSBO,
         Image
     } type;
@@ -108,8 +111,7 @@ public:
         DescriptorSetWrapper *descriptorSet,
         size_t bufferSize,
         const void* bufferData,
-        bool isSSBO,
-        bool isVertexShaderAccessible,
+        ResourceType resourceType,
         bool isTransferSource
     );
 

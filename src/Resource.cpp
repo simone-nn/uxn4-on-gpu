@@ -262,6 +262,25 @@ void DescriptorSetWrapper::addSSBOWrite(VkBuffer buffer, VkDeviceSize bufferRang
     writeSets.emplace_back(descriptorWrite);
 }
 
+void DescriptorSetWrapper::addUBOWrite(VkBuffer buffer, VkDeviceSize bufferRange, uint32_t binding) {
+    auto* bufferInfo = new VkDescriptorBufferInfo;
+    bufferInfo->buffer = buffer;
+    bufferInfo->offset = 0;
+    bufferInfo->range = bufferRange;
+
+    auto* descriptorWrite = new VkWriteDescriptorSet;
+    descriptorWrite->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite->dstSet = VK_NULL_HANDLE;
+    descriptorWrite->dstBinding = binding;
+    descriptorWrite->dstArrayElement = 0;
+    descriptorWrite->descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorWrite->descriptorCount = 1;
+    descriptorWrite->pBufferInfo = bufferInfo;
+    descriptorWrite->pNext = nullptr;
+
+    writeSets.emplace_back(descriptorWrite);
+}
+
 void DescriptorSetWrapper::addImageWrite(VkImageView imageView, uint32_t binding) {
     auto* imageInfo = new VkDescriptorImageInfo;
     imageInfo->imageLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -340,24 +359,23 @@ void DescriptorSetWrapper::destroy(const Context &ctx) const {
 }
 
 
-// -- Resource --
+// -- Resource
 Resource::Resource(
     Context &ctx,
     uint32_t binding,
     DescriptorSetWrapper *descriptorSet,
     size_t bufferSize,
     const void* bufferData,
-    bool isSSBO,
-    bool isVertexShaderAccessible,
+    ResourceType bufferType,
     bool isTransferSource
 ) {
-    this->type = isSSBO ? SSBO : Buffer;
+    this->type = bufferType;
     this->binding = binding;
     this->ctx = &ctx;
     this->data.buffer.descriptorSet = descriptorSet;
     this->data.buffer.size = bufferSize;
 
-    // buffer
+    // Staging buffer
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
     createBuffer(ctx, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -369,40 +387,24 @@ Resource::Resource(
     memcpy(p, bufferData, bufferSize);
     vkUnmapMemory(ctx.device, stagingBufferMemory);
 
-    VkBufferUsageFlags usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;  // transfer data from host to GPU
-    VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    VkBufferUsageFlags usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    if (isTransferSource) usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
-    if (isSSBO) {
-        // used as a storage buffer for compute shader
-        usage = usage | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-    }
-    if (isVertexShaderAccessible) {
-        // used as a vertex buffer for vert shader
-        usage = usage | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    }
-    if (isTransferSource) {
-        usage = usage | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    switch (bufferType) {
+        case ResourceType::SSBO:         usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT; break;
+        case ResourceType::UBO:          usage |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT; break;
+        case ResourceType::VertexBuffer: usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;  break;
+        default: throw std::invalid_argument("Image type cannot be used in buffer constructor");
     }
 
-    createBuffer(ctx, bufferSize, usage, properties, this->data.buffer._, this->data.buffer.memory);
-    // Copy data from the staging buffer (host) to the shader storage buffer (GPU)
+    createBuffer(ctx, bufferSize, usage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                 this->data.buffer._, this->data.buffer.memory);
     copyBuffer(ctx, stagingBuffer, this->data.buffer._, bufferSize);
 
     vkDestroyBuffer(ctx.device, stagingBuffer, nullptr);
     vkFreeMemory(ctx.device, stagingBufferMemory, nullptr);
 
-    // updating the descriptor set
-    switch (this->type) {
-        case Buffer: {
-            VkDescriptorSetLayoutBinding b{};
-            b.binding = binding;
-            b.descriptorCount = 1;
-            b.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            b.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-            descriptorSet->addBinding(b);
-            // descriptorSet->addVertexBufferWrite(data.buffer.buffer, data.buffer.size, binding);
-            break;
-        }
+    switch (bufferType) {
         case SSBO: {
             VkDescriptorSetLayoutBinding b{};
             b.binding = binding;
@@ -413,7 +415,20 @@ Resource::Resource(
             descriptorSet->addSSBOWrite(data.buffer._, data.buffer.size, binding);
             break;
         }
-        default: break;
+        case UBO: {
+            VkDescriptorSetLayoutBinding b{};
+            b.binding = binding;
+            b.descriptorCount = 1;
+            b.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            b.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+            descriptorSet->addBinding(b);
+            descriptorSet->addUBOWrite(data.buffer._, data.buffer.size, binding);
+            break;
+        }
+        case VertexBuffer:
+            // No descriptor set needed — bound directly via vkCmdBindVertexBuffers
+            break;
+        default: throw std::invalid_argument("Image type cannot be used in buffer constructor");
     }
 }
 
@@ -555,17 +570,17 @@ Resource::Resource(
 
 void Resource::destroy() const {
     switch (this->type) {
-        case Buffer:
         case SSBO:
+        case UBO:
+        case VertexBuffer:
             vkDestroyBuffer(ctx->device, this->data.buffer._, nullptr);
             vkFreeMemory(ctx->device, this->data.buffer.memory, nullptr);
-        break;
+            break;
         case Image:
             vkDestroySampler(ctx->device, this->data.image.sampler, nullptr);
             vkDestroyImageView(ctx->device, this->data.image.view, nullptr);
             vkDestroyImage(ctx->device, this->data.image._, nullptr);
             vkFreeMemory(ctx->device, this->data.image.memory, nullptr);
-        break;
+            break;
     }
-
 }
