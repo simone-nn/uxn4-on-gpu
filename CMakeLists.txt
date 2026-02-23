@@ -59,6 +59,12 @@ add_executable(uxn-on-gpu
 
 add_dependencies(uxn-on-gpu compile_shaders)
 
+if(APPLE)
+    target_link_options(uxn-on-gpu PRIVATE
+        "-Wl,-stack_size,0x10000000"  # 256bytes?
+    )
+endif()
+
 # === Vulkan (portable detection) ===
 find_package(Vulkan REQUIRED)
 target_link_libraries(uxn-on-gpu PRIVATE Vulkan::Vulkan)

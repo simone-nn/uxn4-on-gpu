@@ -38,7 +38,7 @@
 	( | seed prng )
 	prng-init
 	( | populate bunnies )
-	#0f00 #0000
+	#00f0 #0000
 
 	&loop ( -- )
 		EQU2k ?&bail
@@ -67,7 +67,7 @@
 	[ LIT2 80 -Screen/pixel ] DEO
 	;sprite/length LDA2 #0000
     .Parallel/lower DEO2 .Parallel/upper DEO2 
-    #01 .Parallel/ctrl DEO
+    #01 .Parallel/ctrl DEO POP2
 	&loop ( -- )
 		EQU2k ?&bail
 		DUP2 <draw-bunny>
