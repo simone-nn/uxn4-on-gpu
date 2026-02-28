@@ -462,19 +462,19 @@ uint end_parallel_loop(uint addr, uvec2 v, int _2){
 // ---------------------- UXN Funcs -----------------------------
 
 /* Microcode */
-void push_wst(uint i) { uxn.wst[uxn.pWst & 0xff] = i; uxn.pWst = (uxn.pWst&0xff)+1; }
+void push_wst(uint i) { uxn.wst[uxn.pWst & 0xff] = i; uxn.pWst = ((uxn.pWst+1 )&0xff); }
 
-void push_rst(uint i) { uxn.rst[uxn.pRst & 0xff] = i; uxn.pRst = (uxn.pRst&0xff)+1; }
+void push_rst(uint i) { uxn.rst[uxn.pRst & 0xff] = i; uxn.pRst = ((uxn.pRst+1) &0xff); }
 
-uint pop_wst() { (uxn.pWst--) & 0xff; return uxn.wst[uxn.pWst]; }
+uint pop_wst() { uxn.pWst = (uxn.pWst-1u) & 0xff; return uxn.wst[uxn.pWst]; }
 
-uint pop_rst() { (uxn.pRst--) & 0xff; return uxn.rst[uxn.pRst]; }
+uint pop_rst() { uxn.pRst = (uxn.pRst-1u) & 0xff; return uxn.rst[uxn.pRst]; }
 
 void PUr(uint i, int _r) {
     if(_r != 0) {
-        push_wst(i);
+        push_wst(i & 0xff);
     } else {
-        push_rst(i);
+        push_rst(i & 0xff);
     }
 }
 
@@ -768,9 +768,9 @@ uint pop_rst_local() { local_pRst--; return local_rst[local_pRst]; }
 
 void PUr_local(uint i, int _r) {
     if(_r != 0) {
-        push_wst_local(i);
+        push_wst_local(i & 0xff);
     } else {
-        push_rst_local(i);
+        push_rst_local(i & 0xff);
     }
 }
 

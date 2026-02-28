@@ -1450,6 +1450,7 @@ private:
                     if (current_vector == uxn_device::Screen) { did_graphics = true; }
                 }
                 if (halt_code == 5) {
+                    LOG("VM halted: halt_code=" << halt_code);
                     break;
                 }
 

@@ -69,7 +69,7 @@ JMP2r
   ;p_old ;&read_ptr STA2
   ;p_new ;&write_ptr STA2
   #0000 ;&t STA2
-  #00ff ;&te STA2 ( repeat 256 times )
+  #0fff ;&te STA2 ( repeat 256 times )
 #2a18 DEO 
 #0a18 DEO 
   &loop_t
