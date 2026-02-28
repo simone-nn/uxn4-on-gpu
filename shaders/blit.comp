@@ -183,7 +183,6 @@ void drawPixel() {
         ivec2 coords = ivec2(x, y);
 
         // colour
-        uint pixel = get_byte(SCREEN_PIXEL);
         vec4 colour = get_colour(pixel & 0x03);
 
         // editing the image
@@ -511,7 +510,7 @@ void PUx(inout State s, uint i, int _r, int _2) {
     if (_2 != 0) {
         s.c = i & 0xffff;
         PU1(s.c >> 8, _r);
-        PU1(s.c, _r);
+        PU1(s.c & 0xff, _r);
     } else {
         PU1(i & 0xff, _r);
     }
