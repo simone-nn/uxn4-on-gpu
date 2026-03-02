@@ -15,6 +15,8 @@
 |0100 @main
   fill
   stencil
+  #0a18 DEO
+  #1234
   print
   #0a18 DEO
 BRK
@@ -69,7 +71,7 @@ JMP2r
   ;p_old ;&read_ptr STA2
   ;p_new ;&write_ptr STA2
   #0000 ;&t STA2
-  #0fff ;&te STA2 ( repeat 256 times )
+  #000f ;&te STA2 ( repeat 256 times )
 #2a18 DEO 
 #0a18 DEO 
   &loop_t

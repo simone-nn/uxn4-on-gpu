@@ -240,14 +240,26 @@ bool isDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface, std::vector
         swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
     }
 
+    VkPhysicalDeviceVulkan11Features vk11Features{};
+    vk11Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+
     VkPhysicalDeviceVulkan12Features vk12Features{};
     vk12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+
     VkPhysicalDeviceFeatures2 features2{};
     features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-    features2.pNext = &vk12Features;
+    features2.pNext = &vk11Features;
+    vk11Features.pNext = &vk12Features;
+
     vkGetPhysicalDeviceFeatures2(device, &features2);
 
-    return indices.isComplete() && extensionsSupported && swapChainAdequate && vk12Features.uniformBufferStandardLayout;
+    return indices.isComplete() && extensionsSupported && swapChainAdequate
+        && vk12Features.uniformBufferStandardLayout
+        && vk12Features.storageBuffer8BitAccess
+        && vk12Features.uniformAndStorageBuffer8BitAccess
+        && vk12Features.shaderInt8
+        && vk11Features.storageBuffer16BitAccess
+        && features2.features.shaderInt16;
 }
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
@@ -552,12 +564,21 @@ private:
         }
 
         // Specify used device features
+        VkPhysicalDeviceVulkan11Features vk11Features{};
+        vk11Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+        vk11Features.storageBuffer16BitAccess = VK_TRUE;
+
         VkPhysicalDeviceVulkan12Features vk12Features{};
         vk12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
         vk12Features.uniformBufferStandardLayout = VK_TRUE;
+        vk12Features.storageBuffer8BitAccess = VK_TRUE;
+        vk12Features.uniformAndStorageBuffer8BitAccess = VK_TRUE;
+        vk12Features.shaderInt8 = VK_TRUE;
+        vk12Features.pNext = &vk11Features;
 
         VkPhysicalDeviceFeatures2 deviceFeatures2{};
         deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+        deviceFeatures2.features.shaderInt16 = VK_TRUE;
         deviceFeatures2.pNext = &vk12Features;
 
         VkDeviceCreateInfo createInfo{};
@@ -1470,21 +1491,21 @@ private:
                     break;
                 }
 
-                LOG("VM halted: halt_code=" << halt_code
-                    << ", current_vector=0x" << std::hex << static_cast<int>(current_vector)
-                    << ", pc=0x" << uxn->memory->shared.pc - 0x100
-                    << " (real=0x" << uxn->memory->shared.pc << ")\n"
-                    << " top stack value=" << uxn->memory->shared.dev[0] << "\n"
-                    << " para ctrl=" << uxn->memory->shared.dev[0xd0] << "\n"
-                    << " para lower=" << uxn->memory->shared.dev[0xd2] << "\n"
-                    << " para upper=" << uxn->memory->shared.dev[0xd4] << "\n"
-                    << " para comm=" << uxn->memory->shared.dev[0xd7] << "\n"
-                    << " para comm1=" << uxn->memory->shared.dev[0xd8] << "\n"
-                    << " para comm2=" << uxn->memory->shared.dev[0xd9] << "\n"
-                    << " last instructions: " << uxn->memory->_private.ram[uxn->memory->shared.pc-1]
-                    << ", " << uxn->memory->_private.ram[uxn->memory->shared.pc-2]
-                    << ", " << uxn->memory->_private.ram[uxn->memory->shared.pc-3]
-                    << std::dec);
+            LOG("VM halted: halt_code=" << halt_code
+                << ", current_vector=0x" << std::hex << static_cast<int>(current_vector)
+                << ", pc=0x" << static_cast<int>(uxn->memory->shared.pc - 0x100)
+                << " (real=0x" << static_cast<int>(uxn->memory->shared.pc) << ")\n"
+                << " top stack value=" << static_cast<int>(uxn->memory->shared.dev[0]) << "\n"
+                << " para ctrl=" << static_cast<int>(uxn->memory->shared.dev[0xd0]) << "\n"
+                << " para lower=" << static_cast<int>(uxn->memory->shared.dev[0xd2]) << "\n"
+                << " para upper=" << static_cast<int>(uxn->memory->shared.dev[0xd4]) << "\n"
+                << " para comm=" << static_cast<int>(uxn->memory->shared.dev[0xd7]) << "\n"
+                << " para comm1=" << static_cast<int>(uxn->memory->shared.dev[0xd8]) << "\n"
+                << " para comm2=" << static_cast<int>(uxn->memory->shared.dev[0xd9]) << "\n"
+                << " last instructions: " << static_cast<int>(uxn->memory->_private.ram[uxn->memory->shared.pc-1])
+                << ", " << static_cast<int>(uxn->memory->_private.ram[uxn->memory->shared.pc-2])
+                << ", " << static_cast<int>(uxn->memory->_private.ram[uxn->memory->shared.pc-3])
+                << std::dec);
             }
 
             // graphics step: only enter if it is time to draw a frame again (60 FPS)
@@ -1514,7 +1535,7 @@ private:
         }
         if (uxn->programTerminated()) {
             std::cout << "Uxn Program Terminated with exit code: 0x" << std::hex
-            << static_cast<int>(from_uxn_mem(&uxn->memory->shared.dev[0x0f])) << std::dec << "\n";
+                << static_cast<int>(uxn->memory->shared.dev[0x0f]) << std::dec << "\n";
         }
     }
 
