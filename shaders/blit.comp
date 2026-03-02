@@ -362,6 +362,10 @@ void drawPixel_local() {
         if (pixel / 0x10 == 0x4) {
             imageStore(foreground, coords, colour);
         }
+
+        uint8_t auto_byte = get_byte_local(SCREEN_AUTO);
+        if ((auto_byte & 0x01) != 0) to_short_local(x + uint16_t(1), SCREEN_X);
+        if ((auto_byte & 0x02) != 0) to_short_local(y + uint16_t(1), SCREEN_Y);
     } else {
         bool layer_fg = (pixel & 0x40) != 0;
         vec4 colour = get_colour(uint(pixel & 0x03));
