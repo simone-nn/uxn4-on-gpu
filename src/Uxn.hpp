@@ -24,22 +24,22 @@
 
 typedef struct uxn_memory {
     struct shared {
-        glm::uint pc;
-        glm::uint dev[UXN_DEV_SIZE];
-        glm::uint flags;
-        glm::uint halt;
+        uint16_t pc;
+        uint8_t dev[UXN_DEV_SIZE];
+        uint16_t flags;
+        uint8_t halt;
     } shared;
     struct _private {
-        glm::uint ram[UXN_RAM_SIZE];
-        glm::uint wst[UXN_STACK_SIZE];  // working stack
-        glm::uint pWst;
-        glm::uint rst[UXN_STACK_SIZE];  // return stack
-        glm::uint pRst;
+        uint8_t ram[UXN_RAM_SIZE];
+        uint8_t wst[UXN_STACK_SIZE];  // working stack
+        uint8_t pWst;
+        uint8_t rst[UXN_STACK_SIZE];  // return stack
+        uint8_t pRst;
     } _private;
     uxn_memory();
 } UxnMemory;
 
-enum class uxn_device: glm::uint {
+enum class uxn_device: uint8_t {
     System = 0x0,
     Console = 0x10,
     Screen = 0x20,
@@ -57,15 +57,15 @@ constexpr std::array CALLBACK_DEVICES = {
     uxn_device::Mouse,
 };
 
-char8_t from_uxn_mem(const glm::uint* p);
+char8_t from_uxn_mem(const uint8_t* p);
 
-char16_t from_uxn_mem2(const glm::uint* p);
+char16_t from_uxn_mem2(const uint8_t* p);
 
-void to_uxn_mem(char8_t c, glm::uint* p);
+void to_uxn_mem(uint8_t c, uint8_t* p);
 
-void to_uxn_mem2(char16_t c, glm::uint* p);
+void to_uxn_mem2(uint16_t c, uint8_t* p);
 
-bool mask(glm::uint x, glm::uint mask);
+bool mask(uint8_t x, uint8_t mask);
 
 class Uxn {
 public:
@@ -94,7 +94,7 @@ public:
     bool programTerminated() const;
 
     [[nodiscard]]
-    bool maskFlag(glm::uint mask) const;
+    bool maskFlag(uint16_t mask) const;
 
     [[nodiscard]]
     glm::vec4 getBackgroundColor() const;

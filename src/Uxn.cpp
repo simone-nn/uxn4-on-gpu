@@ -4,22 +4,21 @@
 #include "DeviceController.hpp"
 #include "Io.hpp"
 
-char8_t from_uxn_mem(const glm::uint* p) {
-    return static_cast<char8_t>(*p);
+char8_t from_uxn_mem(const uint8_t* p) {
+    return *p;
 }
 
-char16_t from_uxn_mem2(const glm::uint* p) {
-    return static_cast<char16_t>((*p << 8) + p[1]);
+char16_t from_uxn_mem2(const uint8_t* p) {
+    return static_cast<uint16_t>((*p << 8) | p[1]);
 }
 
-void to_uxn_mem(char8_t c, glm::uint* p) {
-    *p = static_cast<glm::uint>(c);
+void to_uxn_mem(uint8_t c, uint8_t* p) {
+    *p = c;
 }
 
-void to_uxn_mem2(char16_t c, glm::uint* p) {
-    // big endian
-    p[0] = static_cast<glm::uint>((c >> 8) & 0xff);
-    p[1] = static_cast<glm::uint>(c & 0xff);
+void to_uxn_mem2(uint16_t c, uint8_t* p) {
+    p[0] = static_cast<uint8_t>((c >> 8) & 0xff);
+    p[1] = static_cast<uint8_t>(c & 0xff);
 }
 
 uxn_memory::uxn_memory() = default;
@@ -30,20 +29,14 @@ Uxn::Uxn(const char *program_path, Console *console, EventQueue *gpuEventQueue) 
     this->program_rom = readFile(program_path);
     this->gpuEventQueue = gpuEventQueue;
 
-    if (program_rom.size() + 0x0100 * sizeof(glm::uint) > UXN_RAM_SIZE) {
+    if (program_rom.size() + 0x0100 > UXN_RAM_SIZE) {
         throw std::runtime_error("uxn program is bigger than uxn ram!");
-    }
-
-    // Padding the opcodes from 8-bit to 32-bit
-    auto program = std::vector<glm::uint>(program_rom.size());
-    for (size_t i = 0; i < program_rom.size(); i++) {
-        to_uxn_mem(program_rom[i], &program[i]);
     }
 
     this->memory = new UxnMemory();
     memset(memory, 0, sizeof(UxnMemory));
     // copy the program into memory
-    memcpy(memory->_private.ram + 0x0100, program.data(), program.size() * sizeof(glm::uint));
+    memcpy(memory->_private.ram + 0x0100, program_rom.data(), program_rom.size());
     // set the program counter to where the program starts from
     memory->shared.pc = 0x0100;
 
@@ -75,7 +68,7 @@ void Uxn::outputToFile(const char* output_file_name, bool showRAM) const {
     outFile << "---Uxn Memory:---\n";
     outFile << "Program Counter: 0x" << memory->shared.pc;
     if (memory->shared.pc != 0) {
-        glm::uint instr = from_uxn_mem(&memory->_private.ram[memory->shared.pc - 1]);
+        uint8_t instr = from_uxn_mem(&memory->_private.ram[memory->shared.pc - 1]);
         outFile << " prev instruction:" << instr;
     }
     outFile << "\nFlags: 0x" << memory->shared.flags << "\n";
@@ -175,7 +168,7 @@ void Uxn::handleUxnIO() {
     // callbacks
     if (maskFlag(DEO_FLAG)) {
         for (uxn_device device : CALLBACK_DEVICES) {
-            if (uint16_t addr = from_uxn_mem2(&memory->shared.dev[static_cast<glm::uint>(device)])) {
+            if (uint16_t addr = from_uxn_mem2(&memory->shared.dev[static_cast<uint8_t>(device)])) {
                 if (!deviceCallbackVectors.contains(device)) {
                     LOG("Adding new callback device: " << static_cast<int>(device));
                 }
@@ -203,7 +196,7 @@ bool Uxn::programTerminated() const {
     return static_cast<int8_t>(from_uxn_mem(&memory->shared.dev[0x0f])) != 0;
 }
 
-bool Uxn::maskFlag(glm::uint mask) const {
+bool Uxn::maskFlag(uint16_t mask) const {
     return (memory->shared.flags & mask) == mask;
 }
 
