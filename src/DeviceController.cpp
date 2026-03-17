@@ -1466,10 +1466,10 @@ private:
                 }
                 callback_index = (callback_index + 1) % static_cast<int>(CALLBACK_DEVICES.size());
 
-                // // If no device vectors, exit
-                // if (uxn->deviceCallbackVectors.empty()) {
-                //     break; 
-                // }
+                // If no device vectors, exit
+                if (uxn->deviceCallbackVectors.empty()) {
+                    break; 
+                }
             }
 
             if (in_vector) {

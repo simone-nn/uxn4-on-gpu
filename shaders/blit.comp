@@ -33,7 +33,7 @@ layout(std430, set = 0, binding = 7) uniform RomData {
     uint8_t rom[65536];
 } rom;
 
-layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout (local_size_x = 128, local_size_y = 1, local_size_z = 1) in;
 // layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in; // single threaded temporarily
 
 /* VM Registry State */
@@ -640,7 +640,7 @@ uint uxn_eval(State state) {
     // check for shutdown
 	if((shared_uxn.pc == 0) || (shared_uxn.dev[0x0f] != 0)) return 5;
 	// select instruction
-	switch(uint(rom.rom[shared_uxn.pc++])) {
+	switch(uint((uxn.ram[shared_uxn.pc++]))) {
     /* BRK */ case 0x00: return 1;
     /* JCI */ case 0x20:
                 if(uxn.wst[--uxn.pWst] != 0) { JMI(state); }
@@ -911,7 +911,7 @@ uint DEO_local(uint8_t addr, u8vec2 v, uint _2) {
 
 uint uxn_eval_local(State state) {
     if(local_pc > 0xffff) return 5;
-    switch(uint(rom.rom[local_pc++])) {
+    switch(uint(uxn.ram[local_pc++])) {
     case 0x00: return 1;
     case 0x20:
                 if(local_wst[--local_pWst] != 0) { JMI_local(state); }
@@ -1004,17 +1004,17 @@ uint uxn_eval_local(State state) {
                   return DEO_local(uint8_t(state.a), state.y, _2); )
     /* ADD */ OPC_LOCAL(0x18,
                 state.a = POx_local(_r,_2); state.b = POx_local(_r,_2); ,
-                PUx_local(state, uint16_t((state.b + state.a) & ((_2) != 0 ? 0xffff : 0xff)), _r,_2); )
+                PUx_local(state, uint16_t((state.b + state.a)), _r,_2); )
     /* SUB */ OPC_LOCAL(0x19,
                 state.a = POx_local(_r,_2); state.b = POx_local(_r,_2); ,
-                PUx_local(state, uint16_t((state.b - state.a) & ((_2) != 0 ? 0xffff : 0xff)), _r,_2); )
+                PUx_local(state, uint16_t((state.b - state.a)), _r,_2); )
     /* MUL */ OPC_LOCAL(0x1a,
                 state.a = POx_local(_r,_2); state.b = POx_local(_r,_2); ,
-                PUx_local(state, uint16_t((state.b * state.a) & ((_2) != 0 ? 0xffff : 0xff)), _r,_2); )
+                PUx_local(state, uint16_t((state.b * state.a)), _r,_2); )
     /* DIV */ OPC_LOCAL(0x1b,
                 state.a = POx_local(_r,_2); state.b = POx_local(_r,_2); ,
                 if (state.a == 0) { PUx_local(state, uint16_t(0), _r,_2); }
-                else { PUx_local(state, uint16_t((state.b / state.a) & ((_2) != 0? 0xffff : 0xff)), _r,_2); } )
+                else { PUx_local(state, uint16_t((state.b / state.a)), _r,_2); } )
     OPC_LOCAL(0x1c,
                   state.a = POx_local(_r,_2); state.b = POx_local(_r,_2); ,
                   PUx_local(state, state.a & state.b, _r,_2); )
@@ -1059,7 +1059,6 @@ void main() {
             workerFlag = false;
             shared_uxn.halt = uint8_t(uxn_eval(state));
             steps++;
-            shared_uxn.dev[PARA_COMM] = shared_uxn.dev[0x26];
     }
     barrier();
     if (workerFlag == true) { // Worker invocations
@@ -1107,13 +1106,19 @@ void main() {
 
         if (end == upper) lastWorker = true;
 
+
         // Worker local evaluation loop
         while (work_finished == 0) {
             work_finished = uxn_eval_local(state);
         }
+
+        if (lastWorker) {
+            shared_uxn.dev[PARA_COMM] = uint8_t(start);
+            shared_uxn.dev[PARA_COMM+1] = uint8_t(end);
+            shared_uxn.dev[PARA_COMM+2] = uint8_t(tid);
+        }
     }  
     barrier();  // Signal worker completion
     }
-    shared_uxn.dev[PARA_COMM] = uint8_t(uxn.pWst);
     shared_uxn.dev[0] = uxn.wst[uxn.pWst-1];
 }
