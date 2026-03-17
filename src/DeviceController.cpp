@@ -29,7 +29,6 @@ int HEIGHT = 320;
 #define BACKGROUND_SAMPLER_BINDING  4
 #define FOREGROUND_IMAGE_BINDING    3
 #define FOREGROUND_SAMPLER_BINDING  5
-#define ROM_Binding                 7
 
 #define VERTEX_BINDING 0
 #define VERTEX_LOCATION 6
@@ -254,7 +253,6 @@ bool isDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface, std::vector
     vkGetPhysicalDeviceFeatures2(device, &features2);
 
     return indices.isComplete() && extensionsSupported && swapChainAdequate
-        && vk12Features.uniformBufferStandardLayout
         && vk12Features.storageBuffer8BitAccess
         && vk12Features.uniformAndStorageBuffer8BitAccess
         && vk12Features.shaderInt8
@@ -570,7 +568,6 @@ private:
 
         VkPhysicalDeviceVulkan12Features vk12Features{};
         vk12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-        vk12Features.uniformBufferStandardLayout = VK_TRUE;
         vk12Features.storageBuffer8BitAccess = VK_TRUE;
         vk12Features.uniformAndStorageBuffer8BitAccess = VK_TRUE;
         vk12Features.shaderInt8 = VK_TRUE;
@@ -1018,9 +1015,6 @@ private:
         privateUxnResource = Resource(ctx, PRIVATE_UXN_BINDING, &uxnDescriptorSet,
             sizeof(UxnMemory::_private), &uxn->memory->_private,
             Resource::ResourceType::SSBO, false);
-        privateRomResource = Resource(ctx, ROM_Binding, &uxnDescriptorSet,
-            sizeof(UxnMemory::_private::ram), &uxn->memory->_private.ram,
-            Resource::ResourceType::UBO, false);
 
         initImageResources(uxn_width, uxn_height);
         vertexResource = Resource(ctx, VERTEX_LOCATION, &graphicsDescriptorSet,
@@ -1559,7 +1553,6 @@ private:
         vkDestroyFence(ctx.device, blitFence, nullptr);
         sharedUxnResource.destroy();
         privateUxnResource.destroy();
-        privateRomResource.destroy();
         backgroundImageResource.destroy();
         foregroundImageResource.destroy();
         vertexResource.destroy();
