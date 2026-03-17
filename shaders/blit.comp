@@ -27,7 +27,7 @@ layout(std430, set = 0, binding = 1) buffer Private_UXN_Buffer {
     uint pRst;
 } uxn;
 
-layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 // layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in; // single threaded temporarily
 
 /* VM Registry State */
@@ -354,7 +354,7 @@ void drawPixel_local() {
         uint y = get_short_local(SCREEN_Y);
         ivec2 coords = ivec2(x, y);
 
-        vec4 colour = get_colour(pixel & 0x0f);
+        vec4 colour = get_colour(pixel & 0x03);
 
         if (pixel / 0x10 == 0x0) {
             imageStore(background, coords, colour);
@@ -532,7 +532,7 @@ void PUT(uvec2 i, int _r, int _2) {
 }
 
 void POK(uint i, uvec2 j, uint m, int _r, int _2) {
-    uxn.ram[i] = j.x;
+    uxn.ram[i] = j.x & m;
     if(_2 != 0) {
         uxn.ram[(i + 1) & m] = j.y;
     }
@@ -787,7 +787,13 @@ uint PO1_local(int _r) {
 }
 
 uint PO2_local(int _r) {
-    return (_r != 0) ? pop_rst_local() | pop_rst_local() << 8 : pop_wst_local() | pop_wst_local() << 8;
+    if (_r != 0) {
+        uint low = pop_rst_local(); uint high = pop_rst_local();
+        return (high << 8) | low;
+    } else {
+        uint low = pop_wst_local(); uint high = pop_wst_local();
+        return (high << 8) | low;
+    }
 }
 
 uint POx_local(int _r, int _2) {
@@ -806,7 +812,7 @@ void PUx_local(inout State s, uint i, int _r, int _2) {
     if (_2 != 0) {
         s.c = i & 0xffff;
         PU1_local(s.c >> 8, _r);
-        PU1_local(s.c, _r);
+        PU1_local(s.c & 0xff, _r);
     } else {
         PU1_local(i & 0xff, _r);
     }
@@ -820,7 +826,7 @@ void PUT_local(uvec2 i, int _r, int _2) {
 }
 
 void POK_local(uint i, uvec2 j, uint m, int _r, int _2) {
-    uxn.ram[i] = j.x;
+    uxn.ram[i] = j.x & m;
     if(_2 != 0) {
         uxn.ram[(i + 1) & m] = j.y;
     }
@@ -997,16 +1003,16 @@ uint uxn_eval_local(State state) {
     OPC_LOCAL(0x17,
                   state.a = PO1_local(_r); GET_local(state.y,_r,_2); ,
                   return DEO_local(state.a, state.y, _2); )
-    /* ADD */ OPC(0x18,
+    /* ADD */ OPC_LOCAL(0x18,
                 state.a = POx_local(_r,_2); state.b = POx_local(_r,_2); ,
                 PUx_local(state, (state.b + state.a) & ((_2) != 0 ? 0xffff : 0xff), _r,_2); )
-    /* SUB */ OPC(0x19,
+    /* SUB */ OPC_LOCAL(0x19,
                 state.a = POx_local(_r,_2); state.b = POx_local(_r,_2); ,
                 PUx_local(state, (state.b - state.a) & ((_2) != 0 ? 0xffff : 0xff), _r,_2); )
-    /* MUL */ OPC(0x1a,
+    /* MUL */ OPC_LOCAL(0x1a,
                 state.a = POx_local(_r,_2); state.b = POx_local(_r,_2); ,
                 PUx_local(state, (state.b * state.a) & ((_2) != 0 ? 0xffff : 0xff), _r,_2); )
-    /* DIV */ OPC(0x1b,
+    /* DIV */ OPC_LOCAL(0x1b,
                 state.a = POx_local(_r,_2); state.b = POx_local(_r,_2); ,
                 if (state.a == 0) { PUx_local(state, 0, _r,_2); }
                 else { PUx_local(state, (state.b / state.a) & ((_2) != 0? 0xffff : 0xff), _r,_2); } )
@@ -1054,7 +1060,6 @@ void main() {
             workerFlag = false;
             shared_uxn.halt = uxn_eval(state);
             steps++;
-            shared_uxn.dev[PARA_COMM] = shared_uxn.dev[0x26];
     }
     barrier();
     if (workerFlag == true) { // Worker invocations
@@ -1107,8 +1112,11 @@ void main() {
             work_finished = uxn_eval_local(state);
         }
 
-        shared_uxn.dev[PARA_COMM] = local_pWst;
-        shared_uxn.dev[PARA_COMM] = local_pRst;
+        if (lastWorker) {
+            shared_uxn.dev[PARA_COMM] = start;
+            shared_uxn.dev[PARA_COMM+1] = end;
+            shared_uxn.dev[PARA_COMM+2] = tid;
+        }
 
     }  
     barrier();  // Signal worker completion
