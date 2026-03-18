@@ -28,7 +28,7 @@ layout(std430, set = 0, binding = 1) buffer Private_UXN_Buffer {
     uint8_t pRst;
 } uxn;
 
-layout (local_size_x = 128, local_size_y = 1, local_size_z = 1) in;
+layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 // layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in; // single threaded temporarily
 
 /* VM Registry State */
@@ -164,6 +164,20 @@ vec4 colour_1bpp(uint8_t sprite_low, ivec2 offset, uint16_t current_addr) {
     return vec4(0, 0, 0, 0);
 }
 
+
+void update_colour() {
+    int height = get_short(SCREEN_HEIGHT);
+    int width = get_short(SCREEN_WIDTH);
+    vec4 colour = get_colour(0);
+    for (int y = 0; y < height; y++){
+        for (int x = 0; x < width; x++){
+            ivec2 coords = ivec2(x, y);
+            imageStore(background, coords, colour);
+        }
+    }
+}
+
+
 void drawPixel() {
     uint8_t pixel = get_byte(SCREEN_PIXEL);
     
@@ -276,7 +290,6 @@ void drawSprite() {
                     x_flipped ? (7 - px) : px,
                     y_flipped ? (7 - py) : py
                 );
-
                 if (v_colour!= vec4(0, 0, 0, 0)){ // Skip clear pixels
                     if (layer_is_foreground) {
                         imageStore(foreground, write_pos, v_colour);
@@ -618,13 +631,14 @@ uint DEO(uint8_t addr, u8vec2 v, uint _2) {
     if (addr == 0x2f) drawSprite();
     if (addr == 0x18) shared_uxn.flags |= DEO_CONSOLE_FLAG;
     if (addr == 0x19) shared_uxn.flags |= DEO_CERROR_FLAG;
+    if (addr == SYS_B) update_colour();
     if (addr == 0xd0) parallel_loop();
 
     // no need to halt in a lot of cases, i.e. when writting to Screen/X
     uint halt = 2 + _2; // halt code for DEO/DEO2
 
     //todo there might be more ports that can be optimised like this
-    if (addr == 0x26 || addr == 0x28 || addr == 0x2a || addr == 0x2c || addr == 0x2e || addr == 0x2f || (addr & 0xf0) == 0xd0){
+    if (addr == 0x26 || addr == 0x28 || addr == 0x2a || addr == 0x2c || addr == 0x2e || addr == 0x2f || (addr & 0xf0) == 0xd0 || addr == SYS_B ){
         halt = 0; // no need to halt
     }
 
