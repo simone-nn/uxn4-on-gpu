@@ -1010,7 +1010,7 @@ private:
 
     void initImageResources(uint32_t width, uint32_t height) {
         backgroundImageResource = Resource(ctx, BACKGROUND_IMAGE_BINDING, BACKGROUND_SAMPLER_BINDING,
-                                           &blitDescriptorSet, &graphicsDescriptorSet, {width, height, 0xFFFFFFFF});
+                                           &blitDescriptorSet, &graphicsDescriptorSet, {width, height, 0});
         foregroundImageResource = Resource(ctx, FOREGROUND_IMAGE_BINDING, FOREGROUND_SAMPLER_BINDING,
                                            &blitDescriptorSet, &graphicsDescriptorSet, {width, height, 0});
     }
@@ -1429,10 +1429,10 @@ private:
                 }
                 callback_index = (callback_index + 1) % static_cast<int>(CALLBACK_DEVICES.size());
 
-                // If no device vectors, exit
-                if (uxn->deviceCallbackVectors.empty()) {
-                    break; 
-                }
+                // // If no device vectors, exit
+                // if (uxn->deviceCallbackVectors.empty()) {
+                //     break; 
+                // }
             }
 
             if (in_vector) {
