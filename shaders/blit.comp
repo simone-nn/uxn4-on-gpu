@@ -166,8 +166,8 @@ vec4 colour_1bpp(uint8_t sprite_low, ivec2 offset, uint16_t current_addr) {
 
 
 void update_colour() {
-    int height = get_short(SCREEN_HEIGHT);
-    int width = get_short(SCREEN_WIDTH);
+    uint height = get_short(SCREEN_HEIGHT);
+    uint width = get_short(SCREEN_WIDTH);
     vec4 colour = get_colour(0);
     for (int y = 0; y < height; y++){
         for (int x = 0; x < width; x++){
