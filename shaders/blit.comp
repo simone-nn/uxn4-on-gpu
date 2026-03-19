@@ -28,6 +28,13 @@ layout(std430, set = 0, binding = 1) buffer Private_UXN_Buffer {
     uint8_t pRst;
 } uxn;
 
+layout(std430, set = 1, binding = 7) buffer Pixel_Buffer {
+    uint palette[16];
+    uint width;
+    uint height;
+    uint8_t layers[];
+} pixels;
+
 layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 // layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in; // single threaded temporarily
 
@@ -45,6 +52,9 @@ uint8_t local_pRst;
 uint16_t local_pc;
 uint8_t local_dev[16];
 bool lastWorker;
+
+uint pixels_width;
+uint pixels_height;
 
 /* Unroll */
 #define OPC(opc, init, body) \
@@ -70,8 +80,8 @@ bool lastWorker;
 
 // ---------------------- Blit -----------------------------
 
-layout(set = 1, binding = 2, rgba8) uniform image2D background;
-layout(set = 1, binding = 3, rgba8) uniform image2D foreground;
+// layout(set = 1, binding = 2, rgba8) uniform image2D background;
+// layout(set = 1, binding = 3, rgba8) uniform image2D foreground;
 
 shared bool workerFlag;
 
@@ -122,6 +132,21 @@ void to_short(uint16_t v, uint8_t addr) {
     shared_uxn.dev[addr+1] = uint8_t(v & 0xff);
 }
 
+void update_palette() {
+    uint colors[4];
+    int shift = 4;
+    for (int i = 0; i < 4; i++, shift ^= 4) {
+        uint r = (uint(get_byte(SYS_R + uint8_t(i / 2))) >> shift) & 0xFu;
+        uint g = (uint(get_byte(SYS_G + uint8_t(i / 2))) >> shift) & 0xFu;
+        uint b = (uint(get_byte(SYS_B + uint8_t(i / 2))) >> shift) & 0xFu;
+        colors[i] = 0x0F000000u | (r << 16) | (g << 8) | b;
+        colors[i] |= colors[i] << 4;
+    }
+    for (int i = 0; i < 16; i++) {
+        pixels.palette[i] = colors[(i >> 2) != 0 ? (i >> 2) : (i & 3)];
+    }
+}
+
 vec4 get_colour(uint colour_i) {
     if (colour_i < 4) {
     uint shift = (3 - colour_i) * 4u;
@@ -133,7 +158,7 @@ vec4 get_colour(uint colour_i) {
     return vec4(1.0, 0.0, 0.0, 1.0);
 }
 
-vec4 colour_2bpp(uint8_t sprite_low, ivec2 offset, uint16_t current_addr) {
+uint8_t colour_2bpp(uint8_t sprite_low, ivec2 offset, uint16_t current_addr) {
     // ---------------------- 2 bpp --------------------------------
     uint16_t addr = current_addr + uint16_t(offset.y);
     uint8_t ch1 = uxn.ram[addr];
@@ -144,12 +169,12 @@ vec4 colour_2bpp(uint8_t sprite_low, ivec2 offset, uint16_t current_addr) {
     uint palette_index = blending[pixel_value][sprite_low];
     
     if (opaque != 0 || pixel_value != 0) {
-        return get_colour(palette_index);
+        return uint8_t(palette_index);
     }
-    return vec4(0, 0, 0, 0);
+    return uint8_t(0);
 }
 
-vec4 colour_1bpp(uint8_t sprite_low, ivec2 offset, uint16_t current_addr) {
+uint8_t colour_1bpp(uint8_t sprite_low, ivec2 offset, uint16_t current_addr) {
     // ---------------------- 1 bpp --------------------------------
     uint16_t addr = current_addr + uint16_t(offset.y);
     uint8_t row = uxn.ram[addr];
@@ -159,23 +184,23 @@ vec4 colour_1bpp(uint8_t sprite_low, ivec2 offset, uint16_t current_addr) {
     uint palette_index = blending[pixel_bit][sprite_low];
     
     if (opaque != 0 || pixel_bit != 0) {
-        return get_colour(palette_index);
+        return uint8_t(palette_index);
     }
-    return vec4(0, 0, 0, 0);
+    return uint8_t(0);
 }
 
 
-void update_colour() {
-    int height = get_short(SCREEN_HEIGHT);
-    int width = get_short(SCREEN_WIDTH);
-    vec4 colour = get_colour(0);
-    for (int y = 0; y < height; y++){
-        for (int x = 0; x < width; x++){
-            ivec2 coords = ivec2(x, y);
-            imageStore(background, coords, colour);
-        }
-    }
-}
+// void update_colour() {
+//     int height = get_short(SCREEN_HEIGHT);
+//     int width = get_short(SCREEN_WIDTH);
+//     vec4 colour = get_colour(0);
+//     for (int y = 0; y < height; y++){
+//         for (int x = 0; x < width; x++){
+//             ivec2 coords = ivec2(x, y);
+//             imageStore(background, coords, colour);
+//         }
+//     }
+// }
 
 
 void drawPixel() {
@@ -191,14 +216,15 @@ void drawPixel() {
         ivec2 coords = ivec2(x, y);
 
         // colour
-        vec4 colour = get_colour(pixel & 0x03);
+        uint8_t colour = pixel & uint8_t(0x03);
 
         // editing the image
+        uint idx = coords.y * pixels_width + coords.x;
         if (pixel / 0x10 == 0x0) {
-            imageStore(background, coords, colour);
+            pixels.layers[idx] = colour;
         }
         if (pixel / 0x10 == 0x4) {
-            imageStore(foreground, coords, colour);
+            pixels.layers[pixels_width * pixels_height + idx] = colour;
         }
 
         // update x and y according to auto bit
@@ -208,7 +234,7 @@ void drawPixel() {
     } else {
         // ---------------------- fill mode -----------------------------
         bool layer_fg = (pixel & 0x40) != 0;
-        vec4 colour = get_colour(pixel & 0x03);
+        uint8_t colour = pixel & uint8_t(0x03);
         
         // Calculate fill region based on bits 4 (x range) and 5 (y range)
         uint16_t x = get_short(SCREEN_X);
@@ -236,12 +262,13 @@ void drawPixel() {
         // }
 
         // single thread version
-        for (uint16_t py = y1; py < y2; py++) {
-            for (uint16_t px = x1; px < x2; px++) {
+        for (uint py = y1; py < y2; py++) {
+            for (uint px = x1; px < x2; px++) {
+                uint idx = py * pixels_width + px;
                 if (layer_fg) {
-                    imageStore(foreground, ivec2(px, py), colour);
+                    pixels.layers[pixels_width * pixels_height + idx] = colour;
                 } else {
-                    imageStore(background, ivec2(px, py), colour);
+                    pixels.layers[idx] = colour;
                 }
             }
         }
@@ -282,7 +309,7 @@ void drawSprite() {
             for (int px = 0; px < 8; px++) {
                 ivec2 pixel_offset = ivec2(px, py);
                 
-                vec4 v_colour = mode_is_2bpp 
+                uint8_t color = mode_is_2bpp 
                     ? colour_2bpp(sprite_low, pixel_offset, current_addr)
                     : colour_1bpp(sprite_low, pixel_offset, current_addr);
                 
@@ -290,12 +317,17 @@ void drawSprite() {
                     x_flipped ? (7 - px) : px,
                     y_flipped ? (7 - py) : py
                 );
-                if (v_colour!= vec4(0, 0, 0, 0)){ // Skip clear pixels
-                    if (layer_is_foreground) {
-                        imageStore(foreground, write_pos, v_colour);
-                    } else {
-                        imageStore(background, write_pos, v_colour);
-                    }
+
+                if (color != uint8_t(0)) {
+                    if (write_pos.x >= 0 && write_pos.y >= 0 
+                        && write_pos.x < int(pixels_width) && write_pos.y < int(pixels_height)) {
+                        uint idx = write_pos.y * pixels_width + write_pos.x;
+                        if (layer_is_foreground) {
+                            pixels.layers[pixels_width * pixels_height + idx] = color;
+                        } else {
+                            pixels.layers[idx] = color;
+                        }
+                        }
                 }
             }
         }
@@ -325,7 +357,7 @@ void to_short_local(uint16_t v, uint8_t addr) {
     local_dev[index + 1] =  uint8_t(v & 0xff);
 }
 
-vec4 colour_2bpp_local(uint8_t sprite_low, ivec2 offset, uint16_t current_addr) {
+uint8_t colour_2bpp_local(uint8_t sprite_low, ivec2 offset, uint16_t current_addr) {
     uint16_t addr = current_addr + uint16_t(offset.y);
     uint8_t ch1 = uxn.ram[addr];
     uint8_t ch2 = uxn.ram[addr + 8];
@@ -335,12 +367,12 @@ vec4 colour_2bpp_local(uint8_t sprite_low, ivec2 offset, uint16_t current_addr) 
     uint palette_index = blending[pixel_value][sprite_low];
     
     if (opaque != 0 || pixel_value != 0) {
-        return get_colour(palette_index);
+        return uint8_t(palette_index);
     }
-    return vec4(0, 0, 0, 0);
+    return uint8_t(0);
 }
 
-vec4 colour_1bpp_local(uint8_t sprite_low, ivec2 offset, uint16_t current_addr) {
+uint8_t colour_1bpp_local(uint8_t sprite_low, ivec2 offset, uint16_t current_addr) {
     uint16_t addr = current_addr + uint16_t(offset.y);
     uint8_t row = uxn.ram[addr];
     uint8_t pixel_bit = uint8_t((row >> (7 - uint8_t(offset.x))) & 0x1);
@@ -349,9 +381,9 @@ vec4 colour_1bpp_local(uint8_t sprite_low, ivec2 offset, uint16_t current_addr) 
     uint palette_index = blending[pixel_bit][sprite_low];
     
     if (opaque != 0 || pixel_bit != 0) {
-        return get_colour(palette_index);
+        return uint8_t(palette_index);
     }
-    return vec4(0, 0, 0, 0);
+    return uint8_t(0);
 }
 
 void drawPixel_local() {
@@ -362,13 +394,16 @@ void drawPixel_local() {
         uint16_t y = get_short_local(SCREEN_Y);
         ivec2 coords = ivec2(x, y);
 
-        vec4 colour = get_colour(uint(pixel & 0x03));
+        // colour
+        uint8_t colour = pixel & uint8_t(0x03);
 
+        // editing the image
+        uint idx = coords.y * pixels_width + coords.x;
         if (pixel / 0x10 == 0x0) {
-            imageStore(background, coords, colour);
+            pixels.layers[idx] = colour;
         }
         if (pixel / 0x10 == 0x4) {
-            imageStore(foreground, coords, colour);
+            pixels.layers[pixels_width * pixels_height + idx] = colour;
         }
 
         uint8_t auto_byte = get_byte_local(SCREEN_AUTO);
@@ -376,7 +411,7 @@ void drawPixel_local() {
         if ((auto_byte & 0x02) != 0) to_short_local(y + uint16_t(1), SCREEN_Y);
     } else {
         bool layer_fg = (pixel & 0x40) != 0;
-        vec4 colour = get_colour(uint(pixel & 0x03));
+        uint8_t colour = pixel & uint8_t(0x03);
         
         uint16_t x = get_short_local(SCREEN_X);
         uint16_t y = get_short_local(SCREEN_Y);
@@ -388,12 +423,13 @@ void drawPixel_local() {
         uint16_t y1 = ((pixel & 0x20) != 0) ? uint16_t(0) : y;
         uint16_t y2 = ((pixel & 0x20) != 0) ? y : height;
 
-        for (int py = y1; py < y2; py++) {
-            for (int px = x1; px < x2; px++) {
+        for (uint py = y1; py < y2; py++) {
+            for (uint px = x1; px < x2; px++) {
+                uint idx = py * pixels_width + px;
                 if (layer_fg) {
-                    imageStore(foreground, ivec2(px, py), colour);
+                    pixels.layers[pixels_width * pixels_height + idx] = colour;
                 } else {
-                    imageStore(background, ivec2(px, py), colour);
+                    pixels.layers[idx] = colour;
                 }
             }
         }
@@ -428,7 +464,7 @@ void drawSprite_local() {
             for (int px = 0; px < 8; px++) {
                 ivec2 pixel_offset = ivec2(px, py);
                 
-                vec4 v_colour = mode_is_2bpp 
+                uint8_t color = mode_is_2bpp 
                     ? colour_2bpp_local(sprite_low, pixel_offset, current_addr)
                     : colour_1bpp_local(sprite_low, pixel_offset, current_addr);
                 
@@ -436,12 +472,16 @@ void drawSprite_local() {
                     x_flipped ? (7 - px) : px,
                     y_flipped ? (7 - py) : py
                 );
-                
-                if (v_colour!= vec4(0, 0, 0, 0)) {
-                if (layer_is_foreground) {
-                    imageStore(foreground, write_pos, v_colour);
-                } else {
-                    imageStore(background, write_pos, v_colour);
+
+                if (color != uint8_t(0)) {
+                    if (write_pos.x >= 0 && write_pos.y >= 0 
+                        && write_pos.x < int(pixels_width) && write_pos.y < int(pixels_height)) {
+                        uint idx = write_pos.y * pixels_width + write_pos.x;
+                        if (layer_is_foreground) {
+                            pixels.layers[pixels_width * pixels_height + idx] = color;
+                        } else {
+                            pixels.layers[idx] = color;
+                        }
                 }
                 }
             }
@@ -625,13 +665,13 @@ uint DEO(uint8_t addr, u8vec2 v, uint _2) {
     }
 
     shared_uxn.flags |= DEO_FLAG;
-    if (addr == 0x22) shared_uxn.flags |= DEO_SCREENW_FLAG;
-    if (addr == 0x24) shared_uxn.flags |= DEO_SCREENH_FLAG;
+    if (addr == 0x22) {shared_uxn.flags |= DEO_SCREENW_FLAG; pixels_width = (v.x << 8 & v.y); pixels.width = pixels_width;}
+    if (addr == 0x24) {shared_uxn.flags |= DEO_SCREENH_FLAG; pixels_width = (v.x << 8 & v.y); pixels.height = pixels.height;}
     if (addr == 0x2e) drawPixel();
     if (addr == 0x2f) drawSprite();
     if (addr == 0x18) shared_uxn.flags |= DEO_CONSOLE_FLAG;
     if (addr == 0x19) shared_uxn.flags |= DEO_CERROR_FLAG;
-    if (addr == SYS_B) update_colour();
+    if (addr == SYS_B) update_palette();
     if (addr == 0xd0) parallel_loop();
 
     // no need to halt in a lot of cases, i.e. when writting to Screen/X
@@ -1049,6 +1089,10 @@ void main() {
     // Main thread
     shared_uxn.flags = uint16_t(0);
     shared_uxn.halt = uint8_t(0);
+    pixels_width = 512;
+    pixels_height = 320;
+    pixels.width = pixels_width;
+    pixels.height = pixels_height;
 
     // Run the next Uxn instruction
     // possible halt codes:
@@ -1078,6 +1122,8 @@ void main() {
         uint16_t lower = get_short(PARA_LOW);
         uint16_t upper = get_short(PARA_UP);
         uint16_t num_iter = upper - lower;
+        pixels_width = get_short(SCREEN_WIDTH);
+        pixels_height = get_short(SCREEN_HEIGHT);
 
         if (workerId >= num_iter) continue;
 

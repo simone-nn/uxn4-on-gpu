@@ -367,7 +367,8 @@ Resource::Resource(
     size_t bufferSize,
     const void* bufferData,
     ResourceType bufferType,
-    bool isTransferSource
+    bool isTransferSource,
+    DescriptorSetWrapper *secondDescriptorSet
 ) {
     this->type = bufferType;
     this->binding = binding;
@@ -384,7 +385,11 @@ Resource::Resource(
 
     void* p;
     vkMapMemory(ctx.device, stagingBufferMemory, 0, bufferSize, 0, &p);
+    if (bufferData) {
     memcpy(p, bufferData, bufferSize);
+    } else {
+        memset(p, 0, bufferSize);
+    }
     vkUnmapMemory(ctx.device, stagingBufferMemory);
 
     VkBufferUsageFlags usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
@@ -411,8 +416,16 @@ Resource::Resource(
             b.descriptorCount = 1;
             b.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
             b.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+            
             descriptorSet->addBinding(b);
             descriptorSet->addSSBOWrite(data.buffer._, data.buffer.size, binding);
+            
+            if (secondDescriptorSet) {
+                VkDescriptorSetLayoutBinding b2 = b;
+                b2.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+                secondDescriptorSet->addBinding(b2);
+                secondDescriptorSet->addSSBOWrite(data.buffer._, data.buffer.size, binding);
+            }
             break;
         }
         case UBO: {

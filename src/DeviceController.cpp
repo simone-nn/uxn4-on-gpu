@@ -19,8 +19,10 @@
 #include "shaders/blit.h"
 
 // Window Dimensions that matches uxn default
-int WIDTH = 512;
-int HEIGHT = 320;
+const int WIDTH = 512;
+const int HEIGHT = 320;
+const int BUFFER_WIDTH = 1024;
+const int BUFFER_HEIGHT = 640;
 
 // -- Bindings --
 #define SHARED_UXN_BINDING          0
@@ -29,6 +31,7 @@ int HEIGHT = 320;
 #define BACKGROUND_SAMPLER_BINDING  4
 #define FOREGROUND_IMAGE_BINDING    3
 #define FOREGROUND_SAMPLER_BINDING  5
+#define PIXEL_BUFFER_BINDING        7
 
 #define VERTEX_BINDING 0
 #define VERTEX_LOCATION 6
@@ -65,6 +68,13 @@ typedef struct vertex {
         return attributeDescriptions;
     }
 } Vertex;
+
+struct PixelBuffer {
+    uint32_t palette[16];
+    uint32_t width;
+    uint32_t height;
+    uint8_t layers[BUFFER_WIDTH * BUFFER_HEIGHT * 2];  // bg then fg
+};
 
 struct QueueFamilyIndices {
     std::optional<uint32_t> graphicsAndComputeFamily;
@@ -389,7 +399,7 @@ private:
     DescriptorSetWrapper graphicsDescriptorSet;
     Resource sharedUxnResource;
     Resource privateUxnResource;
-    Resource privateRomResource;
+    Resource pixelBufferResource;
     Resource backgroundImageResource;
     Resource foregroundImageResource;
     Resource vertexResource;
@@ -797,7 +807,7 @@ private:
         // todo figure out what descriptorCount actually means, and why it needs to be set to 2
         std::array<VkDescriptorPoolSize, 4> poolSizes{};
         poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        poolSizes[0].descriptorCount = 2;
+        poolSizes[0].descriptorCount = 4;
         poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         poolSizes[1].descriptorCount = 2;
         poolSizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
@@ -1011,15 +1021,18 @@ private:
         // resource creation
         sharedUxnResource = Resource(ctx, SHARED_UXN_BINDING, &uxnDescriptorSet,
             sizeof(UxnMemory::shared), &uxn->memory->shared,
-            Resource::ResourceType::SSBO, true);
+            Resource::ResourceType::SSBO, true, nullptr);
         privateUxnResource = Resource(ctx, PRIVATE_UXN_BINDING, &uxnDescriptorSet,
             sizeof(UxnMemory::_private), &uxn->memory->_private,
-            Resource::ResourceType::SSBO, false);
+            Resource::ResourceType::SSBO, false, nullptr);
 
-        initImageResources(uxn_width, uxn_height);
+        // initImageResources(uxn_width, uxn_height);
         vertexResource = Resource(ctx, VERTEX_LOCATION, &graphicsDescriptorSet,
             VERTICES_SIZE, vertices.data(),
-            Resource::ResourceType::VertexBuffer, false);
+            Resource::ResourceType::VertexBuffer, false, nullptr);
+
+        pixelBufferResource = Resource(ctx, PIXEL_BUFFER_BINDING, &blitDescriptorSet,
+        sizeof(PixelBuffer), nullptr, Resource::ResourceType::SSBO, false, &graphicsDescriptorSet);
 
         uxnDescriptorSet.initialise(ctx);
         blitDescriptorSet.initialise(ctx);
@@ -1389,8 +1402,8 @@ private:
         ctx.swapChainImageViews.clear();
         vkDestroySwapchainKHR(ctx.device, ctx.swapChain, nullptr);
         ctx.swapChain = nullptr;
-        backgroundImageResource.destroy();
-        foregroundImageResource.destroy();
+        // backgroundImageResource.destroy();
+        // foregroundImageResource.destroy();
     }
 
     void centreWindow() {
@@ -1411,7 +1424,7 @@ private:
         initSwapChain(width, height);
         initImageViews();
         initFrameBuffers();
-        recreateImageResources(width, height);
+        // recreateImageResources(width, height);
         glfwSetWindowSize(ctx.window, width, height);
 
         centreWindow();
@@ -1507,9 +1520,9 @@ private:
             auto elapsed_since_frame = std::chrono::duration_cast<std::chrono::milliseconds>(now_time - last_frame_time);
             if ((elapsed_since_frame >= frame_duration) && halt_code == 1 && did_graphics) {
                 if (!show_window) glfwShowWindow(ctx.window);
-                transitionImagesToReadLayout(nullptr);
+                // transitionImagesToReadLayout(nullptr);
                 graphicsStep();
-                transitionImagesToEditLayout(nullptr);
+                // transitionImagesToEditLayout(nullptr);
 
                 if (logMetrics) logger.logFrame();
                 last_frame_time = std::chrono::steady_clock::now();
@@ -1553,9 +1566,10 @@ private:
         vkDestroyFence(ctx.device, blitFence, nullptr);
         sharedUxnResource.destroy();
         privateUxnResource.destroy();
-        backgroundImageResource.destroy();
-        foregroundImageResource.destroy();
+        // backgroundImageResource.destroy();
+        // foregroundImageResource.destroy();
         vertexResource.destroy();
+        pixelBufferResource.destroy();
         vkDestroyCommandPool(ctx.device, ctx.commandPool, nullptr);
         for (auto framebuffer : ctx.swapChainFramebuffers) {
             vkDestroyFramebuffer(ctx.device, framebuffer, nullptr);

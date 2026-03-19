@@ -112,7 +112,8 @@ public:
         size_t bufferSize,
         const void* bufferData,
         ResourceType resourceType,
-        bool isTransferSource
+        bool isTransferSource,
+        DescriptorSetWrapper *secondDescriptorSet
     );
 
     Resource(
