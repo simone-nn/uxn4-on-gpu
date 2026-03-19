@@ -172,8 +172,8 @@ vec4 colour_1bpp(uint sprite_low, uvec2 offset, ivec2 auto_xy, uint current_addr
 
 
 void update_colour() {
-    int height = get_short(SCREEN_HEIGHT);
-    int width = get_short(SCREEN_WIDTH);
+    uint height = get_short(SCREEN_HEIGHT);
+    uint width = get_short(SCREEN_WIDTH);
     vec4 colour = get_colour(0);
     for (int y = 0; y < height; y++){
         for (int x = 0; x < width; x++){
@@ -545,7 +545,7 @@ void PUT(uvec2 i, int _r, int _2) {
 }
 
 void POK(uint i, uvec2 j, uint m, int _r, int _2) {
-    uxn.ram[i] = j.x & m;
+    uxn.ram[i & m] = j.x;
     if(_2 != 0) {
         uxn.ram[(i + 1) & m] = j.y;
     }
@@ -840,7 +840,7 @@ void PUT_local(uvec2 i, int _r, int _2) {
 }
 
 void POK_local(uint i, uvec2 j, uint m, int _r, int _2) {
-    uxn.ram[i] = j.x & m;
+    uxn.ram[i & m] = j.x;
     if(_2 != 0) {
         uxn.ram[(i + 1) & m] = j.y;
     }
