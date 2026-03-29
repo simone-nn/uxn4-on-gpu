@@ -43,7 +43,7 @@ uint8_t local_rst[256];
 uint8_t local_pWst;
 uint8_t local_pRst;
 uint16_t local_pc;
-uint8_t local_dev[16];
+uint8_t local_dev[32];
 bool lastWorker;
 
 /* Unroll */
@@ -310,20 +310,27 @@ void drawSprite() {
 
 // ---------------------- Blit Funcs (Local) -----------------------------
 
+// Maps 0x20-0x2f → [0..15], 0xd0-0xdf → [16..31]
+uint8_t local_dev_index(uint8_t addr) {
+    if ((addr & 0xf0) == 0xd0) return uint8_t(16 + (addr & 0x0f));
+    return uint8_t(addr & 0x0f);
+}
+
 uint8_t get_byte_local(uint8_t addr) {
-    return local_dev[addr & 0x0f];
+    return local_dev[local_dev_index(addr)];
 }
 
 uint16_t get_short_local(uint8_t addr) {
-    uint8_t index = uint8_t(addr & 0x0f);
+    uint8_t index = local_dev_index(addr);
     return uint16_t((uint(local_dev[index]) << 8) | uint(local_dev[index + 1]));
 }
 
 void to_short_local(uint16_t v, uint8_t addr) {
-    uint8_t index = uint8_t(addr & 0x0f);
+    uint8_t index = local_dev_index(addr);
     local_dev[index]     = uint8_t((v >> 8) & 0xff);
-    local_dev[index + 1] =  uint8_t(v & 0xff);
+    local_dev[index + 1] = uint8_t(v & 0xff);
 }
+
 
 vec4 colour_2bpp_local(uint8_t sprite_low, ivec2 offset, uint16_t current_addr) {
     uint16_t addr = current_addr + uint16_t(offset.y);
@@ -458,7 +465,7 @@ void drawSprite_local() {
 
 void parallel_loop(){
     uint8_t ctr = get_byte(PARA_CTRL);
-    if (ctr == 1) workerFlag = true;
+    if (ctr != 0) workerFlag = true;
 }
 
 uint end_parallel_loop(uint8_t addr, u8vec2 v, uint _2){
@@ -881,11 +888,11 @@ void REM_local(uint _r, uint _2) {
 
 /* Devices */
 u8vec2 DEI_local(uint8_t addr, u8vec2 o, uint _r, uint _2) {
-    // Workers use local device page for screen (0x20-0x2f)
-    if (addr >= 0x20 && addr < 0x30) {
-        o.x = local_dev[addr - 0x20];
+    if ((addr >= 0x20 && addr < 0x30) || (addr >= 0xd0 && addr < 0xe0)) {
+        uint8_t index = local_dev_index(addr);
+        o.x = local_dev[index];
         if (_2 != 0) {
-            o.y = local_dev[addr - 0x20 + 1];
+            o.y = local_dev[index + 1];
         }
     } else {
         o.x = shared_uxn.dev[addr];
@@ -903,9 +910,9 @@ uint DEO_local(uint8_t addr, u8vec2 v, uint _2) {
         return end_parallel_loop(addr, v, _2);
     }
     
-    // Screen ports
-    if ((addr & 0xf0) == 0x20) {
-        uint8_t index = addr & uint8_t(0x0f);
+    // Screen ports (0x20-0x2f) or Parallel ports (0xd0-0xdf)
+    if ((addr & 0xf0) == 0x20 || (addr & 0xf0) == 0xd0) {
+        uint8_t index = local_dev_index(addr);
         local_dev[index] = v.x;
         if (_2 != 0) {
             local_dev[index + 1] = v.y;
@@ -915,7 +922,7 @@ uint DEO_local(uint8_t addr, u8vec2 v, uint _2) {
         if (addr == 0x2f) drawSprite_local();
     }
     
-    return 0;  // Workers don't halt on screen DEO
+    return 0;
 }
 
 uint uxn_eval_local(State state) {
@@ -1090,28 +1097,46 @@ void main() {
         // Initialise local variables
         uint work_finished = 0;
 
-        local_pRst = local_pWst = uint8_t(0);
+        uint8_t ctr = get_byte(PARA_CTRL);
         lastWorker = false;
 
-        // Clear local stack
-        for (int i = 0; i < 256; i++) {
-            local_wst[i] = uint8_t(0);
-            local_rst[i] = uint8_t(0);
+        // Stack copy
+        if ((ctr & 0x02) != 0) {
+            // ctr=3: copy shared stacks
+            local_pWst = uxn.pWst;
+            local_pRst = uxn.pRst;
+            for (int i = 0; i < 256; i++) {
+                local_wst[i] = uxn.wst[i];
+                local_rst[i] = uxn.rst[i];
+            }
+        } else {
+            // ctr=1: zero stacks
+            local_pWst = uint8_t(0);
+            local_pRst = uint8_t(0);
+            for (int i = 0; i < 256; i++) {
+                local_wst[i] = uint8_t(0);
+                local_rst[i] = uint8_t(0);
+            }
         }
-
-        // Copy data from the SSBO
+        
+        // Dev copy
         local_pc = shared_uxn.pc;
         for (uint i = 0; i < 16; i++) {
-            local_dev[i] = shared_uxn.dev[0x20 + i];
+            local_dev[i]      = shared_uxn.dev[0x20 + i];
+            local_dev[16 + i] = shared_uxn.dev[0xd0 + i];
         }
 
-        // Populate stack
-        push_wst_local(uint8_t(end >> 8));
-        push_wst_local(uint8_t(end));
-        push_wst_local(uint8_t(start >> 8));
-        push_wst_local(uint8_t(start));
-        push_wst_local(uint8_t(tid >> 8));
-        push_wst_local(uint8_t(tid));
+        to_short_local(uint16_t(start), PARA_LOW);
+        to_short_local(uint16_t(end), PARA_UP);
+        to_short_local(uint16_t(tid), PARA_ID);
+
+        // // Populate stack
+        // push_wst_local(uint8_t(end >> 8));
+        // push_wst_local(uint8_t(end));
+        // push_wst_local(uint8_t(start >> 8));
+        // push_wst_local(uint8_t(start));
+        // push_wst_local(uint8_t(tid >> 8));
+        // push_wst_local(uint8_t(tid));
 
         if (end == upper) lastWorker = true;
 

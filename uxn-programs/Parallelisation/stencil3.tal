@@ -74,7 +74,8 @@ JMP2r
 #0a18 DEO 
   &loop_t
     #0000 #0fff .Parallel/upper DEO2 .Parallel/lower DEO2
-    #01 .Parallel/ctrl DEO
+    #03 .Parallel/ctrl DEO 
+    .Parallel/upper DEI2 .Parallel/lower DEI2 .Parallel/id DEI2
     #000e MUL2 ;var ADD2 ( Start of struct ) STH2k
     #000a ADD2 STA2 STH2kr #000c ADD2 STA2
     ( #0000 ;&l_idx STA2 #0fff ;&l_tgt STA2 )

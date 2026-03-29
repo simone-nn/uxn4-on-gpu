@@ -5,7 +5,7 @@
 |20 @Screen &vector $2 &width $2 &height $2 &auto $1 &pad $1 &x $2 &y $2 &addr $2 &pixel $1 &sprite $1
 |90 @Mouse &vector $2 &x $2 &y $2 &state $5 &scrolly &scrolly-hb $1 &scrolly-lb $1
 |c0 @DateTime &year $2 &month $1 &day $1 &hour $1 &minute $1 &second $1 &dotw $1 &doty $2 &isdst $1
-|d0 @Parallel &ctrl $1 &lower $2 &upper $2
+|d0 @Parallel &ctrl $1 &lower $2 &upper $2 &id $2
 |0020 @TRI_COUNT
 |001f @TRI_SIZE
 |0190 @WIDTH
@@ -115,14 +115,17 @@
 		( 1 ) DUP2 ;&dy1 LDA2 MUL2 [ STH2 ADD2r ]
 		( | wst: maxy, miny )
 
-        .Parallel/lower DEO2 .Parallel/upper DEO2
-        [ LIT2 01 -Parallel/ctrl ] DEO                            ( | wst: end* start* id* )
-        #0007 MUL2 ;var ADD2 STH2 ( | wst: end* start* )
+        DUP2 .Parallel/lower DEO2 SWP2 .Parallel/upper DEO2
+        [ LIT2 01 -Parallel/ctrl ] DEO  
+		.Parallel/upper DEI2 .Parallel/lower DEI2 ROT2 .Parallel/lower DEO2   ( | wst: end* start* )
         
-		[ LIT2 &x0 $2 LIT2 &x1 $2 LIT2 &x2 $2 ] MAXMIN  ( | wst: maxy* miny* maxx minx )
-		( 1 ) DUP2 ;&dx1 LDA2 MUL2 SWP2r STH2r ADD2 STH2rk #0002 ADD2 STA2 ( | wst: maxy* miny* maxx minx )
+        
+		[ LIT2 &x0 $2 LIT2 &x1 $2 LIT2 &x2 $2 ] MAXMIN  ( | wst: maxy miny maxx minx )
+		.Parallel/id DEI2 #0007 MUL2 ;var ADD2 STH2   ( | rst: pBase* )
+
+		( 1 ) DUP2 ;&dx1 LDA2 MUL2 SWP2r STH2r ADD2 STH2rk #0002 ADD2 STA2 ( | wst: maxy miny maxx minx )
 		( 0 ) DUP2 ;&dx0 LDA2 MUL2 SWP2r STH2r ADD2 STH2rk STA2 
-		( 2 ) DUP2 ;&dx2 LDA2 MUL2 SWP2r STH2r ADD2 STH2rk #0004 ADD2 STA2 ( | rst: pBase )
+		( 2 ) DUP2 ;&dx2 LDA2 MUL2 SWP2r STH2r ADD2 STH2rk #0004 ADD2 STA2 ( | rst: pBase* )
 		( | rst: minx, maxx )
 		STH2
 		STH2

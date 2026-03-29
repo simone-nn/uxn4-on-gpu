@@ -22,7 +22,7 @@
 
 |00 @System &vector $2 &wst $1 &rst $1 &eaddr $2 &ecode $1 &pad $1 &r $2 &g $2 &b $2 &debug $1 &halt $1
 |20 @Screen &vector $2 &width $2 &height $2 &auto $1 &pad $1 &x $2 &y $2 &addr $2 &pixel $1 &sprite $1
-|d0 @Parallel &ctrl $1 &lower $2 &upper $2
+|d0 @Parallel &ctrl $1 &lower $2 &upper $2 &id $2
 
 |0100 ( -> )
 
@@ -54,7 +54,9 @@
 	LIT2r 8000                           ( [8000] )
 	YMAX YMIN                            ( ymax* ymin* [8000] )
     #0000 .Parallel/lower DEO2 height .Parallel/upper DEO2
-    [ LIT2 01 -Parallel/ctrl ] DEO                            ( end* start* id* )
+    [ LIT2 03 -Parallel/ctrl ] DEO 
+	.Parallel/upper DEI2 .Parallel/lower DEI2 .Parallel/id DEI2
+	                           ( end* start* id* )
 
     ( ROT2 ROT2 SUB2 STH2k MUL2 DUP2 #10 SFT2 .Screen/y DEO2 ,&dy LDR2 MUL2 YMIN ADD2 ( y* [end-start] )
     STH2r ,&dy LDR2 MUL2 OVR2 ADD2
