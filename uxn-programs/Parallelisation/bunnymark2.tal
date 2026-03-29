@@ -67,7 +67,7 @@
 	[ LIT2 80 -Screen/pixel ] DEO
 	;sprite/length LDA2 #0000
     .Parallel/lower DEO2 .Parallel/upper DEO2 
-    #01 .Parallel/ctrl DEO POP2
+    #03 .Parallel/ctrl DEO .Parallel/upper DEI2 .Parallel/lower DEI2
 	&loop ( -- )
 		EQU2k ?&bail
 		DUP2 <draw-bunny>
