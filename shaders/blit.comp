@@ -122,18 +122,19 @@ void to_short(uint16_t v, uint8_t addr) {
     shared_uxn.dev[addr+1] = uint8_t(v & 0xff);
 }
 
-vec4 get_colour(uint colour_i) {
+vec4 get_colour(uint colour_i, bool is_fg) {
     if (colour_i < 4) {
-    uint shift = (3 - colour_i) * 4u;
-    uint r = (get_short(uint8_t(SYS_R)) >> shift) & 0xFu;
-    uint g = (get_short(uint8_t(SYS_G)) >> shift) & 0xFu;
-    uint b = (get_short(uint8_t(SYS_B)) >> shift) & 0xFu;
+        if (is_fg && colour_i == 0) return vec4(0.0);
+        uint shift = (3 - colour_i) * 4u;
+        uint r = (get_short(uint8_t(SYS_R)) >> shift) & 0xFu;
+        uint g = (get_short(uint8_t(SYS_G)) >> shift) & 0xFu;
+        uint b = (get_short(uint8_t(SYS_B)) >> shift) & 0xFu;
         return vec4(float(r) / 15.0, float(g) / 15.0, float(b) / 15.0, 1.0);
     }
-    return vec4(1.0, 0.0, 0.0, 1.0);
+    return vec4(0.0, 0.0, 0.0, 1.0);
 }
 
-vec4 colour_2bpp(uint8_t sprite_low, ivec2 offset, uint16_t current_addr) {
+vec4 colour_2bpp(uint8_t sprite_low, ivec2 offset, uint16_t current_addr, bool is_fg) {
     // ---------------------- 2 bpp --------------------------------
     uint16_t addr = current_addr + uint16_t(offset.y);
     uint8_t ch1 = uxn.ram[addr];
@@ -144,12 +145,12 @@ vec4 colour_2bpp(uint8_t sprite_low, ivec2 offset, uint16_t current_addr) {
     uint palette_index = blending[pixel_value][sprite_low];
     
     if (opaque != 0 || pixel_value != 0) {
-        return get_colour(palette_index);
+        return get_colour(palette_index, is_fg);
     }
     return vec4(0, 0, 0, 0);
 }
 
-vec4 colour_1bpp(uint8_t sprite_low, ivec2 offset, uint16_t current_addr) {
+vec4 colour_1bpp(uint8_t sprite_low, ivec2 offset, uint16_t current_addr, bool is_fg) {
     // ---------------------- 1 bpp --------------------------------
     uint16_t addr = current_addr + uint16_t(offset.y);
     uint8_t row = uxn.ram[addr];
@@ -159,7 +160,7 @@ vec4 colour_1bpp(uint8_t sprite_low, ivec2 offset, uint16_t current_addr) {
     uint palette_index = blending[pixel_bit][sprite_low];
     
     if (opaque != 0 || pixel_bit != 0) {
-        return get_colour(palette_index);
+        return get_colour(palette_index, is_fg);
     }
     return vec4(0, 0, 0, 0);
 }
@@ -168,7 +169,7 @@ vec4 colour_1bpp(uint8_t sprite_low, ivec2 offset, uint16_t current_addr) {
 void update_colour() {
     uint height = get_short(SCREEN_HEIGHT);
     uint width = get_short(SCREEN_WIDTH);
-    vec4 colour = get_colour(0);
+    vec4 colour = get_colour(0, false);
     for (int y = 0; y < height; y++){
         for (int x = 0; x < width; x++){
             ivec2 coords = ivec2(x, y);
@@ -189,15 +190,17 @@ void drawPixel() {
         uint16_t x = get_short(SCREEN_X);
         uint16_t y = get_short(SCREEN_Y);
         ivec2 coords = ivec2(x, y);
+        uint8_t colour_index = uint8_t(pixel & 0x03);
+        bool is_fg = pixel / 0x10 == 0x0;
 
         // colour
-        vec4 colour = get_colour(pixel & 0x03);
+        vec4 colour = get_colour(colour_index, is_fg);
 
         // editing the image
-        if (pixel / 0x10 == 0x0) {
+        if (is_fg) {
             imageStore(background, coords, colour);
         }
-        if (pixel / 0x10 == 0x4) {
+        else {
             imageStore(foreground, coords, colour);
         }
 
@@ -208,7 +211,7 @@ void drawPixel() {
     } else {
         // ---------------------- fill mode -----------------------------
         bool layer_fg = (pixel & 0x40) != 0;
-        vec4 colour = get_colour(pixel & 0x03);
+        vec4 colour = get_colour(pixel & 0x03, layer_fg);
         
         // Calculate fill region based on bits 4 (x range) and 5 (y range)
         uint16_t x = get_short(SCREEN_X);
@@ -283,19 +286,17 @@ void drawSprite() {
                 ivec2 pixel_offset = ivec2(px, py);
                 
                 vec4 v_colour = mode_is_2bpp 
-                    ? colour_2bpp(sprite_low, pixel_offset, current_addr)
-                    : colour_1bpp(sprite_low, pixel_offset, current_addr);
+                    ? colour_2bpp(sprite_low, pixel_offset, current_addr, layer_is_foreground)
+                    : colour_1bpp(sprite_low, pixel_offset, current_addr, layer_is_foreground);
                 
                 ivec2 write_pos = sprite_base + ivec2(
                     x_flipped ? (7 - px) : px,
                     y_flipped ? (7 - py) : py
                 );
-                if (v_colour!= vec4(0, 0, 0, 0)){ // Skip clear pixels
-                    if (layer_is_foreground) {
-                        imageStore(foreground, write_pos, v_colour);
-                    } else {
-                        imageStore(background, write_pos, v_colour);
-                    }
+                if (layer_is_foreground) {
+                    imageStore(foreground, write_pos, v_colour);
+                } else {
+                    imageStore(background, write_pos, v_colour);
                 }
             }
         }
@@ -332,7 +333,7 @@ void to_short_local(uint16_t v, uint8_t addr) {
 }
 
 
-vec4 colour_2bpp_local(uint8_t sprite_low, ivec2 offset, uint16_t current_addr) {
+vec4 colour_2bpp_local(uint8_t sprite_low, ivec2 offset, uint16_t current_addr, bool is_fg) {
     uint16_t addr = current_addr + uint16_t(offset.y);
     uint8_t ch1 = uxn.ram[addr];
     uint8_t ch2 = uxn.ram[addr + 8];
@@ -342,12 +343,12 @@ vec4 colour_2bpp_local(uint8_t sprite_low, ivec2 offset, uint16_t current_addr) 
     uint palette_index = blending[pixel_value][sprite_low];
     
     if (opaque != 0 || pixel_value != 0) {
-        return get_colour(palette_index);
+        return get_colour(palette_index, is_fg);
     }
     return vec4(0, 0, 0, 0);
 }
 
-vec4 colour_1bpp_local(uint8_t sprite_low, ivec2 offset, uint16_t current_addr) {
+vec4 colour_1bpp_local(uint8_t sprite_low, ivec2 offset, uint16_t current_addr, bool is_fg) {
     uint16_t addr = current_addr + uint16_t(offset.y);
     uint8_t row = uxn.ram[addr];
     uint8_t pixel_bit = uint8_t((row >> (7 - uint8_t(offset.x))) & 0x1);
@@ -356,7 +357,7 @@ vec4 colour_1bpp_local(uint8_t sprite_low, ivec2 offset, uint16_t current_addr) 
     uint palette_index = blending[pixel_bit][sprite_low];
     
     if (opaque != 0 || pixel_bit != 0) {
-        return get_colour(palette_index);
+        return get_colour(palette_index, is_fg);
     }
     return vec4(0, 0, 0, 0);
 }
@@ -368,13 +369,14 @@ void drawPixel_local() {
         uint16_t x = get_short_local(SCREEN_X);
         uint16_t y = get_short_local(SCREEN_Y);
         ivec2 coords = ivec2(x, y);
+        bool is_fg = pixel / 0x10 == 0x0;
 
-        vec4 colour = get_colour(uint(pixel & 0x03));
+        vec4 colour = get_colour(uint(pixel & 0x03), is_fg);
 
-        if (pixel / 0x10 == 0x0) {
+        if (is_fg) {
             imageStore(background, coords, colour);
         }
-        if (pixel / 0x10 == 0x4) {
+        else {
             imageStore(foreground, coords, colour);
         }
 
@@ -383,7 +385,7 @@ void drawPixel_local() {
         if ((auto_byte & 0x02) != 0) to_short_local(y + uint16_t(1), SCREEN_Y);
     } else {
         bool layer_fg = (pixel & 0x40) != 0;
-        vec4 colour = get_colour(uint(pixel & 0x03));
+        vec4 colour = get_colour(uint(pixel & 0x03), layer_fg);
         
         uint16_t x = get_short_local(SCREEN_X);
         uint16_t y = get_short_local(SCREEN_Y);
@@ -436,21 +438,19 @@ void drawSprite_local() {
                 ivec2 pixel_offset = ivec2(px, py);
                 
                 vec4 v_colour = mode_is_2bpp 
-                    ? colour_2bpp_local(sprite_low, pixel_offset, current_addr)
-                    : colour_1bpp_local(sprite_low, pixel_offset, current_addr);
+                    ? colour_2bpp_local(sprite_low, pixel_offset, current_addr, layer_is_foreground)
+                    : colour_1bpp_local(sprite_low, pixel_offset, current_addr, layer_is_foreground);
                 
                 ivec2 write_pos = sprite_base + ivec2(
                     x_flipped ? (7 - px) : px,
                     y_flipped ? (7 - py) : py
                 );
                 
-                if (v_colour!= vec4(0, 0, 0, 0)) {
-                if (layer_is_foreground) {
-                    imageStore(foreground, write_pos, v_colour);
-                } else {
-                    imageStore(background, write_pos, v_colour);
-                }
-                }
+            if (layer_is_foreground) {
+                imageStore(foreground, write_pos, v_colour);
+            } else {
+                imageStore(background, write_pos, v_colour);
+            }
             }
         }
     }
