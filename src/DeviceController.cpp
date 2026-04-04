@@ -17,6 +17,7 @@
 #include "shaders/frag.h"
 #include "shaders/uxn_emu.h"
 #include "shaders/blit.h"
+#include <csignal>
 
 // Window Dimensions that matches uxn default
 int WIDTH = 512;
@@ -322,6 +323,11 @@ void endSingleTimeCommands(const Context &ctx, VkCommandBuffer commandBuffer) {
     vkFreeCommandBuffers(ctx.device, ctx.commandPool, 1, &commandBuffer);
 }
 
+static GLFWwindow* g_window = nullptr;
+
+void benchmark_signal_handler(int) {
+    if (g_window) glfwSetWindowShouldClose(g_window, GLFW_TRUE);
+}
 
 class DeviceController {
 public:
@@ -438,9 +444,12 @@ private:
         glfwWindowHint(GLFW_SCALE_FRAMEBUFFER, GLFW_FALSE);
         // Make window invisible at the start by default
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+        // Disable auto focus
+        glfwWindowHint(GLFW_FOCUS_ON_SHOW, GLFW_FALSE);
 
         // Creating the window
         ctx.window = glfwCreateWindow(WIDTH, HEIGHT, "UXN on GPU", nullptr, nullptr);
+        g_window = ctx.window;
 
         // make the cursor invisible
         glfwSetInputMode(ctx.window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
@@ -1625,6 +1634,9 @@ int main(int nargs, char** args) {
 
     DeviceController app(debug, uxn, console, &gpuEventQueue);
     app.logMetrics = logMetrics;
+
+    std::signal(SIGINT, benchmark_signal_handler);
+    std::signal(SIGTERM, benchmark_signal_handler);
 
     try {
         app.run();

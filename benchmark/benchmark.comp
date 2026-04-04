@@ -12,8 +12,8 @@ layout(local_size_x = 1) in;
 
 void main() {
     int temp;
-    const uint K = 10;
-    const uint J = 100;
+    const uint K = 100;
+    const uint J = 1000;
     const uint INNER = 1000;
 
     for (uint k = 0; k < K; k++) {
@@ -21,8 +21,11 @@ void main() {
             temp = 0;
             for (uint i = 0; i < INNER; i++) {
                 uint readValue = inp[(k * J + j) * INNER + i];
-                temp += int((i * j) ^ (i + j) ^ readValue);
-                // temp += int((i * j) ^ (i + j));
+                #ifdef WITH_MEM
+                    temp += int((i * j) ^ (i + j) ^ readValue);
+                #else
+                    temp += int((i * j) ^ (i + j));
+                #endif
                 temp = (temp * 1103515245 + 12345) & 0x7FFFFFFF;
             }
             outp += temp;

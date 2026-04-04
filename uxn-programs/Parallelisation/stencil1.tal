@@ -61,7 +61,7 @@ JMP2r
 &ptr $2 &end $2
 
 @stencil
-  #0000 ;&t STA2
+  #0000 ;&t STA2  ( @BENCH )
   #0fff ;&te STA2 ( repeat 256 times )
 #2a18 DEO 
 #0a18 DEO 
