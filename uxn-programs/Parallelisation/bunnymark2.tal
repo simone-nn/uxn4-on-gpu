@@ -37,7 +37,7 @@
 	#0028 #0008 #0000 <draw-dec>
 	( | seed prng )
 	prng-init
-	( | populate bunnies )
+	( | populate bunnies ) ( @BENCH )
 	#0fff #0000
 
 	&loop ( -- )

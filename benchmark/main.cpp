@@ -315,8 +315,6 @@ int main() {
     vkQueueSubmit(computeQueue, 1, &submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(computeQueue);
 
-    vkQueueWaitIdle(computeQueue);
-
     uint64_t timestamps[2] = {0, 0};
     VkResult qResult = vkGetQueryPoolResults(device, queryPool, 0, 2, sizeof(timestamps), timestamps,
                         sizeof(uint64_t), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);

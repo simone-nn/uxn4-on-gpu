@@ -4,8 +4,8 @@
 #include <vector>
 
 int main() {
-    const uint32_t K = 10;
-    const uint32_t J = 100;
+    const uint32_t K = 100;
+    const uint32_t J = 1000;
     const uint32_t INNER = 1000;
     const uint32_t dataCount = K * J * INNER;
     
@@ -25,8 +25,11 @@ int main() {
             temp = 0;
             for (uint32_t i = 0; i < INNER; i++) {
                 uint32_t readValue = inputs[(k * J + j) * INNER + i];
+            #ifdef WITH_MEM
                 temp += int((i * j) ^ (i + j) ^ readValue);
-                // temp += int((i * j) ^ (i + j));
+            #else
+                temp += int((i * j) ^ (i + j));
+            #endif
                 temp = (temp * 1103515245 + 12345) & 0x7FFFFFFF;
             }
             result += temp;
