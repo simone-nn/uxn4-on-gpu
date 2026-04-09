@@ -1,3 +1,6 @@
+#ifdef _WIN32
+#include <windows.h>
+#endif
 #define GLFW_INCLUDE_VULKAN
 #include "DeviceController.hpp"
 #include <fstream>
@@ -1438,10 +1441,10 @@ private:
                 }
                 callback_index = (callback_index + 1) % static_cast<int>(CALLBACK_DEVICES.size());
 
-                // // If no device vectors, exit
-                // if (uxn->deviceCallbackVectors.empty()) {
-                //     break; 
-                // }
+                // If no device vectors, exit
+                if (uxn->deviceCallbackVectors.empty()) {
+                    break; 
+                }
             }
 
             if (in_vector) {
@@ -1604,8 +1607,18 @@ int main(int nargs, char** args) {
     DeviceController app(debug, uxn, console, &gpuEventQueue);
     app.logMetrics = logMetrics;
 
-    std::signal(SIGINT, benchmark_signal_handler);
-    std::signal(SIGTERM, benchmark_signal_handler);
+    #ifdef _WIN32
+        SetConsoleCtrlHandler([](DWORD type) -> BOOL {
+            if (type == CTRL_BREAK_EVENT || type == CTRL_C_EVENT) {
+                if (g_window) glfwSetWindowShouldClose(g_window, GLFW_TRUE);
+                return TRUE;
+            }
+            return FALSE;
+        }, TRUE);
+    #else
+        std::signal(SIGINT, benchmark_signal_handler);
+        std::signal(SIGTERM, benchmark_signal_handler);
+    #endif
 
     try {
         app.run();

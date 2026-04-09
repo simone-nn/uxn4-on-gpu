@@ -1084,82 +1084,65 @@ void main() {
             steps++;
     }
     barrier();
-    if (workerFlag == true) { // Worker invocations
+   if (workerFlag == true) { // Worker invocations
 
-        // Calculate interation range, exit if the current invocation is not needed
         uint numWorkers = gl_WorkGroupSize.x;
         uint workerId = tid;
         uint lower = get_short(PARA_LOW);
         uint upper = get_short(PARA_UP);
         uint num_iter = upper - lower;
 
-        if (workerId >= num_iter) continue;
+        if (workerId < num_iter) {
+            uint chunkSize = (num_iter + numWorkers - 1) / numWorkers;
+            uint start = lower + workerId * chunkSize;
+            uint end = min(start + chunkSize, upper);
 
-        uint chunkSize = (num_iter + numWorkers - 1) / numWorkers;
-        uint start = lower + workerId * chunkSize;
-        uint end = min(start + chunkSize, upper);
+            if (start < end) {
+                uint work_finished = 0;
+                uint ctr = get_byte(PARA_CTRL);
+                lastWorker = false;
 
-        if (start >= end) continue;
+                if ((ctr & 0x02) != 0) {
+                    local_pWst = uxn.pWst;
+                    local_pRst = uxn.pRst;
+                    for (int i = 0; i < 256; i++) {
+                        local_wst[i] = uxn.wst[i];
+                        local_rst[i] = uxn.rst[i];
+                    }
+                } else {
+                    local_pWst = 0;
+                    local_pRst = 0;
+                    for (int i = 0; i < 256; i++) {
+                        local_wst[i] = 0;
+                        local_rst[i] = 0;
+                    }
+                }
 
-        // Initialise local variables
-        uint work_finished = 0;
+                local_pc = shared_uxn.pc;
+                for (uint i = 0; i < 16; i++) {
+                    local_dev[i]      = shared_uxn.dev[0x20 + i];
+                    local_dev[16 + i] = shared_uxn.dev[0xd0 + i];
+                }
 
-        uint ctr = get_byte(PARA_CTRL);
-        lastWorker = false;
+                to_short_local(start, PARA_LOW);
+                to_short_local(end, PARA_UP);
+                to_short_local(tid, PARA_ID);
 
-        // Stack copy
-        if ((ctr & 0x02) != 0) {
-            // ctr=3: copy shared stacks
-            local_pWst = uxn.pWst;
-            local_pRst = uxn.pRst;
-            for (int i = 0; i < 256; i++) {
-                local_wst[i] = uxn.wst[i];
-                local_rst[i] = uxn.rst[i];
+                if (end == upper) lastWorker = true;
+
+                while (work_finished == 0) {
+                    work_finished = uxn_eval_local(state);
+                }
+
+                if (lastWorker) {
+                    shared_uxn.dev[PARA_COMM] = start;
+                    shared_uxn.dev[PARA_COMM+1] = end;
+                    shared_uxn.dev[PARA_COMM+2] = tid;
+                }
             }
-        } else {
-            // ctr=1: zero stacks
-            local_pWst = 0;
-            local_pRst = 0;
-            for (int i = 0; i < 256; i++) {
-                local_wst[i] = 0;
-                local_rst[i] = 0;
-            }
         }
-        
-        // Dev copy
-        local_pc = shared_uxn.pc;
-        for (uint i = 0; i < 16; i++) {
-            local_dev[i]      = shared_uxn.dev[0x20 + i];
-            local_dev[16 + i] = shared_uxn.dev[0xd0 + i];
-        }
-
-        to_short_local(start, PARA_LOW);
-        to_short_local(end, PARA_UP);
-        to_short_local(tid, PARA_ID);
-
-        // Populate stack
-        // push_wst_local(uint8_t(end >> 8));
-        // push_wst_local(uint8_t(end));
-        // push_wst_local(uint8_t(start >> 8));
-        // push_wst_local(uint8_t(start));
-        // push_wst_local(uint8_t(tid >> 8));
-        // push_wst_local(uint8_t(tid));
-
-        if (end == upper) lastWorker = true;
-
-        // Worker local evaluation loop
-        while (work_finished == 0) {
-            work_finished = uxn_eval_local(state);
-        }
-
-        if (lastWorker) {
-            shared_uxn.dev[PARA_COMM] = start;
-            shared_uxn.dev[PARA_COMM+1] = end;
-            shared_uxn.dev[PARA_COMM+2] = tid;
-        }
-
-    }  
-    barrier();  // Signal worker completion
+    }
+    barrier();
     }
     shared_uxn.dev[0] = uxn.wst[uxn.pWst-1];
 }
